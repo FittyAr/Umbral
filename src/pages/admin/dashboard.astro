@@ -874,11 +874,14 @@ const builtinIcons = await getBuiltinIconNames();
         },
 
         updateFontUrl() {
-          const family = this.cfg.theme.fontFamily;
-          if (family === 'system-ui') {
+          const family = (this.cfg.theme.fontFamily || '').trim();
+          if (!family || family === 'system-ui') {
             this.cfg.theme.fontUrl = '';
           } else {
-            this.cfg.theme.fontUrl = `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
+            // fontFamily ya está validado por el schema (regex SAFE_FONT_FAMILY),
+            // pero encodeamos por las dudas. Sólo espacios → '+'.
+            const encoded = family.replace(/ /g, '+');
+            this.cfg.theme.fontUrl = `https://fonts.googleapis.com/css2?family=${encoded}:wght@400;500;600;700&display=swap`;
           }
           this.markDirty();
         },

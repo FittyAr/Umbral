@@ -5,12 +5,18 @@ import { applySecurityHeaders } from '~/lib/http';
 
 const PUBLIC_API_PREFIXES = ['/api/login', '/api/health', '/api/assets/'];
 const PUBLIC_PAGE_PATHS = new Set(['/', '/404', '/500', '/manifest.webmanifest', '/sw.js']);
-const PUBLIC_PREFIXES = ['/_astro/', '/_image', '/favicon'];
+// Prefijos que matchean cualquier URL que EMPIEZA con ellos.
+// `_image` se matchea como exact (es un archivo estático, no un prefijo de
+// assets dinámicos — antes matcheaba `/_image-foo` también, lo cual era un
+// false positive molesto).
+const PUBLIC_PREFIXES: ReadonlyArray<string> = ['/_astro/', '/favicon'];
+const PUBLIC_EXACT = new Set<string>(['/_image']);
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_PAGE_PATHS.has(pathname)) return true;
   if (PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p))) return true;
+  if (PUBLIC_EXACT.has(pathname)) return true;
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return true;
   if (pathname.startsWith('/icons/')) return true;
   return false;

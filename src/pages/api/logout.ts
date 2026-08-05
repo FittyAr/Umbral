@@ -7,5 +7,5 @@ export const prerender = false;
 
 export const POST: APIRoute = async () => {
   await audit('logout');
-  return json({ ok: true }, { headers: { 'set-cookie': clearSessionCookie() } });
+  return json({ ok: true }, { headers: { 'set-cookie': await clearSessionCookie() } });
 };

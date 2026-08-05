@@ -10,11 +10,15 @@ export const POST: APIRoute = async ({ request }) => {
   const cfg = await getConfig();
   const minLen = cfg.security.auth.minPasswordLength;
 
+  // minLen=0 → sin mínimo (respeta la doc del schema). 1+ → al menos N chars.
+  // Mantenemos 1 char como piso absoluto — un password vacío siempre fue inválido.
+  const effectiveMin = minLen === 0 ? 1 : minLen;
+
   const BodySchema = z.object({
     currentPassword: z.string().min(1).max(200),
     newPassword: z
       .string()
-      .min(Math.max(1, minLen), `Mínimo ${Math.max(1, minLen)} caracteres`)
+      .min(effectiveMin, minLen === 0 ? 'Password no puede estar vacío' : `Mínimo ${minLen} caracteres`)
       .max(200),
   });
 

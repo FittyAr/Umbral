@@ -108,17 +108,30 @@ export async function buildSessionCookie(token: string): Promise<string> {
   const session = cfg.security.session;
   const domain = cfg.security.network.cookieDomain;
   const maxAge = session.ttlHours * 3600;
+  // Secure sólo si el deployment real es HTTPS. Chequear BASE_URL es la señal
+  // más confiable (la setea docker-compose o el admin). NO usar NODE_ENV=production
+  // como proxy — un deploy HTTP en producción quedaría sin cookies.
+  const isHttps =
+    session.cookieSecure === 'always' ||
+    (session.cookieSecure === 'auto' && process.env.BASE_URL?.startsWith('https://') === true);
+  const secure = isHttps ? '; Secure' : '';
+  const domainPart = domain ? `; Domain=${domain}` : '';
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=${session.cookieSameSite}${secure}${domainPart}; Max-Age=${maxAge}`;
+}
+
+export async function clearSessionCookie(): Promise<string> {
+  // Mismo handling que buildSessionCookie: leemos la config para no romper
+  // el logout cuando el admin configuró SameSite=None + Secure.
+  const cfg = await getConfig();
+  const session = cfg.security.session;
+  const domain = cfg.security.network.cookieDomain;
   const isHttps =
     session.cookieSecure === 'always' ||
     (session.cookieSecure === 'auto' &&
       (process.env.BASE_URL?.startsWith('https://') || process.env.NODE_ENV === 'production'));
   const secure = isHttps ? '; Secure' : '';
   const domainPart = domain ? `; Domain=${domain}` : '';
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=${session.cookieSameSite}${secure}${domainPart}; Max-Age=${maxAge}`;
-}
-
-export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`;
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=${session.cookieSameSite}${secure}${domainPart}; Max-Age=0`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────

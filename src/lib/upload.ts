@@ -111,8 +111,12 @@ export async function processAndStore(
   if (detected && allowed.has(detected.mime)) {
     mime = detected.mime;
   } else {
-    // Fallback: check if SVG by content sniff (no magic number for SVG)
-    const head = buf.subarray(0, 512).toString('utf8').trimStart();
+    // Fallback: check if SVG by content sniff (no magic number for SVG).
+    // Los SVG a veces vienen con BOM UTF-8 (EF BB BF); trimStart() no lo
+    // saca porque no es whitespace. Lo limpiamos explícito.
+    let head = buf.subarray(0, 512).toString('utf8');
+    if (head.charCodeAt(0) === 0xfeff) head = head.slice(1);
+    head = head.trimStart();
     if (
       (head.startsWith('<svg') || head.startsWith('<?xml')) &&
       sec.allowSvg &&

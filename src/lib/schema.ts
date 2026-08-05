@@ -12,9 +12,21 @@ export const BrandingSchema = z.object({
 // ──────────────────────────────────────────────────────────────────────────
 // Theme
 // ──────────────────────────────────────────────────────────────────────────
+/** CSS font-family safe characters: letters, digits, spaces, hyphen, underscore.
+ *  Previene inyecciones via `set:html` en PublicLayout.astro. */
+const SAFE_FONT_FAMILY = /^[\w\- ]{1,60}$/;
+
+/** Caracteres seguros para valores CSS (color hex, gradient, image URL).
+ *  Bloquea `<`, `>`, `"`, `'`, backtick, `{`, `}` (rompen set:html o cierran
+ *  contexto CSS). Permite espacios (los gradients los necesitan), `:`, `,`,
+ *  `(`, `)`, `#`, `%`, números, letras, guiones, puntos, `/`, `?`, `=`, `&`.
+ *  El value de background se inyecta en `set:html` en PublicLayout, así que
+ *  este regex es nuestra última línea contra XSS/CSS injection. */
+const SAFE_CSS_VALUE = /^[^\u0000-\u001f<>'"`{}|\\^]{0,500}$/;
+
 export const BackgroundSchema = z.object({
   type: z.enum(['image', 'color', 'gradient']).default('gradient'),
-  value: z.string().min(1).default('linear-gradient(135deg, #0f172a, #1e3a8a)'),
+  value: z.string().min(1).max(200).regex(SAFE_CSS_VALUE, 'Valor CSS contiene caracteres no permitidos').default('linear-gradient(135deg, #0f172a, #1e3a8a)'),
   blur: z.number().min(0).max(40).default(0),
   overlay: z.number().min(0).max(1).default(0),
   overlayColor: z.string().default('#000000'),
@@ -31,8 +43,24 @@ export const ThemeSchema = z.object({
     .string()
     .regex(/^#([0-9a-fA-F]{3}){1,2}$/, 'Color debe ser hex')
     .default('#f1f5f9'),
-  fontFamily: z.string().min(1).default('Inter'),
-  fontUrl: z.string().url().or(z.literal('')).default(''),
+  fontFamily: z
+    .string()
+    .min(1)
+    .max(60)
+    .regex(SAFE_FONT_FAMILY, 'Tipografía contiene caracteres no permitidos')
+    .default('Inter'),
+  fontUrl: z
+    .string()
+    .max(500)
+    .refine(
+      (v) =>
+        v === '' ||
+        // Sólo Google Fonts (or system-ui=empty). Bloquea otros origins que
+        // podrían usarse para tracking o cargar CSS hostil.
+        /^https:\/\/fonts\.googleapis\.com\/css2\?[a-zA-Z0-9=&;:@?.,_+%\-]+$/.test(v),
+      'fontUrl debe venir de fonts.googleapis.com o estar vacío',
+    )
+    .default(''),
   colorMode: z.enum(['light', 'dark', 'auto']).default('auto'),
 });
 

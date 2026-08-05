@@ -147,7 +147,21 @@ async function loadFresh(): Promise<Config> {
   }
   // 1) Strict validation pass — if clean, return.
   const result = ConfigSchema.safeParse(parsed);
-  if (result.success) return result.data;
+  if (result.success) {
+    // auth puede faltar en configs viejos. Si falta, regenerar uno nuevo
+    // (con el password de INITIAL_PASSWORD o el default "admin") para no
+    // dejar la app inaccesible.
+    if (!result.data.auth) {
+      const password = process.env.INITIAL_PASSWORD || 'admin';
+      const fixed = { ...result.data, auth: { passwordHash: await hashPassword(password), csrfToken: generateToken(32) } };
+      console.warn('[homepage] config sin auth — regenerando. Cambiá la password desde /admin ASAP.');
+      const tmp = CONFIG_PATH + '.tmp';
+      await fs.writeFile(tmp, JSON.stringify(fixed, null, 2), 'utf8');
+      await fs.rename(tmp, CONFIG_PATH);
+      return fixed as Config;
+    }
+    return result.data;
+  }
 
   // 2) Migration: if the file is a *partial* config (missing newer sections
   // like `security` introduced in a later version), merge with defaults and
@@ -167,9 +181,15 @@ async function loadFresh(): Promise<Config> {
       },
       layout: { ...defaults.layout, ...(partial.data.layout ?? {}) },
       security: { ...defaults.security, ...(partial.data.security ?? {}) },
-      auth: partial.data.auth ?? defaults.auth,
+      auth: partial.data.auth,  // puede ser undefined; lo regeneramos abajo
       _meta: { ...defaults._meta, ...(partial.data._meta ?? {}), updatedAt: new Date().toISOString() },
     };
+    // Regenerar auth si falta, igual que en el camino strict.
+    if (!merged.auth) {
+      const password = process.env.INITIAL_PASSWORD || 'admin';
+      merged.auth = { passwordHash: await hashPassword(password), csrfToken: generateToken(32) };
+      console.warn('[homepage] config migrada sin auth — regenerando. Cambiá la password desde /admin ASAP.');
+    }
     // Re-validate the merged result.
     const revalidated = ConfigSchema.safeParse(merged);
     if (revalidated.success) {
@@ -299,10 +319,35 @@ export async function updateAuth(newPasswordHash: string, newCsrf: string): Prom
   return result;
 }
 
-/** Audit log (append-only). Best-effort, no I/O failure propagation. */
+/** Audit log (append-only). Best-effort, no I/O failure propagation.
+ *  Rota cuando supera AUDIT_MAX_BYTES (10MB) → renombra a .1 y empieza de nuevo.
+ *  Evita que un deployment largo se quede sin disco. */
+const AUDIT_MAX_BYTES = 10 * 1024 * 1024;
+const AUDIT_KEEP_ROTATIONS = 3;
+
 export async function audit(action: string, detail?: string) {
   try {
     await ensureDirs();
+    // Chequeamos tamaño antes de appendear. Cheap, fire-and-forget.
+    let needsRotate = false;
+    try {
+      const st = await fs.stat(AUDIT_LOG_PATH);
+      if (st.size >= AUDIT_MAX_BYTES) needsRotate = true;
+    } catch {
+      // archivo no existe aún, no rotar
+    }
+    if (needsRotate) {
+      // Shift rotaciones: audit.log.2 → audit.log.3, audit.log.1 → audit.log.2, etc.
+      // Borrar la más vieja si excede el keep.
+      const oldest = `${AUDIT_LOG_PATH}.${AUDIT_KEEP_ROTATIONS}`;
+      try { await fs.unlink(oldest); } catch { /* puede no existir */ }
+      for (let i = AUDIT_KEEP_ROTATIONS - 1; i >= 1; i--) {
+        const from = `${AUDIT_LOG_PATH}.${i}`;
+        const to = `${AUDIT_LOG_PATH}.${i + 1}`;
+        try { await fs.rename(from, to); } catch { /* skip */ }
+      }
+      try { await fs.rename(AUDIT_LOG_PATH, `${AUDIT_LOG_PATH}.1`); } catch { /* skip */ }
+    }
     const line = `${new Date().toISOString()}\t${action}\t${detail ?? ''}\n`;
     await fs.appendFile(AUDIT_LOG_PATH, line, 'utf8');
   } catch (err) {
