@@ -85,7 +85,27 @@ function defaultConfig(): Config {
       { id: 'prod', name: 'Productividad', icon: 'briefcase' },
       { id: 'dev', name: 'Desarrollo', icon: 'code' },
     ],
-    cards: [],
+    cards: [
+      // Tarjeta default que apunta a la documentación del sistema. El admin
+      // puede borrarla desde /admin → Tarjetas si no la quiere. Vive acá
+      // (en defaultConfig) en vez de hardcodear en la portada para que:
+      // 1) Respete el orden/agrupamiento del usuario (categoría "Desarrollo").
+      // 2) Sea eliminable sin tocar código.
+      // 3) Migrar a versiones viejas no la rompa — el merge deep la respeta
+      //    si el usuario ya tenía cards custom.
+      {
+        id: 'docs',
+        title: 'Documentación',
+        description: 'Cómo instalar, configurar y usar Atajo',
+        url: '/docs',
+        icon: 'file-text',
+        category: 'dev',
+        openInNewTab: false,
+        color: '#10b981',
+        order: -1,
+        enabled: true,
+      },
+    ],
     _meta: { createdAt: null, updatedAt: null },
   };
 }

@@ -544,7 +544,8 @@ const builtinIcons = await getBuiltinIconNames();
               </div>
               <div class="form-group">
                 <label>URL</label>
-                <input type="url" x-model="editingCard.url" required placeholder="https://…" />
+                <input type="text" x-model="editingCard.url" required placeholder="https://… o /docs" />
+                <small style="color:#94a3b8">URL externa (https://…) o path interno (/docs, /admin)</small>
               </div>
             </div>
             <div class="form-group">

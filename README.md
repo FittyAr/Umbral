@@ -1,76 +1,90 @@
-# Personalized Homepage
+# Atajo
 
-Un dashboard minimalista para centralizar los accesos a las herramientas internas de la empresa (Mattermost, Excalidraw, etc.) detrás de la VPN. Editable desde el navegador, **sin base de datos**, todo en un único container.
+> El shortcut a tus herramientas internas. Self-hosted portal para centralizar accesos a Mattermost, Excalidraw, etc. detrás de la VPN.
 
 ![Stack](https://img.shields.io/badge/Astro-5-FF5D01) ![Node](https://img.shields.io/badge/Node-20%2B-339933) ![Docker](https://img.shields.io/badge/Docker-ready-2496ED) ![License](https://img.shields.io/badge/license-MIT-blue)
+
+## ¿Qué es Atajo?
+
+Una **homepage interna** que lista tus herramientas con un click, editable desde el navegador, en un único container Docker de ~80 MB. **Sin base de datos**, todo en `data/config.json` + archivos subidos.
+
+Pensado para intranets detrás de VPN, equipos chicos, sysadmins que prefieren **poseer** su infra.
 
 ## Características
 
 - 🏠 **Portada pública** con tarjetas reordenables, búsqueda, modo claro/oscuro/auto
 - 🎨 **Personalización total** desde el panel admin: branding, tema, layout, íconos, fondo
-- 🔐 **Auth simple** con un solo password (bcrypt, sesión firmada, CSRF)
+- 🔐 **Auth simple** con un solo password (bcrypt cost 12, sesión firmada con epoch, CSRF, rate limit)
+- 🛡️ **Hardening configurable** desde el panel: CSP, HSTS, rate limit, MIME allowlist, body caps, headers
 - 📁 **Sin base de datos** — todo en `data/config.json` + archivos subidos
-- 🖼️ **Subida de assets** (logos, fondos, íconos) con validación y procesamiento
+- 🖼️ **Subida de assets** (logos, fondos, íconos) con validación magic-numbers, sharp processing y DOMPurify
 - 🎯 **Set de íconos predefinidos** (Lucide) + íconos propios
+- 📚 **Documentación completa** accesible desde la propia app en `/docs`
 - 📱 **PWA instalable** + responsive
-- 🐳 **Single container** (~80 MB) con healthcheck, read-only, no-root
+- 🐳 **Single container** con healthcheck, no-root, `cap_drop: ALL`
 - 🔄 **Edición en caliente** — guardar recarga la portada sin reiniciar
 - 💾 **Export / import** del config y reset a defaults
 
 ## Quick start (Docker)
 
 ```bash
-# 1. Clonar / entrar al proyecto
-cd personalized_homepage
-
-# 2. Configurar variables (recomendado)
-cp .env.example .env
-# Editar .env y poner SESSION_SECRET de 32+ chars y INITIAL_PASSWORD
-
-# 3. Levantar
-docker compose up -d
-
-# 4. Abrir
-# http://localhost:3000        → portada pública
-# http://localhost:3000/admin  → panel admin (login con INITIAL_PASSWORD)
+docker run -d \
+  --name atajo \
+  -p 3000:4321 \
+  -e INITIAL_PASSWORD=cambiame \
+  -e SESSION_SECRET="$(openssl rand -hex 32)" \
+  -v atajo-data:/app/data \
+  --restart unless-stopped \
+  atajo:latest
 ```
+
+- **Portada:** <http://localhost:3000>
+- **Admin:** <http://localhost:3000/admin> (login con `cambiame`, cambiala ya)
+- **Docs:** <http://localhost:3000/docs> (auto-generadas desde `docs/`)
+
+Si tenés `docker-compose`:
+
+```bash
+git clone <repo-url> atajo && cd atajo
+cp .env.example .env   # editar SESSION_SECRET e INITIAL_PASSWORD
+docker compose up -d
+```
+
+Ver [Quickstart Docker](./docs/install/quickstart.md) para el detalle.
 
 ## Quick start (sin Docker)
 
 ```bash
 npm install
+npm run gen:icons
 INITIAL_PASSWORD=admin SESSION_SECRET=$(openssl rand -hex 32) npm run dev
 # http://localhost:4321
 ```
 
-## Estructura
+Ver [Instalación manual](./docs/install/manual.md) para systemd, OpenRC, NSSM, etc.
 
-```
-src/
-├─ pages/
-│  ├─ index.astro              # portada pública
-│  ├─ admin/                   # login + dashboard
-│  └─ api/                     # login, logout, config, upload, assets, etc.
-├─ components/                 # Card, Background, Logo, etc.
-├─ layouts/                    # PublicLayout, AdminLayout
-├─ lib/                        # schema, config, auth, upload, assets, icons, http
-├─ middleware.ts               # chequeo de auth + CSRF
-└─ styles/
-data/                          # volumen: config.json, uploads/, audit.log
-public/                        # assets estáticos, íconos, manifest, sw
-```
+## Documentación
 
-## Variables de entorno
+Toda la documentación vive en [`docs/`](./docs/README.md) y se renderiza en la app en `/docs`. La sección **Desarrollo** de la portada incluye una tarjeta con link directo.
 
-| Variable | Default | Descripción |
-|---|---|---|
-| `PORT` | `4321` | Puerto del container |
-| `HOST` | `0.0.0.0` | Bind address |
-| `DATA_DIR` | `./data` | Carpeta persistente |
-| `SESSION_SECRET` | random (dev) | Secreto para firmar cookies. **32+ chars en prod** |
-| `INITIAL_PASSWORD` | `admin` | Password del primer arranque (luego se puede cambiar) |
-| `BASE_URL` | — | Si tu app vive detrás de un subdominio https, ponelo acá |
-| `NODE_ENV` | `production` | Setear `development` para logs verbose |
+| | |
+|---|---|
+| [Quickstart Docker](./docs/install/quickstart.md) | Levantar en 2 minutos |
+| [Docker completo](./docs/install/docker.md) | Setup de prod con compose |
+| [Instalación manual](./docs/install/manual.md) | Bare-metal con Node + systemd |
+| [Caddy reverse proxy](./docs/install/caddy.md) | HTTPS automático |
+| [Nginx / Traefik](./docs/install/nginx.md) | Reverse proxies alternativos |
+| [Configuración](./docs/config/structure.md) | Schema completo de `config.json` |
+| [Hardening](./docs/config/security.md) | CSP, HSTS, rate limit, todo configurable |
+| [Variables de entorno](./docs/config/env.md) | `SESSION_SECRET`, `BASE_URL`, etc |
+| [Personalización visual](./docs/config/visual.md) | Tema, colores, fuentes, íconos |
+| [Panel admin](./docs/usage/admin.md) | Tour por cada tab |
+| [Backup y restore](./docs/usage/backup.md) | Backup de `data/` |
+| [Troubleshooting](./docs/usage/troubleshooting.md) | Errores comunes |
+| [API REST](./docs/usage/api.md) | Endpoints para integraciones |
+| [Setup de desarrollo](./docs/dev/setup.md) | Cómo correr local |
+| [Arquitectura](./docs/dev/architecture.md) | Cómo está organizado el código |
+| [Seguridad — auditoría](./docs/dev/security-audit.md) | Bugs encontrados y arreglados |
 
 ## Panel de administración
 
@@ -82,118 +96,101 @@ Entrá a `/admin` y logueate. Tabs disponibles:
 | **Tema** | Fondo (imagen/color/gradiente), blur, overlay, color acento, tipografía, modo claro/oscuro |
 | **Layout** | Columnas por breakpoint, tamaño de card, descripciones |
 | **Categorías** | CRUD de categorías con íconos predefinidos |
-| **Tarjetas** | CRUD completo, drag-and-drop para reordenar, búsqueda, íconos predefinidos o subidos |
+| **Tarjetas** | CRUD completo, drag-and-drop para reordenar, íconos predefinidos o subidos |
 | **Assets** | Subida drag-and-drop (icono/logo/favicon/fondo), listado, borrado seguro |
 | **Status** | Ping HEAD a todas las URLs, badge verde/rojo |
-| **Seguridad** | Cambio de contraseña, ver CSRF token |
+| **Hardening** | CSP, HSTS, rate limit, CSRF, MIME allowlist, body caps, todo configurable |
+| **Password** | Cambio de contraseña (rota CSRF + invalida sesiones existentes) |
 | **Avanzado** | Export/import del config, healthcheck, reset a defaults |
 
 **Atajos de teclado en la portada:**
 - `/` → enfoca la búsqueda
 - `Esc` → limpia y desfoca la búsqueda
 
-## Personalización del config.json
+## Variables de entorno
 
-El archivo `data/config.json` se autogenera en el primer arranque. Estructura:
+| Variable | Default | Descripción |
+|---|---|---|
+| `PORT` | `4321` | Puerto del container |
+| `HOST` | `0.0.0.0` | Bind address |
+| `DATA_DIR` | `./data` | Carpeta persistente |
+| `SESSION_SECRET` | random (dev) | Secreto para firmar cookies. **32+ chars en prod** |
+| `INITIAL_PASSWORD` | `admin` | Password del primer arranque (cambiala desde el panel) |
+| `BASE_URL` | — | Si vas detrás de HTTPS, poné `https://tu-dominio` |
+| `NODE_ENV` | `production` | Setear `development` para logs verbose |
 
-```json
-{
-  "version": 1,
-  "branding": { "companyName": "...", "logo": null, "favicon": null },
-  "theme": {
-    "background": { "type": "gradient|color|image", "value": "...", "blur": 0, "overlay": 0, "overlayColor": "#000" },
-    "cardStyle": "glass|flat|outlined",
-    "accentColor": "#60a5fa",
-    "textColor": "#f1f5f9",
-    "fontFamily": "Inter",
-    "fontUrl": "https://fonts.googleapis.com/...",
-    "colorMode": "auto|light|dark"
-  },
-  "layout": {
-    "columnsDesktop": 4, "columnsTablet": 3, "columnsMobile": 2,
-    "cardSize": "small|medium|large",
-    "showDescriptions": true
-  },
-  "categories": [{ "id": "com", "name": "Comunicación", "icon": "chat" }],
-  "cards": [
-    {
-      "id": "unique-id",
-      "title": "Mattermost",
-      "description": "Chat interno",
-      "url": "https://chat.example.internal",
-      "icon": "chat",         // nombre Lucide o /api/assets/<file>
-      "category": "com",
-      "openInNewTab": true,
-      "color": "#1e88e5",
-      "order": 0,
-      "enabled": true
-    }
-  ]
-}
-```
-
-**Íconos predefinidos** (Lucide, ~60): `chat`, `briefcase`, `code`, `terminal`, `file`, `folder`, `image`, `mail`, `calendar`, `users`, `settings`, `search`, `bell`, `video`, `mic`, `lock`, `key`, `shield`, `cloud`, `database`, `server`, `git-branch`, `bar-chart`, `globe`, `link`, `home`, `star`, `heart`, `tag`, `zap`, `sun`, `moon`, `clock`, `map-pin`, `phone`, `layers`, `package`, `rocket`, `github`, `slack`, etc. (ver `public/icons/`).
+Ver [Variables de entorno](./docs/config/env.md) para la lista completa y ejemplos.
 
 ## Detrás de un reverse proxy
 
-### Caddy (recomendado, included)
+### Caddy (recomendado)
 
 El `docker-compose.yml` tiene un servicio `caddy` comentado. Para activarlo:
 
 1. Descomentar el servicio y los volúmenes de Caddy en `docker-compose.yml`.
 2. Configurar `DOMAIN=home.example.internal` en `.env`.
 3. (Opcional) Descomentar `tls your-email@example.com` en `Caddyfile` para HTTPS automático con Let's Encrypt.
+4. `docker compose up -d`.
+
+Detalle completo en [Caddy reverse proxy](./docs/install/caddy.md).
 
 ### Nginx / Traefik
 
-Headers a propagar al upstream:
-- `X-Forwarded-For`: IP real del cliente
-- `X-Real-IP`: mismo
-- (Opcional) `X-Forwarded-Proto`: esquema original
-
-Y exponer el container en el puerto 4321 (default).
+Headers a propagar al upstream: `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`. Ver [Nginx / Traefik](./docs/install/nginx.md).
 
 ## Seguridad
 
 - Password hasheado con **bcrypt** (cost 12), nunca en texto claro
-- Cookie de sesión **HttpOnly + SameSite=Strict** (Secure si `BASE_URL` es https)
-- **CSRF token** en cada mutación
-- **Rate limit** en login (30/min/IP, holgado para una intranet)
-- Headers: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`
-- Subidas: **whitelist MIME + magic numbers** + tamaño máx por tipo + **DOMPurify** para SVG
+- Cookie de sesión **HttpOnly + SameSite** (configurable), Secure si `BASE_URL` es https
+- **Auth epoch** en session token → cambiar password invalida todas las sesiones al instante
+- **CSRF token** rotativo en cada mutación
+- **Rate limit** en login (default 30/min/IP, configurable)
+- Headers: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, HSTS
+- **CSP** configurable (default permisivo para que Alpine funcione OOTB)
+- Subidas: **whitelist MIME** (`image/*`) + magic-numbers + **DOMPurify** para SVG
+- **Body caps** en middleware: 1MB para config, 10MB para upload
+- **SSRF protection** en `/api/status` (blocklist de IPs privadas/loopback)
 - Container: usuario **no-root**, `cap_drop: ALL`, `no-new-privileges`
-- Audit log append-only en `data/audit.log`
+- Audit log append-only en `data/audit.log` con rotación a 10MB
+
+Ver [Hardening / seguridad](./docs/config/security.md) y [Seguridad — auditoría](./docs/dev/security-audit.md) para el detalle.
 
 ## Backups
 
 La carpeta `data/` es lo único que necesitás backupear:
 
 ```bash
-# Backup
-docker run --rm -v homepage-data:/data -v $(pwd):/backup alpine \
-  tar czf /backup/homepage-data-$(date +%F).tgz -C /data .
-
-# Restore
-docker run --rm -v homepage-data:/data -v $(pwd):/backup alpine \
-  tar xzf /backup/homepage-data-XXX.tgz -C /data
+docker run --rm -v atajo-data:/data -v $(pwd):/backup alpine \
+  tar czf /backup/atajo-data-$(date +%F).tgz -C /data .
 ```
 
-También podés usar el botón **Export** del panel admin para bajar un `config.json` portable.
+Ver [Backup y restore](./docs/usage/backup.md) para restore, automatización, off-site, etc.
 
-## Troubleshooting
+## Estructura del proyecto
 
-**"config.json está corrupto"**
-El JSON se rompió (corte de luz mientras escribía, edición manual mal hecha). El container loguea el error exacto. Solución: restaurar de backup o borrar `data/config.json` para que se regenere con defaults (vas a perder cambios).
+```
+src/
+├─ pages/                  # Rutas Astro
+│  ├─ index.astro              # portada pública
+│  ├─ docs/                    # documentación renderizada
+│  ├─ admin/                   # login + dashboard
+│  └─ api/                     # login, logout, config, upload, assets, etc.
+├─ components/             # Card, Background, Logo, etc.
+├─ layouts/                # PublicLayout, AdminLayout
+├─ lib/                    # schema, config, auth, upload, assets, icons, http
+├─ middleware.ts           # chequeo de auth + CSRF + body caps
+└─ styles/
+data/                      # volumen: config.json, uploads/, audit.log
+public/                    # assets estáticos, íconos, manifest, sw
+docs/                      # documentación en .md (se renderiza en /docs)
+```
 
-**"Auth no inicializado"**
-El config no tiene `auth.passwordHash`. Pasó si editaste el JSON a mano. Solución: parar el container, setear `INITIAL_PASSWORD` y borrar `data/config.json` para que se regenere.
-
-**El primer arranque quedó con password "admin"**
-Cambialo desde `/admin` → Seguridad. O parás, setás `INITIAL_PASSWORD` en `.env`, y borrás `data/config.json`.
-
-**Los íconos SVG no se ven**
-Los SVGs subidos pasan por DOMPurify, que puede romper features complejas (`<use>`, filtros). Si necesitás íconos complejos, subilos como PNG/WebP.
+Ver [Arquitectura](./docs/dev/architecture.md) para detalle.
 
 ## Licencia
 
 MIT
+
+---
+
+> **Hecho con cariño en Argentina** 🧉 — Astro + Alpine.js + Tailwind v4, sin frameworks pesados, sin base de datos, sin bullshit.

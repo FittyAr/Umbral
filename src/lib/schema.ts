@@ -91,11 +91,20 @@ export const CategorySchema = z.object({
 // ──────────────────────────────────────────────────────────────────────────
 // Cards
 // ──────────────────────────────────────────────────────────────────────────
+/** Una URL de tarjeta puede ser:
+ *  - `https://...` o `http://...` (link externo normal), o
+ *  - un path interno que empieza con `/` (ej: `/docs`, `/admin`).
+ *  El `href` del card es el `url` literal, así que `/docs` navega a la
+ *  página interna y `https://...` abre el sitio externo. El HTML escape
+ *  lo maneja Astro; el regex bloquea javascript:/data:/vbscript:.
+ */
+const SAFE_CARD_URL = /^(https?:\/\/[^\s]+|\/[^\s]*)$/;
+
 export const CardSchema = z.object({
   id: z.string().min(1).max(80),
   title: z.string().min(1).max(80),
   description: z.string().max(200).default(''),
-  url: z.string().url(),
+  url: z.string().max(2048).regex(SAFE_CARD_URL, 'URL inválida (http(s):// o path interno /...)'),
   icon: z.string().default('globe'), // nombre de ícono (Lucide) o path /api/assets/<file>
   category: z.string().min(1),
   openInNewTab: z.boolean().default(true),

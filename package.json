@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Personalized homepage that links to internal apps (Mattermost, Excalidraw, etc.) behind a VPN. Editable from a simple admin panel. No database.",
+  "description": "Atajo — self-hosted portal to internal apps behind a VPN. Editable from a simple admin panel. No database.",
   "scripts": {
     "gen:icons": "node scripts/gen-icons.mjs",
     "prebuild": "npm run gen:icons",
@@ -22,6 +22,7 @@
     "dompurify": "^3.2.4",
     "file-type": "^19.6.0",
     "jsdom": "^26.1.0",
+    "marked": "^14.1.3",
     "sharp": "^0.34.1",
     "sortablejs": "^1.15.6",
     "zod": "^3.24.2"

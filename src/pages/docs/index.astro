@@ -1,0 +1,184 @@
+---
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import PublicLayout from '~/layouts/PublicLayout.astro';
+import { getConfig } from '~/lib/config';
+import { resolveIconUrl } from '~/lib/icons';
+
+export const prerender = false;
+
+// Resolve docs dir relative to project root. process.cwd() is the project
+// root in dev (npm run dev) and in the built server (node ./dist/server/entry.mjs)
+// since the entry runs from the project root thanks to the Dockerfile WORKDIR.
+const DOCS_DIR = path.join(process.cwd(), 'docs');
+
+interface DocFile {
+  /** Slug for the URL: e.g. "install/quickstart". Same as filename without .md. */
+  slug: string;
+  /** Title parsed from the first H1 in the file, or fallback. */
+  title: string;
+  /** First paragraph (used as description in the index). */
+  description: string;
+  /** Top-level section: "install" | "config" | "usage" | "dev" | "" (root). */
+  section: string;
+}
+
+async function listDocs(): Promise<DocFile[]> {
+  const out: DocFile[] = [];
+
+  async function walk(dir: string, prefix: string) {
+    let entries: import('node:fs').Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(full, prefix ? `${prefix}/${entry.name}` : entry.name);
+      } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name.toLowerCase() !== 'readme.md') {
+        const slug = prefix ? `${prefix}/${entry.name.replace(/\.md$/, '')}` : entry.name.replace(/\.md$/, '');
+        try {
+          const raw = await fs.readFile(full, 'utf8');
+          const { title, description } = parseFrontmatter(raw);
+          out.push({
+            slug,
+            title,
+            description,
+            section: prefix.split('/')[0] ?? '',
+          });
+        } catch {
+          // skip unreadable files
+        }
+      }
+    }
+  }
+
+  await walk(DOCS_DIR, '');
+  // Stable sort: by section then title.
+  out.sort((a, b) => {
+    if (a.section !== b.section) return a.section.localeCompare(b.section);
+    return a.title.localeCompare(b.title);
+  });
+  return out;
+}
+
+/** Extract title and description from the markdown. Looks for the first
+ *  `# ` heading for the title and the first non-empty paragraph after it
+ *  for the description. Falls back to slug-based values. */
+function parseFrontmatter(md: string): { title: string; description: string } {
+  const lines = md.split(/\r?\n/);
+  let title = '';
+  let description = '';
+  let inBlockquote = false;
+  let pastTitle = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!title && trimmed.startsWith('# ')) {
+      title = trimmed.replace(/^#\s+/, '').replace(/^Atajo\s*—\s*/i, '').replace(/^Documentación\s*—\s*/i, '').trim();
+      // If the title is just "Atajo" (e.g. from `## Atajo`), use the section
+      // or file name later. For now we keep what we got.
+      pastTitle = true;
+      continue;
+    }
+    if (pastTitle && !description) {
+      if (trimmed === '' || trimmed.startsWith('#')) {
+        inBlockquote = false;
+        continue;
+      }
+      if (trimmed.startsWith('>')) {
+        // A blockquote at the top is usually the TL;DR — use it as description
+        // but keep grabbing until we get a non-quote line.
+        inBlockquote = true;
+        description = trimmed.replace(/^>\s*/, '').replace(/^>\s*/, '').slice(0, 200);
+        continue;
+      }
+      if (inBlockquote) {
+        if (trimmed.startsWith('>')) {
+          description += ' ' + trimmed.replace(/^>\s*/, '').slice(0, 200);
+        } else {
+          inBlockquote = false;
+        }
+      }
+      if (!inBlockquote) {
+        description = trimmed.slice(0, 200);
+        break;
+      }
+    }
+  }
+  return { title: title || '(sin título)', description };
+}
+
+const docs = await listDocs();
+const config = await getConfig();
+const logoUrl = resolveIconUrl(config.branding.logo);
+
+// Group by section
+const grouped = new Map<string, typeof docs>();
+for (const d of docs) {
+  const key = d.section || 'general';
+  const arr = grouped.get(key) ?? [];
+  arr.push(d);
+  grouped.set(key, arr);
+}
+
+const sectionLabels: Record<string, string> = {
+  install: 'Instalación',
+  config: 'Configuración',
+  usage: 'Uso',
+  dev: 'Desarrollo',
+  general: 'General',
+};
+---
+<PublicLayout config={config} title="Documentación — Atajo">
+  <main class="page-wrap">
+    <header class="header">
+      {logoUrl && (
+        <img src={logoUrl} alt={config.branding.companyName} class="header-logo" />
+      )}
+      <h1 class="header-title">Documentación</h1>
+      <p style="margin:0.3rem 0 0;color:#94a3b8;font-size:0.95rem">
+        Guías de instalación, configuración, uso y desarrollo.
+      </p>
+    </header>
+
+    {docs.length === 0 ? (
+      <div class="empty">
+        <h2>No hay documentación</h2>
+        <p>La carpeta <code>docs/</code> está vacía o no se encuentra.</p>
+      </div>
+    ) : (
+      Array.from(grouped.entries()).map(([section, items]) => (
+        <section style="margin-bottom:2rem">
+          <h2 class="section-title">{sectionLabels[section] ?? section}</h2>
+          <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem">
+            {items.map((doc) => (
+              <a class="card" data-style="medium" data-card-id={`doc-${doc.slug}`} href={`/docs/${doc.slug}`} style="--accent:#10b981">
+                <div style="display:flex;align-items:flex-start;gap:0.6rem;margin-bottom:0.5rem">
+                  <img src="/icons/file-text.svg" alt="" width="20" height="20" style="flex-shrink:0;margin-top:2px;opacity:0.7" />
+                  <div style="flex:1;min-width:0">
+                    <h3 class="card-title" style="font-size:1rem;line-height:1.3">{doc.title}</h3>
+                  </div>
+                </div>
+                {doc.description && (
+                  <p class="card-desc" style="font-size:0.85rem;color:#94a3b8;line-height:1.4;margin:0.3rem 0 0">
+                    {doc.description}
+                  </p>
+                )}
+                <div style="font-size:0.7rem;color:#64748b;margin-top:0.6rem;font-family:ui-monospace,monospace">
+                  /docs/{doc.slug}
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      ))
+    )}
+
+    <footer style="margin-top:3rem;padding:1.5rem 0;border-top:1px solid rgba(255,255,255,0.08);text-align:center;font-size:0.8rem;color:#64748b">
+      Editá los archivos en <code>docs/</code> y reiniciá la app para ver los cambios.
+    </footer>
+  </main>
+</PublicLayout>
