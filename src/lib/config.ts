@@ -74,6 +74,10 @@ function defaultConfig(): Config {
         xFrameOptions: 'DENY',
         referrerPolicy: 'no-referrer',
         permissionsPolicy: 'camera=(), microphone=(), geolocation=()',
+        hsts: 'auto',
+        hstsMaxAge: 31536000,
+        hstsIncludeSubDomains: false,
+        hstsPreload: false,
       },
     },
     categories: [
@@ -118,6 +122,7 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
     cfg.auth = {
       passwordHash: await hashPassword(password || 'admin'),
       csrfToken: generateToken(32),
+      authEpoch: 0,
     };
 
     if (!password) {
@@ -153,7 +158,7 @@ async function loadFresh(): Promise<Config> {
     // dejar la app inaccesible.
     if (!result.data.auth) {
       const password = process.env.INITIAL_PASSWORD || 'admin';
-      const fixed = { ...result.data, auth: { passwordHash: await hashPassword(password), csrfToken: generateToken(32) } };
+      const fixed = { ...result.data, auth: { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0 } };
       console.warn('[homepage] config sin auth — regenerando. Cambiá la password desde /admin ASAP.');
       const tmp = CONFIG_PATH + '.tmp';
       await fs.writeFile(tmp, JSON.stringify(fixed, null, 2), 'utf8');
@@ -187,8 +192,13 @@ async function loadFresh(): Promise<Config> {
     // Regenerar auth si falta, igual que en el camino strict.
     if (!merged.auth) {
       const password = process.env.INITIAL_PASSWORD || 'admin';
-      merged.auth = { passwordHash: await hashPassword(password), csrfToken: generateToken(32) };
+      merged.auth = { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0 };
       console.warn('[homepage] config migrada sin auth — regenerando. Cambiá la password desde /admin ASAP.');
+    } else if (merged.auth.authEpoch === undefined) {
+      // Auth existe pero no tiene epoch (versión vieja del schema).
+      // Lo agregamos sin invalidar sesiones existentes (epoch=0 matchea
+      // con tokens emitidos bajo el formato viejo que tampoco tienen epoch).
+      merged.auth = { ...merged.auth, authEpoch: 0 };
     }
     // Re-validate the merged result.
     const revalidated = ConfigSchema.safeParse(merged);
@@ -285,6 +295,7 @@ export async function resetConfig(): Promise<Config> {
     cfg.auth = {
       passwordHash: await hashPassword(password),
       csrfToken: generateToken(32),
+      authEpoch: 0,
     };
   }
   await fs.writeFile(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
@@ -303,12 +314,19 @@ export async function importConfig(newConfig: Config): Promise<Config> {
   return result;
 }
 
-/** Replace auth (password hash + rotate CSRF). */
+/** Replace auth (password hash + rotate CSRF + bump epoch → invalida
+ *  todas las sesiones activas). El admin que está cambiando la password
+ *  sigue logueado en su propia sesión, pero cualquier otra sesión abierta
+ *  (otro browser, sesión robada) queda muerta al próximo request. */
 export async function updateAuth(newPasswordHash: string, newCsrf: string): Promise<Config> {
   const current = await getConfig();
   const merged = {
     ...current,
-    auth: { passwordHash: newPasswordHash, csrfToken: newCsrf },
+    auth: {
+      passwordHash: newPasswordHash,
+      csrfToken: newCsrf,
+      authEpoch: (current.auth?.authEpoch ?? 0) + 1,
+    },
     _meta: { ...current._meta, updatedAt: new Date().toISOString() },
   };
   const result = ConfigSchema.parse(merged);

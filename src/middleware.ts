@@ -32,6 +32,22 @@ function clientIp(request: Request, trustForwarded: boolean): string {
   return 'unknown';
 }
 
+/** Detecta HTTPS: BASE_URL en env o X-Forwarded-Proto si el admin confió
+ *  en el proxy. Sólo lo usamos para HSTS — no para lógica de auth. */
+function detectHttps(request: Request, trustForwarded: boolean): boolean {
+  if (process.env.BASE_URL?.startsWith('https://') === true) return true;
+  if (trustForwarded) {
+    const xfp = request.headers.get('x-forwarded-proto');
+    if (xfp?.toLowerCase() === 'https') return true;
+  }
+  return false;
+}
+
+/** Cap en bytes para requests que mutan el config. Evita que un admin (o
+ *  alguien con la cookie) mande un body gigante que reventaría memoria
+ *  antes de que zod lo rechace. 1MB es más que suficiente para el config. */
+const MAX_CONFIG_BODY_BYTES = 1 * 1024 * 1024;
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { url, request } = context;
   const pathname = url.pathname;
@@ -41,10 +57,25 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const headersCfg = cfg.security.headers;
   const netCfg = cfg.security.network;
   const csrfPolicy = cfg.security.auth.csrfPolicy;
+  const isHttps = detectHttps(request, netCfg.trustForwardedFor);
 
   const auth = await buildAuthContext(request);
   context.locals.auth = auth;
   context.locals.clientIp = clientIp(request, netCfg.trustForwardedFor);
+
+  // Body size cap para endpoints que aceptan JSON grande. Si el cliente
+  // declara Content-Length mayor al cap, rechazamos sin leer el body
+  // (ahorra memoria). Si no declara, dejamos pasar — Astro/Node tiene
+  // sus propios límites y se cortará igual.
+  if (pathname === '/api/config' || pathname === '/api/import') {
+    const cl = request.headers.get('content-length');
+    if (cl && Number(cl) > MAX_CONFIG_BODY_BYTES) {
+      return new Response(
+        JSON.stringify({ error: `Body demasiado grande (${cl} bytes, máx ${MAX_CONFIG_BODY_BYTES})` }),
+        { status: 413, headers: { 'content-type': 'application/json' } },
+      );
+    }
+  }
 
   // Admin pages: redirect unauthed to /admin (the login page).
   if (pathname.startsWith('/admin') && pathname !== '/admin') {
@@ -89,6 +120,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
       xFrameOptions: headersCfg.xFrameOptions,
       referrerPolicy: headersCfg.referrerPolicy,
       permissionsPolicy: headersCfg.permissionsPolicy,
+      hsts: headersCfg.hsts,
+      hstsMaxAge: headersCfg.hstsMaxAge,
+      hstsIncludeSubDomains: headersCfg.hstsIncludeSubDomains,
+      hstsPreload: headersCfg.hstsPreload,
+      isHttps,
     });
   }
 

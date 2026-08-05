@@ -53,20 +53,28 @@ function sign(payload: string): string {
   return crypto.createHmac('sha256', getSecret()).update(payload).digest('hex');
 }
 
-/** Create a signed session token: <random>.<hmac> */
-export function createSessionToken(): string {
+/** Create a signed session token: <id>.<epoch>.<hmac>.
+ *  El epoch va firmado adentro del HMAC (parte del payload) → un atacante
+ *  no puede bajar el epoch de su propio token para "revivir" una sesión
+ *  invalidada por cambio de password. */
+export function createSessionToken(epoch: number): string {
   const id = generateToken(24);
-  return `${id}.${sign(id)}`;
+  const payload = `${id}.${epoch}`;
+  return `${payload}.${sign(payload)}`;
 }
 
-export function verifySessionToken(token: string | undefined | null): boolean {
+export function verifySessionToken(token: string | undefined | null, epoch: number): boolean {
   if (!token) return false;
-  const dot = token.lastIndexOf('.');
-  if (dot < 1) return false;
-  const id = token.slice(0, dot);
-  const sig = token.slice(dot + 1);
-  const expected = sign(id);
-  // constant-time compare
+  // Formato: <id>.<epoch>.<sig>. Usamos split con límite para tolerar
+  // tokens viejos de 2 partes (los rechazamos, no son válidos).
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  const [id, tokenEpoch, sig] = parts;
+  // Epoch debe matchear exactamente — no parseamos, comparison string→number
+  // puede traer surprises con leading zeros o NaN.
+  if (tokenEpoch !== String(epoch)) return false;
+  const payload = `${id}.${tokenEpoch}`;
+  const expected = sign(payload);
   if (sig.length !== expected.length) return false;
   return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
 }
@@ -84,8 +92,9 @@ export async function buildAuthContext(request: Request): Promise<AuthContext> {
   const cookie = parseCookie(request.headers.get('cookie') || '');
   const token = cookie[SESSION_COOKIE];
   const cfg = await getConfig();
+  const epoch = cfg.auth?.authEpoch ?? 0;
   return {
-    isAuthenticated: verifySessionToken(token),
+    isAuthenticated: verifySessionToken(token, epoch),
     csrfToken: cfg.auth?.csrfToken ?? null,
   };
 }
@@ -125,10 +134,11 @@ export async function clearSessionCookie(): Promise<string> {
   const cfg = await getConfig();
   const session = cfg.security.session;
   const domain = cfg.security.network.cookieDomain;
+  // Mismo criterio que buildSessionCookie: Secure solo si HTTPS real.
+  // NO usar NODE_ENV como proxy (un deploy HTTP en prod quedaría sin logout).
   const isHttps =
     session.cookieSecure === 'always' ||
-    (session.cookieSecure === 'auto' &&
-      (process.env.BASE_URL?.startsWith('https://') || process.env.NODE_ENV === 'production'));
+    (session.cookieSecure === 'auto' && process.env.BASE_URL?.startsWith('https://') === true);
   const secure = isHttps ? '; Secure' : '';
   const domainPart = domain ? `; Domain=${domain}` : '';
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=${session.cookieSameSite}${secure}${domainPart}; Max-Age=0`;

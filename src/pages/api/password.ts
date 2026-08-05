@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { getConfig, updateAuth, audit } from '~/lib/config';
 import { hashPassword, generateToken } from '~/lib/auth';
@@ -31,7 +32,9 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!cfg.auth) return error('Auth no inicializado', 500);
 
-  const bcrypt = await import('bcryptjs');
+  // bcryptjs como default import (interop). El `await import('bcryptjs')`
+  // previo retornaba el namespace CJS sin default export visible, así que
+  // `bcrypt.compare` daba undefined. Con import estático funciona.
   const ok = await bcrypt.compare(body.currentPassword, cfg.auth.passwordHash);
   if (!ok) return error('Password actual incorrecto', 401);
 

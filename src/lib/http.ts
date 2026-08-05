@@ -22,6 +22,28 @@ export interface SecurityHeaderOptions {
   xFrameOptions?: 'DENY' | 'SAMEORIGIN' | 'NONE';
   referrerPolicy?: string;
   permissionsPolicy?: string;
+  hsts?: 'auto' | 'always' | 'never';
+  hstsMaxAge?: number;
+  hstsIncludeSubDomains?: boolean;
+  hstsPreload?: boolean;
+  /** Si se pasa true, se considera que el request es HTTPS. Si no, se
+   *  intenta detectar vía BASE_URL. */
+  isHttps?: boolean;
+}
+
+/** Construye el valor del header Strict-Transport-Security, o null si no aplica. */
+function buildHstsValue(opts: SecurityHeaderOptions): string | null {
+  if (!opts.isHttps) return null; // HSTS sólo tiene sentido sobre HTTPS
+  if (opts.hsts === 'never') return null;
+  if (opts.hsts === 'always' || opts.hsts === 'auto') {
+    const maxAge = opts.hstsMaxAge ?? 31536000;
+    if (maxAge <= 0) return null;
+    let v = `max-age=${maxAge}`;
+    if (opts.hstsIncludeSubDomains) v += '; includeSubDomains';
+    if (opts.hstsPreload) v += '; preload';
+    return v;
+  }
+  return null;
 }
 
 /**
@@ -44,6 +66,10 @@ export function applySecurityHeaders(headers: Headers, opts: SecurityHeaderOptio
   }
   if (opts.csp && !headers.has('content-security-policy')) {
     headers.set('content-security-policy', opts.csp);
+  }
+  if (!headers.has('strict-transport-security')) {
+    const hsts = buildHstsValue(opts);
+    if (hsts) headers.set('strict-transport-security', hsts);
   }
 }
 

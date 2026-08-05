@@ -41,7 +41,7 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
     return error('Password incorrecto', 401);
   }
 
-  const token = createSessionToken();
+  const token = createSessionToken(cfg.auth.authEpoch ?? 0);
   let csrfToken = cfg.auth.csrfToken;
 
   // Optionally rotate CSRF token on successful login (config-driven).

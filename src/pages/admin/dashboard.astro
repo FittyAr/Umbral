@@ -451,6 +451,37 @@ const builtinIcons = await getBuiltinIconNames();
         <label>Permissions-Policy</label>
         <input type="text" x-model="cfg.security.headers.permissionsPolicy" />
       </div>
+      <h3 style="margin-top:1.5rem">HSTS (Strict-Transport-Security)</h3>
+      <p class="muted" style="color:#94a3b8;font-size:0.85rem">
+        Sólo se envía si el request es HTTPS. 'auto' lo activa automáticamente
+        en deployments HTTPS (recomendado). 'never' desactiva. Cuidado con
+        max-age: una vez activado, los browsers lo recuerdan.
+      </p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Modo</label>
+          <select x-model="cfg.security.headers.hsts">
+            <option value="auto">Auto (default, recomendado)</option>
+            <option value="always">Siempre forzar</option>
+            <option value="never">Nunca</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Max-Age (segundos)</label>
+          <input type="number" min="0" max="63072000" x-model.number="cfg.security.headers.hstsMaxAge" />
+          <small style="color:#94a3b8">Default 31536000 (1 año). 0 desactiva.</small>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.security.headers.hstsIncludeSubDomains" /> includeSubDomains</label>
+          <small style="color:#94a3b8">Activar SÓLO si todos los subdominios son HTTPS.</small>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.security.headers.hstsPreload" /> preload</label>
+          <small style="color:#94a3b8">Para enviar a hstspreload.org. Requiere includeSubDomains y max-age ≥ 1 año.</small>
+        </div>
+      </div>
     </div>
 
     <!-- PASSWORD -->

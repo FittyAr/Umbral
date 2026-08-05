@@ -109,10 +109,17 @@ export const CardSchema = z.object({
 
 // ──────────────────────────────────────────────────────────────────────────
 // Auth (no se expone al admin: vive solo en el JSON raíz)
+//
+// authEpoch: contador que se incrementa cada vez que cambia la password.
+// El session token incluye el epoch con el que fue emitido; al verificarlo,
+// si no matchea el actual, la sesión es inválida. Esto cierra el gap de
+// "cambié la password pero las sesiones viejas siguen vivas" — antes sólo
+// se rotaba el CSRF, la session token seguía siendo válida hasta expirar.
 // ──────────────────────────────────────────────────────────────────────────
 export const AuthSchema = z.object({
   passwordHash: z.string().min(1),
   csrfToken: z.string().min(1),
+  authEpoch: z.number().int().min(0).default(0),
 });
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -205,6 +212,18 @@ export const HeadersSecuritySchema = z.object({
     .default('no-referrer'),
   // Permissions-Policy. Default estricto (cámara/mic/geo deshabilitados).
   permissionsPolicy: z.string().default('camera=(), microphone=(), geolocation=()'),
+  // HSTS — sólo aplica si el request es HTTPS. 'auto' = activarlo siempre
+  // que detectemos HTTPS; 'always' = forzar; 'never' = desactivado. Default
+  // 'auto' así un deploy HTTPS queda hardened out-of-the-box sin tocar nada.
+  hsts: z.enum(['auto', 'always', 'never']).default('auto'),
+  // HSTS max-age en segundos. 1 año es el sweet spot (RFC 6797 §7.2).
+  hstsMaxAge: z.number().int().min(0).max(63072000).default(31536000), // 1y
+  // includeSubDomains para HSTS. Activar si TODOS los subdominios son HTTPS.
+  hstsIncludeSubDomains: z.boolean().default(false),
+  // preload permite enviar el dominio a la lista de HSTS preload de Chrome.
+  // Requiere includeSubDomains y max-age >= 31536000 (1 año) según
+  // hstspreload.org. Default false porque es un commitment fuerte.
+  hstsPreload: z.boolean().default(false),
 });
 
 export const SecuritySchema = z.object({
