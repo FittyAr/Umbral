@@ -32,10 +32,32 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 // Cache the secret at module load so signing and verifying use the SAME value.
 // Generating a new secret per call would invalidate every token on first verify.
 let _secret: string | null = null;
+let _secretChecked = false;
+
+// Lista de SESSION_SECRETs conocidos (de .env.example y docker-compose).
+// Si el deploy está usando uno de estos en producción, es un compromiso
+// de facto: cualquiera con acceso al repo público puede forjar sesiones.
+const KNOWN_WEAK_SECRETS = new Set([
+  'change-me-please-this-is-32-chars-or-more',
+  'change-me-in-production-use-openssl-rand-hex-32',
+  'changeme',
+  'secret',
+  'development-secret-key-please-change-in-production',
+]);
+
 function getSecret(): string {
   if (_secret) return _secret;
   const s = process.env.SESSION_SECRET;
   if (s && s.length >= 16) {
+    if (!_secretChecked && process.env.NODE_ENV === 'production' && KNOWN_WEAK_SECRETS.has(s)) {
+      console.error(
+        '\n[HOMEPAGE FATAL] SESSION_SECRET está usando un valor conocido (de .env.example o docker-compose).\n' +
+        'Esto es un riesgo crítico de seguridad: cualquiera puede forjar sesiones.\n' +
+        'Generá uno con `openssl rand -hex 32` y pasalo vía -e SESSION_SECRET=... o .env.\n' +
+        'El server sigue corriendo para no romper sesiones existentes, pero cambiá esto YA.\n',
+      );
+    }
+    _secretChecked = true;
     _secret = s;
     return _secret;
   }
@@ -45,6 +67,7 @@ function getSecret(): string {
       '[homepage] SESSION_SECRET not set or too short. Using a random secret (sessions will invalidate on restart).',
     );
   }
+  _secretChecked = true;
   _secret = crypto.randomBytes(32).toString('hex');
   return _secret;
 }

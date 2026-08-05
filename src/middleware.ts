@@ -48,6 +48,11 @@ function detectHttps(request: Request, trustForwarded: boolean): boolean {
  *  antes de que zod lo rechace. 1MB es más que suficiente para el config. */
 const MAX_CONFIG_BODY_BYTES = 1 * 1024 * 1024;
 
+/** Cap para uploads (multipart). El mayor permitido por config es 5MB
+ *  (background); sumamos ~1MB de overhead de multipart y dejamos margen
+ *  para el metadata. Sin este cap, request.formData() carga todo en RAM. */
+const MAX_UPLOAD_BODY_BYTES = 10 * 1024 * 1024;
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { url, request } = context;
   const pathname = url.pathname;
@@ -72,6 +77,18 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (cl && Number(cl) > MAX_CONFIG_BODY_BYTES) {
       return new Response(
         JSON.stringify({ error: `Body demasiado grande (${cl} bytes, máx ${MAX_CONFIG_BODY_BYTES})` }),
+        { status: 413, headers: { 'content-type': 'application/json' } },
+      );
+    }
+  }
+  // Body cap para uploads (multipart). Sin esto, un admin comprometido
+  // podría subir 10GB y reventar la RAM del proceso. Astro/Node no
+  // impone límite por default en multipart.
+  if (pathname === '/api/upload') {
+    const cl = request.headers.get('content-length');
+    if (cl && Number(cl) > MAX_UPLOAD_BODY_BYTES) {
+      return new Response(
+        JSON.stringify({ error: `Upload demasiado grande (${cl} bytes, máx ${MAX_UPLOAD_BODY_BYTES})` }),
         { status: 413, headers: { 'content-type': 'application/json' } },
       );
     }
