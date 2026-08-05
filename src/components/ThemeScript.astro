@@ -1,0 +1,58 @@
+---
+import type { Theme } from '~/lib/schema';
+interface Props {
+  theme: Theme;
+}
+const { theme } = Astro.props;
+---
+<script is:inline define:vars={{ theme }}>
+  // Color mode: apply on first paint, before body renders, to avoid flash.
+  (function () {
+    const stored = localStorage.getItem('hp-color-mode');
+    const mode = stored || theme.colorMode || 'auto';
+    let actual = mode;
+    if (mode === 'auto') {
+      const h = new Date().getHours();
+      actual = (h >= 7 && h < 19) ? 'light' : 'dark';
+    }
+    document.documentElement.setAttribute('data-mode', actual);
+  })();
+
+  // Wire up search + color toggle + keyboard shortcuts (after DOM ready)
+  document.addEventListener('DOMContentLoaded', function () {
+    const search = document.getElementById('search-input');
+    if (search) {
+      const cards = document.querySelectorAll('.card');
+      search.addEventListener('input', function () {
+        const q = (search.value || '').toLowerCase().trim();
+        cards.forEach(function (c) {
+          const text = c.textContent.toLowerCase();
+          c.classList.toggle('hidden-by-filter', q.length > 0 && text.indexOf(q) === -1);
+        });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === '/' && document.activeElement !== search) {
+          e.preventDefault();
+          search.focus();
+        }
+        if (e.key === 'Escape' && document.activeElement === search) {
+          search.value = '';
+          search.dispatchEvent(new Event('input'));
+          search.blur();
+        }
+      });
+    }
+
+    // Color mode toggle (button with data-action="toggle-mode")
+    const toggle = document.querySelector('[data-action="toggle-mode"]');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        const current = document.documentElement.getAttribute('data-mode') || 'dark';
+        const next = current === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('hp-color-mode', next);
+        document.documentElement.setAttribute('data-mode', next);
+        toggle.setAttribute('aria-label', next === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
+      });
+    }
+  });
+</script>

@@ -1,0 +1,80 @@
+---
+import PublicLayout from '~/layouts/PublicLayout.astro';
+import Card from '~/components/Card.astro';
+import Search from '~/components/Search.astro';
+import Logo from '~/components/Logo.astro';
+import { getConfig } from '~/lib/config';
+import { resolveIconUrl } from '~/lib/icons';
+
+const config = await getConfig();
+const l = config.layout;
+const enabledCards = config.cards.filter((c) => c.enabled).sort((a, b) => a.order - b.order);
+const logoUrl = resolveIconUrl(config.branding.logo);
+
+// Group by category
+const grouped = new Map<string, typeof enabledCards>();
+for (const c of enabledCards) {
+  const arr = grouped.get(c.category) ?? [];
+  arr.push(c);
+  grouped.set(c.category, arr);
+}
+---
+<PublicLayout config={config}>
+  <main class="page-wrap">
+    <header class="header">
+      <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
+      <h1 class="header-title">{config.branding.companyName}</h1>
+      <Search />
+      <button
+        data-action="toggle-mode"
+        class="mode-toggle"
+        aria-label="Cambiar modo claro/oscuro"
+        title="Cambiar modo claro/oscuro"
+      >
+        <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+        </svg>
+      </button>
+    </header>
+
+    {enabledCards.length === 0 ? (
+      <div class="empty">
+        <h2>No hay aplicaciones todavía</h2>
+        <p>Pedile al administrador que agregue algunas desde el panel.</p>
+      </div>
+    ) : (
+      Array.from(grouped.entries()).map(([catId, cards]) => {
+        const cat = config.categories.find((c) => c.id === catId);
+        return (
+          <section>
+            {cat && <h2 class="section-title">{cat.name}</h2>}
+            <div class="grid">
+              {cards.map((c) => <Card card={c} layout={l} />)}
+            </div>
+          </section>
+        );
+      })
+    )}
+  </main>
+</PublicLayout>
+
+<style>
+  .mode-toggle {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text);
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.18s;
+    backdrop-filter: blur(8px);
+  }
+  .mode-toggle:hover {
+    background: color-mix(in srgb, var(--card-bg), white 8%);
+    border-color: var(--accent);
+  }
+</style>

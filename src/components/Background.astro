@@ -1,0 +1,23 @@
+---
+import type { Background } from '~/lib/schema';
+interface Props {
+  background: Background;
+}
+const { background } = Astro.props;
+const blurStyle = background.blur > 0 ? `filter: blur(${background.blur}px);` : '';
+const overlayOpacity = Math.max(0, Math.min(1, background.overlay));
+let bgStyle = '';
+if (background.type === 'image') {
+  bgStyle = `background-image: url('${background.value}'); ${blurStyle}`;
+} else {
+  bgStyle = `background: ${background.value}; ${blurStyle}`;
+}
+---
+
+<div class="bg-layer" style={bgStyle}></div>
+{overlayOpacity > 0 && (
+  <div
+    class="bg-overlay"
+    style={`background: ${background.overlayColor}; opacity: ${overlayOpacity};`}
+  ></div>
+)}

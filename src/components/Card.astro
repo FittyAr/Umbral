@@ -1,0 +1,38 @@
+---
+import type { Card } from '~/lib/schema';
+import type { Layout } from '~/lib/schema';
+import { resolveIconUrl } from '~/lib/icons';
+
+interface Props {
+  card: Card;
+  layout: Layout;
+}
+const { card, layout } = Astro.props;
+const iconUrl = resolveIconUrl(card.icon);
+const target = card.openInNewTab ? '_blank' : '_self';
+const rel = card.openInNewTab ? 'noopener noreferrer' : undefined;
+const styleOverride = card.color
+  ? `--accent:${card.color};`
+  : '';
+---
+<a
+  class="card"
+  data-style={layout.cardSize}
+  data-size={layout.cardSize}
+  data-card-id={card.id}
+  href={card.url}
+  target={target}
+  rel={rel}
+  title={card.title}
+  style={styleOverride}
+>
+  {iconUrl && (
+    <div class="card-icon">
+      <img src={iconUrl} alt="" loading="lazy" />
+    </div>
+  )}
+  <h3 class="card-title">{card.title}</h3>
+  {layout.showDescriptions && card.description && (
+    <p class="card-desc">{card.description}</p>
+  )}
+</a>
