@@ -1,0 +1,753 @@
+---
+import AdminLayout from '~/layouts/AdminLayout.astro';
+import { getConfig } from '~/lib/config';
+import { getBuiltinIconNames } from '~/lib/icons';
+
+const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
+if (!isAuthed) {
+  return Astro.redirect('/admin');
+}
+const csrfToken = Astro.locals.auth?.csrfToken ?? '';
+const config = await getConfig();
+const builtinIcons = await getBuiltinIconNames();
+---
+<AdminLayout title="Dashboard" csrfToken={csrfToken} isAuthed={true}>
+  <div class="admin-wrap" x-data="adminApp" x-init="init()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+      <h1 style="margin:0;font-size:1.4rem">Panel de configuración</h1>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <span x-show="dirty" class="dirty-badge" x-cloak>● Cambios sin guardar</span>
+        <button class="btn btn-ghost" @click="reloadConfig()" :disabled="busy">Recargar</button>
+        <button class="btn btn-primary" @click="saveAll()" :disabled="busy || !dirty">
+          <span x-show="!busy">Guardar cambios</span>
+          <span x-show="busy" x-cloak>Guardando…</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab" :class="tab==='branding' && 'active'" @click="tab='branding'">Branding</button>
+      <button class="tab" :class="tab==='theme' && 'active'" @click="tab='theme'">Tema</button>
+      <button class="tab" :class="tab==='layout' && 'active'" @click="tab='layout'">Layout</button>
+      <button class="tab" :class="tab==='categories' && 'active'" @click="tab='categories'">Categorías</button>
+      <button class="tab" :class="tab==='cards' && 'active'" @click="tab='cards'">Tarjetas</button>
+      <button class="tab" :class="tab==='assets' && 'active'" @click="tab='assets'">Assets</button>
+      <button class="tab" :class="tab==='status' && 'active'" @click="tab='status'">Status</button>
+      <button class="tab" :class="tab==='security' && 'active'" @click="tab='security'">Seguridad</button>
+      <button class="tab" :class="tab==='advanced' && 'active'" @click="tab='advanced'">Avanzado</button>
+    </div>
+
+    <!-- BRANDING -->
+    <div class="panel" :class="tab==='branding' && 'active'">
+      <h2 style="margin-top:0">Branding</h2>
+      <div class="form-group">
+        <label>Nombre de la empresa</label>
+        <input type="text" x-model="cfg.branding.companyName" maxlength="80" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Logo</label>
+          <select x-model="cfg.branding.logo">
+            <option value="">— Sin logo (usar inicial) —</option>
+            <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg)$/i.test(a.name))" :key="a.name">
+              <option :value="a.url" x-text="a.name"></option>
+            </template>
+          </select>
+          <div class="preview-box" x-show="cfg.branding.logo" style="display:flex;align-items:center;justify-content:center">
+            <img :src="cfg.branding.logo" style="max-height:60px;max-width:200px" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Favicon</label>
+          <select x-model="cfg.branding.favicon">
+            <option value="">— Default —</option>
+            <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg|ico)$/i.test(a.name))" :key="a.name">
+              <option :value="a.url" x-text="a.name"></option>
+            </template>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- THEME -->
+    <div class="panel" :class="tab==='theme' && 'active'">
+      <h2 style="margin-top:0">Tema</h2>
+      <div class="form-group">
+        <label>Tipo de fondo</label>
+        <select x-model="cfg.theme.background.type">
+          <option value="gradient">Gradiente / Color CSS</option>
+          <option value="color">Color sólido</option>
+          <option value="image">Imagen subida</option>
+        </select>
+      </div>
+      <div class="form-group" x-show="cfg.theme.background.type==='image'">
+        <label>Imagen de fondo</label>
+        <select x-model="cfg.theme.background.value">
+          <option value="">— Seleccionar imagen —</option>
+          <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp)$/i.test(a.name))" :key="a.name">
+            <option :value="a.url" x-text="a.name"></option>
+          </template>
+        </select>
+      </div>
+      <div class="form-group" x-show="cfg.theme.background.type!=='image'">
+        <label x-text="cfg.theme.background.type==='color' ? 'Color' : 'CSS (gradient/color)'"></label>
+        <input type="text" x-model="cfg.theme.background.value" :placeholder="cfg.theme.background.type==='color' ? '#0f172a' : 'linear-gradient(135deg, #0f172a, #1e3a8a)'" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Blur (<span x-text="cfg.theme.background.blur"></span>px)</label>
+          <input type="range" min="0" max="40" x-model.number="cfg.theme.background.blur" />
+        </div>
+        <div class="form-group">
+          <label>Overlay opacity (<span x-text="cfg.theme.background.overlay"></span>)</label>
+          <input type="range" min="0" max="1" step="0.05" x-model.number="cfg.theme.background.overlay" />
+        </div>
+        <div class="form-group">
+          <label>Color overlay</label>
+          <input type="color" x-model="cfg.theme.background.overlayColor" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Color de acento</label>
+          <input type="color" x-model="cfg.theme.accentColor" />
+        </div>
+        <div class="form-group">
+          <label>Color de texto</label>
+          <input type="color" x-model="cfg.theme.textColor" />
+        </div>
+        <div class="form-group">
+          <label>Estilo de tarjeta</label>
+          <select x-model="cfg.theme.cardStyle">
+            <option value="glass">Glass (blur)</option>
+            <option value="flat">Flat</option>
+            <option value="outlined">Outlined</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipografía</label>
+          <select x-model="cfg.theme.fontFamily" @change="updateFontUrl()">
+            <option>Inter</option><option>Roboto</option><option>Open Sans</option>
+            <option>Lato</option><option>Poppins</option><option>Montserrat</option>
+            <option>Source Sans 3</option><option>Nunito</option><option>Raleway</option>
+            <option>system-ui</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Modo de color</label>
+          <select x-model="cfg.theme.colorMode">
+            <option value="auto">Auto (según hora)</option>
+            <option value="dark">Oscuro</option>
+            <option value="light">Claro</option>
+          </select>
+        </div>
+      </div>
+
+      <h3>Vista previa</h3>
+      <div class="preview-box" :style="previewStyle()">
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
+          <div :data-style="cfg.theme.cardStyle" :style="`background:${cfg.theme.cardStyle==='glass'?'rgba(255,255,255,0.08)':'transparent'};border:1px solid rgba(255,255,255,0.12);padding:1rem;border-radius:12px;color:${cfg.theme.textColor};min-width:120px;text-align:center`">
+            <div :style="`width:40px;height:40px;border-radius:10px;background:${cfg.theme.accentColor};margin:0 auto 0.4rem;opacity:0.3`"></div>
+            <div style="font-weight:600">Tarjeta</div>
+          </div>
+          <div :data-style="cfg.theme.cardStyle" :style="`background:${cfg.theme.cardStyle==='glass'?'rgba(255,255,255,0.08)':'transparent'};border:1px solid rgba(255,255,255,0.12);padding:1rem;border-radius:12px;color:${cfg.theme.textColor};min-width:120px;text-align:center`">
+            <div :style="`width:40px;height:40px;border-radius:10px;background:${cfg.theme.accentColor};margin:0 auto 0.4rem;opacity:0.5`"></div>
+            <div style="font-weight:600">Ejemplo</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYOUT -->
+    <div class="panel" :class="tab==='layout' && 'active'">
+      <h2 style="margin-top:0">Layout</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Columnas desktop</label>
+          <input type="number" min="2" max="8" x-model.number="cfg.layout.columnsDesktop" />
+        </div>
+        <div class="form-group">
+          <label>Columnas tablet</label>
+          <input type="number" min="2" max="6" x-model.number="cfg.layout.columnsTablet" />
+        </div>
+        <div class="form-group">
+          <label>Columnas mobile</label>
+          <input type="number" min="1" max="3" x-model.number="cfg.layout.columnsMobile" />
+        </div>
+        <div class="form-group">
+          <label>Tamaño de tarjeta</label>
+          <select x-model="cfg.layout.cardSize">
+            <option value="small">Chico</option>
+            <option value="medium">Mediano</option>
+            <option value="large">Grande</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label><input type="checkbox" x-model="cfg.layout.showDescriptions" /> Mostrar descripciones</label>
+      </div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div class="panel" :class="tab==='categories' && 'active'">
+      <h2 style="margin-top:0">Categorías</h2>
+      <p class="muted" style="color:#94a3b8;font-size:0.85rem">Las tarjetas se agrupan por categoría. El id es la clave interna (kebab-case).</p>
+      <div class="card-list">
+        <template x-for="(cat, idx) in cfg.categories" :key="cat.id">
+          <div class="card-item">
+            <div class="info" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;align-items:center">
+              <input type="text" x-model="cat.id" placeholder="id (kebab-case)" @input="markDirty()" />
+              <input type="text" x-model="cat.name" placeholder="Nombre" @input="markDirty()" />
+              <select x-model="cat.icon" @change="markDirty()">
+                <option value="">— ícono —</option>
+                <template x-for="i in builtinIcons" :key="i">
+                  <option :value="i" x-text="i"></option>
+                </template>
+              </select>
+            </div>
+            <button class="btn btn-sm btn-ghost" @click="removeCategory(idx)">×</button>
+          </div>
+        </template>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" @click="addCategory()">+ Agregar categoría</button>
+    </div>
+
+    <!-- CARDS -->
+    <div class="panel" :class="tab==='cards' && 'active'">
+      <h2 style="margin-top:0">Tarjetas</h2>
+      <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;align-items:center">
+        <input type="text" x-model="cardFilter" placeholder="Filtrar tarjetas…" style="max-width:280px" />
+        <button class="btn btn-primary" @click="addCard()">+ Nueva tarjeta</button>
+      </div>
+      <div class="card-list" id="cards-sortable">
+        <template x-for="(card, idx) in filteredCards()" :key="card.id">
+          <div class="card-item" :data-id="card.id">
+            <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
+            <div class="icon-preview">
+              <template x-if="card.icon && (card.icon.includes('/') || card.icon.includes('.'))">
+                <img :src="resolveIcon(card.icon)" />
+              </template>
+              <template x-if="card.icon && !card.icon.includes('/') && !card.icon.includes('.')">
+                <img :src="'/icons/' + card.icon + '.svg'" />
+              </template>
+            </div>
+            <div class="info">
+              <div class="title" x-text="card.title || '(sin título)'"></div>
+              <div class="url" x-text="card.url || ''"></div>
+            </div>
+            <span class="color-dot" :style="`background:${card.color}`"></span>
+            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;color:#94a3b8">
+              <input type="checkbox" x-model="card.enabled" @change="markDirty()" /> Activa
+            </label>
+            <div class="actions">
+              <button class="btn btn-sm btn-ghost" @click="editCard(idx)">Editar</button>
+              <button class="btn btn-sm btn-ghost" @click="removeCard(idx)">×</button>
+            </div>
+          </div>
+        </template>
+      </div>
+      <p x-show="cfg.cards.length===0" class="empty-state">No hay tarjetas. Agregá la primera con "+ Nueva tarjeta".</p>
+    </div>
+
+    <!-- ASSETS -->
+    <div class="panel" :class="tab==='assets' && 'active'">
+      <h2 style="margin-top:0">Assets</h2>
+      <div class="uploader" :class="uploaderDragover && 'dragover'"
+           @click="$refs.fileInput.click()"
+           @dragover.prevent="uploaderDragover=true"
+           @dragleave="uploaderDragover=false"
+           @drop.prevent="handleFileDrop($event)">
+        <p style="margin:0 0 0.5rem">Arrastrá archivos acá o hacé click para subir</p>
+        <small>PNG, JPEG, WebP, SVG, GIF · Logos 1MB · Iconos 512KB · Bg 5MB</small>
+        <input type="file" x-ref="fileInput" accept="image/*" multiple @change="handleFileSelect($event)" hidden />
+      </div>
+      <div class="form-group" style="max-width:240px">
+        <label>Tipo al subir</label>
+        <select x-model="uploadKind">
+          <option value="icon">Icono (128px, ≤512KB)</option>
+          <option value="logo">Logo (512px, ≤1MB)</option>
+          <option value="favicon">Favicon (64px, ≤256KB)</option>
+          <option value="background">Fondo (1920px, ≤5MB)</option>
+        </select>
+      </div>
+
+      <h3>Assets subidos (<span x-text="assets.length"></span>)</h3>
+      <div class="asset-grid">
+        <template x-for="a in assets" :key="a.name">
+          <div class="asset-tile" :class="selectedAsset===a.name && 'selected'">
+            <img :src="a.url" :alt="a.name" loading="lazy" />
+            <div class="name" x-text="a.name"></div>
+            <div class="bytes" x-text="(a.bytes/1024).toFixed(1) + ' KB'"></div>
+            <div class="usage" x-show="a.usedBy.length" x-text="'Usado en: ' + a.usedBy.join(', ')"></div>
+            <div style="display:flex;gap:0.2rem;margin-top:0.4rem;width:100%">
+              <button class="btn btn-sm btn-ghost" style="flex:1;font-size:0.7rem;padding:0.2rem" @click="copyToClipboard(a.url)">Copiar URL</button>
+              <button class="btn btn-sm btn-ghost" style="flex:0 0 auto;font-size:0.7rem;padding:0.2rem 0.4rem" @click="deleteAsset(a.name)" :disabled="a.usedBy.length>0" :title="a.usedBy.length ? 'En uso' : 'Borrar'">🗑</button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- STATUS -->
+    <div class="panel" :class="tab==='status' && 'active'">
+      <h2 style="margin-top:0">Status de las tarjetas</h2>
+      <p class="muted" style="color:#94a3b8;font-size:0.85rem">Ping HEAD a cada URL. Útil para detectar servicios caídos.</p>
+      <button class="btn btn-primary" @click="checkAllStatus()" :disabled="checkingStatus">
+        <span x-show="!checkingStatus">Probar todas</span>
+        <span x-show="checkingStatus" x-cloak>Probando…</span>
+      </button>
+      <div style="margin-top:1rem">
+        <template x-for="r in statusResults" :key="r.id">
+          <div class="health-row">
+            <span class="status-dot" :class="r.ok ? 'ok' : 'bad'"></span>
+            <span x-text="(cfg.cards.find(c=>c.id===r.id)?.title) || r.url"></span>
+            <span style="color:#64748b;font-size:0.75rem" x-text="r.status || r.error"></span>
+            <span class="latency" x-text="r.latencyMs + 'ms'"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- SECURITY -->
+    <div class="panel" :class="tab==='security' && 'active'">
+      <h2 style="margin-top:0">Seguridad</h2>
+      <h3>Cambiar contraseña</h3>
+      <form @submit.prevent="changePassword()" style="max-width:400px">
+        <div class="form-group">
+          <label>Contraseña actual</label>
+          <input type="password" x-model="pwForm.current" required autocomplete="current-password" />
+        </div>
+        <div class="form-group">
+          <label>Nueva contraseña (mín 8)</label>
+          <input type="password" x-model="pwForm.next" required minlength="8" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label>Confirmar</label>
+          <input type="password" x-model="pwForm.confirm" required minlength="8" autocomplete="new-password" />
+        </div>
+        <button type="submit" class="btn btn-primary">Cambiar</button>
+      </form>
+
+      <h3 style="margin-top:2rem">CSRF Token</h3>
+      <p style="color:#94a3b8;font-size:0.85rem">Este token se rota automáticamente al cambiar la contraseña.</p>
+      <code style="display:inline-block;padding:0.4rem 0.7rem;background:#0f172a;border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '—'"></code>
+    </div>
+
+    <!-- ADVANCED -->
+    <div class="panel" :class="tab==='advanced' && 'active'">
+      <h2 style="margin-top:0">Avanzado</h2>
+
+      <h3>Export / Import</h3>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
+        <button class="btn btn-ghost" @click="exportConfig()">Descargar config.json</button>
+        <label class="btn btn-ghost" style="cursor:pointer">
+          Importar config.json
+          <input type="file" accept="application/json" @change="importConfig($event)" hidden />
+        </label>
+      </div>
+
+      <h3>Healthcheck</h3>
+      <button class="btn btn-ghost" @click="checkHealth()">Probar /api/health</button>
+      <pre x-show="healthInfo" x-text="JSON.stringify(healthInfo, null, 2)" style="background:#0f172a;padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
+
+      <h3 style="margin-top:2rem">Reset</h3>
+      <p style="color:#94a3b8;font-size:0.85rem">Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).</p>
+      <button class="btn btn-danger" @click="resetConfig()">Reset a defaults</button>
+    </div>
+
+    <!-- Card editor modal -->
+    <div x-show="editingCard !== null" x-cloak class="modal-backdrop" @click.self="cancelEdit()">
+      <div class="modal" x-show="editingCard !== null">
+        <h2 style="margin-top:0">Editar tarjeta</h2>
+        <form @submit.prevent="saveCard()">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Título</label>
+              <input type="text" x-model="editingCard.title" required maxlength="80" />
+            </div>
+            <div class="form-group">
+              <label>URL</label>
+              <input type="url" x-model="editingCard.url" required placeholder="https://…" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Descripción</label>
+            <textarea x-model="editingCard.description" maxlength="200"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Categoría</label>
+              <select x-model="editingCard.category" required>
+                  <option value="">— seleccionar —</option>
+                  <template x-for="c in cfg.categories" :key="c.id">
+                    <option :value="c.id" x-text="c.name"></option>
+                  </template>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Color</label>
+              <input type="color" x-model="editingCard.color" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Ícono</label>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <input type="text" x-model="editingCard.icon" placeholder="nombre-iconexto o /api/assets/..." style="flex:1" />
+              <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
+            </div>
+            <small style="color:#94a3b8">Íconos predefinidos: chat, briefcase, code, etc. o un asset subido (/api/assets/...)</small>
+            <div class="icon-picker" style="margin-top:0.4rem">
+              <template x-for="i in builtinIcons" :key="i">
+                <button type="button" :class="editingCard.icon===i && 'selected'" @click="editingCard.icon=i; markDirty()" :title="i">
+                  <img :src="'/icons/' + i + '.svg'" :alt="i" />
+                </button>
+              </template>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label><input type="checkbox" x-model="editingCard.openInNewTab" /> Abrir en nueva pestaña</label>
+            </div>
+            <div class="form-group">
+              <label><input type="checkbox" x-model="editingCard.enabled" /> Activa</label>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+            <button type="button" class="btn btn-ghost" @click="cancelEdit()">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alpine.js + Sortable + dashboard logic -->
+  <script is:inline define:vars={{ initialConfig: config, builtinIcons }}>
+    // expose config to adminApp data
+    window.__initialConfig = initialConfig;
+    window.__builtinIcons = builtinIcons;
+  </script>
+  <script>
+    import Alpine from 'alpinejs';
+    import Sortable from 'sortablejs';
+    window.Alpine = Alpine;
+    window.Sortable = Sortable;
+
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('adminApp', () => ({
+        tab: 'cards',
+        cfg: null,
+        original: null,
+        dirty: false,
+        busy: false,
+        assets: [],
+        uploadKind: 'icon',
+        uploaderDragover: false,
+        cardFilter: '',
+        editingCard: null,
+        editingIndex: -1,
+        statusResults: [],
+        checkingStatus: false,
+        healthInfo: null,
+        selectedAsset: null,
+        builtinIcons: window.__builtinIcons || [],
+        pwForm: { current: '', next: '', confirm: '' },
+
+        async init() {
+          this.cfg = structuredClone(window.__initialConfig);
+          this.original = structuredClone(window.__initialConfig);
+          await this.refreshAssets();
+          this.$nextTick(() => this.initSortable());
+        },
+
+        markDirty() { this.dirty = JSON.stringify(this.cfg) !== JSON.stringify(this.original); },
+
+        initSortable() {
+          const el = document.getElementById('cards-sortable');
+          if (!el) return;
+          Sortable.create(el, {
+            handle: '.drag-handle',
+            animation: 150,
+            onEnd: (evt) => {
+              const arr = this.cfg.cards;
+              const [moved] = arr.splice(evt.oldIndex, 1);
+              arr.splice(evt.newIndex, 0, moved);
+              arr.forEach((c, i) => c.order = i);
+              this.markDirty();
+            },
+          });
+        },
+
+        async refreshAssets() {
+          try {
+            const data = await window.hpAdmin.api('GET', '/api/assets');
+            this.assets = data.items || [];
+          } catch (e) { console.error(e); }
+        },
+
+        filteredCards() {
+          if (!this.cfg) return [];
+          const q = this.cardFilter.toLowerCase().trim();
+          const sorted = [...this.cfg.cards].sort((a,b) => a.order - b.order);
+          if (!q) return sorted;
+          return sorted.filter(c =>
+            (c.title || '').toLowerCase().includes(q) ||
+            (c.description || '').toLowerCase().includes(q) ||
+            (c.url || '').toLowerCase().includes(q)
+          );
+        },
+
+        addCard() {
+          if (!this.cfg.categories.length) {
+            window.hpAdmin.toast('Primero creá una categoría', 'error');
+            this.tab = 'categories';
+            return;
+          }
+          this.editingIndex = -1;
+          this.editingCard = {
+            id: 'card-' + Date.now().toString(36),
+            title: 'Nueva tarjeta',
+            description: '',
+            url: 'https://',
+            icon: this.builtinIcons[0] || 'globe',
+            category: this.cfg.categories[0].id,
+            openInNewTab: true,
+            color: this.cfg.theme.accentColor,
+            order: this.cfg.cards.length,
+            enabled: true,
+          };
+        },
+        editCard(idx) {
+          const realIdx = this.cfg.cards.findIndex(c => c.id === this.filteredCards()[idx].id);
+          if (realIdx < 0) return;
+          this.editingIndex = realIdx;
+          this.editingCard = structuredClone(this.cfg.cards[realIdx]);
+        },
+        saveCard() {
+          if (!this.editingCard) return;
+          if (this.editingIndex < 0) {
+            this.cfg.cards.push({ ...this.editingCard });
+          } else {
+            this.cfg.cards[this.editingIndex] = { ...this.editingCard };
+          }
+          this.cancelEdit();
+          this.markDirty();
+        },
+        cancelEdit() { this.editingCard = null; this.editingIndex = -1; },
+        removeCard(idx) {
+          const id = this.filteredCards()[idx].id;
+          if (!confirm('¿Borrar esta tarjeta?')) return;
+          this.cfg.cards = this.cfg.cards.filter(c => c.id !== id);
+          this.markDirty();
+        },
+
+        addCategory() {
+          this.cfg.categories.push({ id: 'cat-' + Date.now().toString(36), name: 'Nueva', icon: 'folder' });
+          this.markDirty();
+        },
+        removeCategory(idx) {
+          if (!confirm('¿Borrar esta categoría? Las tarjetas que la usen quedarán sin categoría.')) return;
+          const id = this.cfg.categories[idx].id;
+          this.cfg.categories.splice(idx, 1);
+          this.cfg.cards.forEach(c => { if (c.category === id) c.category = this.cfg.categories[0]?.id || ''; });
+          this.markDirty();
+        },
+
+        async saveAll() {
+          this.busy = true;
+          try {
+            const updated = await window.hpAdmin.api('PUT', '/api/config', this.cfg);
+            this.cfg = structuredClone(updated);
+            this.original = structuredClone(updated);
+            this.dirty = false;
+            window.hpAdmin.toast('Configuración guardada', 'success');
+            await this.refreshAssets();
+          } catch (e) {
+            window.hpAdmin.toast('Error: ' + e.message, 'error');
+          } finally {
+            this.busy = false;
+          }
+        },
+
+        async reloadConfig() {
+          if (this.dirty && !confirm('Hay cambios sin guardar. ¿Recargar igual?')) return;
+          try {
+            const cfg = await window.hpAdmin.api('GET', '/api/config');
+            this.cfg = structuredClone(cfg);
+            this.original = structuredClone(cfg);
+            this.dirty = false;
+            window.hpAdmin.toast('Recargado', 'success');
+          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+        },
+
+        async handleFileSelect(e) {
+          await this.uploadFiles(e.target.files);
+          e.target.value = '';
+        },
+        async handleFileDrop(e) {
+          this.uploaderDragover = false;
+          await this.uploadFiles(e.dataTransfer.files);
+        },
+        async uploadFiles(files) {
+          for (const file of files) {
+            try {
+              const fd = new FormData();
+              fd.append('file', file);
+              fd.append('kind', this.uploadKind);
+              const res = await fetch('/api/upload', {
+                method: 'POST',
+                headers: { 'x-csrf-token': window.hpAdmin.csrf },
+                body: fd,
+              });
+              if (res.status === 401) { window.location.href = '/admin'; return; }
+              const data = await res.json();
+              if (!res.ok) { window.hpAdmin.toast(file.name + ': ' + (data.error || 'Error'), 'error'); continue; }
+              window.hpAdmin.toast('Subido: ' + data.storedName + ' (' + (data.bytes/1024).toFixed(1) + ' KB)', 'success');
+            } catch (err) {
+              window.hpAdmin.toast(file.name + ': ' + err.message, 'error');
+            }
+          }
+          await this.refreshAssets();
+        },
+
+        async deleteAsset(name) {
+          if (!confirm('¿Borrar ' + name + '?')) return;
+          try {
+            await window.hpAdmin.api('DELETE', '/api/assets', { name });
+            window.hpAdmin.toast('Borrado', 'success');
+            await this.refreshAssets();
+          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+        },
+
+        copyToClipboard(text) {
+          navigator.clipboard?.writeText(text).then(
+            () => window.hpAdmin.toast('URL copiada', 'success'),
+            () => window.hpAdmin.toast('No se pudo copiar', 'error')
+          );
+        },
+
+        async checkAllStatus() {
+          this.checkingStatus = true;
+          this.statusResults = [];
+          try {
+            const data = await window.hpAdmin.api('POST', '/api/status', { ids: this.cfg.cards.filter(c=>c.enabled).map(c=>c.id) });
+            this.statusResults = data.results || [];
+          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+          finally { this.checkingStatus = false; }
+        },
+
+        async changePassword() {
+          if (this.pwForm.next !== this.pwForm.confirm) {
+            window.hpAdmin.toast('Las contraseñas no coinciden', 'error');
+            return;
+          }
+          try {
+            const data = await window.hpAdmin.api('POST', '/api/password', {
+              currentPassword: this.pwForm.current,
+              newPassword: this.pwForm.next,
+            });
+            if (data && data.csrfToken) {
+              window.hpAdmin.csrf = data.csrfToken;
+              document.body.dataset.csrf = data.csrfToken;
+            }
+            this.pwForm = { current: '', next: '', confirm: '' };
+            window.hpAdmin.toast('Contraseña cambiada', 'success');
+          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+        },
+
+        async exportConfig() {
+          try {
+            const cfg = await window.hpAdmin.api('GET', '/api/config');
+            const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `homepage-config-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            window.hpAdmin.toast('Exportado', 'success');
+          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+        },
+
+        async importConfig(e) {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          if (!confirm('Importar reemplazará TODA la configuración actual. ¿Continuar?')) {
+            e.target.value = ''; return;
+          }
+          try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            await window.hpAdmin.api('PUT', '/api/import', data);
+            window.hpAdmin.toast('Importado. Recargando…', 'success');
+            setTimeout(() => location.reload(), 800);
+          } catch (err) {
+            window.hpAdmin.toast('Error: ' + err.message, 'error');
+          } finally { e.target.value = ''; }
+        },
+
+        async resetConfig() {
+          const confirmText = prompt('Esto restaurará la configuración a defaults. Escribí RESET para confirmar:');
+          if (confirmText !== 'RESET') return;
+          try {
+            const cfg = await window.hpAdmin.api('DELETE', '/api/config');
+            this.cfg = structuredClone(cfg);
+            this.original = structuredClone(cfg);
+            this.dirty = false;
+            window.hpAdmin.toast('Reseteado', 'success');
+            await this.refreshAssets();
+          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+        },
+
+        async checkHealth() {
+          try {
+            this.healthInfo = await window.hpAdmin.api('GET', '/api/health');
+          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+        },
+
+        updateFontUrl() {
+          const family = this.cfg.theme.fontFamily;
+          if (family === 'system-ui') {
+            this.cfg.theme.fontUrl = '';
+          } else {
+            this.cfg.theme.fontUrl = `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
+          }
+          this.markDirty();
+        },
+
+        previewStyle() {
+          const t = this.cfg.theme;
+          if (t.background.type === 'image') {
+            return `background-image:url('${t.background.value}');background-size:cover;${t.background.blur>0?`filter:blur(${t.background.blur}px)`:''}`;
+          }
+          return `background:${t.background.value};${t.background.blur>0?`filter:blur(${t.background.blur}px)`:''}`;
+        },
+
+        resolveIcon(icon) {
+          if (!icon) return '';
+          if (icon.startsWith('/') || icon.startsWith('http')) return icon;
+          if (icon.includes('.')) return '/api/assets/' + icon;
+          return '/icons/' + icon + '.svg';
+        },
+      }));
+    });
+    Alpine.start();
+  </script>
+
+  <style is:inline>
+    [x-cloak] { display: none !important; }
+    .dirty-badge { color: #fbbf24; font-size: 0.85rem; }
+    .muted { color: #94a3b8; font-size: 0.85rem; }
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+      padding: 1rem; overflow-y: auto;
+    }
+    .modal {
+      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      padding: 1.5rem; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+    }
+  </style>
+</AdminLayout>

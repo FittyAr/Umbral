@@ -1,0 +1,84 @@
+---
+import '~/styles/global.css';
+import '~/styles/admin.css';
+interface Props {
+  title: string;
+  csrfToken: string | null;
+  isAuthed: boolean;
+  showNav?: boolean;
+}
+const { title, csrfToken, isAuthed, showNav = true } = Astro.props;
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} — Admin</title>
+    <link rel="icon" href="/favicon.svg" />
+    <meta name="robots" content="noindex, nofollow" />
+  </head>
+  <body class="admin-body" data-csrf={csrfToken ?? ''} data-authed={isAuthed ? '1' : '0'}>
+    {showNav && isAuthed && (
+      <nav class="admin-nav">
+        <a href="/" class="nav-home" target="_blank" rel="noopener">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Ver portada
+        </a>
+        <span class="nav-divider"></span>
+        <span class="nav-title">Admin</span>
+        <div class="nav-actions">
+          <button data-action="logout" class="btn-ghost">Cerrar sesión</button>
+        </div>
+      </nav>
+    )}
+    <slot />
+
+    {/* Global admin helpers (Alpine.js, fetch wrapper, toast) */}
+    <script>
+      // Inline auth/fetch wrapper available on every admin page.
+      window.hpAdmin = {
+        csrf: document.body.dataset.csrf || '',
+        authed: document.body.dataset.authed === '1',
+        async api(method, url, body) {
+          const headers = { 'content-type': 'application/json', 'x-csrf-token': this.csrf };
+          const res = await fetch(url, {
+            method,
+            headers,
+            body: body ? JSON.stringify(body) : undefined,
+          });
+          if (res.status === 401) { window.location.href = '/admin'; return null; }
+          if (res.status === 204) return null;
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          return data;
+        },
+        toast(message, type = 'info') {
+          let host = document.getElementById('toast-host');
+          if (!host) {
+            host = document.createElement('div');
+            host.id = 'toast-host';
+            document.body.appendChild(host);
+          }
+          const t = document.createElement('div');
+          t.className = `toast toast-${type}`;
+          t.textContent = message;
+          host.appendChild(t);
+          setTimeout(() => t.classList.add('show'), 10);
+          setTimeout(() => {
+            t.classList.remove('show');
+            setTimeout(() => t.remove(), 300);
+          }, 3500);
+        },
+      };
+      // Wire logout
+      document.addEventListener('click', async (e) => {
+        const target = e.target;
+        if (target && target instanceof Element && target.closest('[data-action="logout"]')) {
+          await fetch('/api/logout', { method: 'POST', headers: { 'x-csrf-token': window.hpAdmin.csrf } });
+          window.location.href = '/admin';
+        }
+      });
+    </script>
+  </body>
+</html>
