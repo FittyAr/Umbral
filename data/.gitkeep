@@ -1,0 +1,2 @@
+# Keep the data dir in git; runtime files (config.json, uploads) are gitignored at the file level.
+# This file should remain.

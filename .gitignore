@@ -6,8 +6,10 @@ dist/
 .astro/
 
 # generated data (volumen Docker / runtime)
-data/
+data/*
 !data/.gitkeep
+!data/uploads/
+data/uploads/*
 
 # env files
 .env
