@@ -1,0 +1,21 @@
+# Caddy config for the homepage app.
+# Used when the optional `caddy` service in docker-compose.yml is enabled.
+#
+# Set DOMAIN in the environment (e.g. home.example.internal).
+# For internal domains without public DNS, you'll need to either:
+#   1) Use a real domain that points to your VPN gateway
+#   2) Use Caddy's internal CA (set email + use --ca to trust it on clients)
+#   3) Put your own reverse proxy / TLS terminator in front of Caddy
+
+{$DOMAIN:home.example.internal} {
+    # If you have a real public domain, uncomment for automatic HTTPS:
+    # tls your-email@example.com
+
+    # For internal networks, you can issue certs with a local CA or just use HTTP.
+    # The simplest internal-only setup is HTTP on a private domain:
+    encode zstd gzip
+    reverse_proxy homepage:4321 {
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {remote_host}
+    }
+}
