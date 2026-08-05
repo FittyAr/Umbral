@@ -4,7 +4,6 @@ import { getConfig } from './config';
 
 export const SESSION_COOKIE = 'hp_session';
 export const CSRF_HEADER = 'x-csrf-token';
-export const SESSION_TTL_HOURS = 24;
 const BCRYPT_COST = 12;
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -30,20 +29,24 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 // ──────────────────────────────────────────────────────────────────────────
 // Session token (signed, opaque, no JWT lib needed)
 // ──────────────────────────────────────────────────────────────────────────
+// Cache the secret at module load so signing and verifying use the SAME value.
+// Generating a new secret per call would invalidate every token on first verify.
+let _secret: string | null = null;
 function getSecret(): string {
+  if (_secret) return _secret;
   const s = process.env.SESSION_SECRET;
-  if (!s || s.length < 16) {
-    // Dev fallback — in prod this is set by docker-compose.
-    if (process.env.NODE_ENV === 'production') {
-      console.warn(
-        '[homepage] SESSION_SECRET not set or too short. Using a random secret (sessions will invalidate on restart).',
-      );
-    }
-    return s && s.length >= 16
-      ? s
-      : crypto.randomBytes(32).toString('hex');
+  if (s && s.length >= 16) {
+    _secret = s;
+    return _secret;
   }
-  return s;
+  // Dev fallback — in prod this is set by docker-compose.
+  if (process.env.NODE_ENV === 'production') {
+    console.warn(
+      '[homepage] SESSION_SECRET not set or too short. Using a random secret (sessions will invalidate on restart).',
+    );
+  }
+  _secret = crypto.randomBytes(32).toString('hex');
+  return _secret;
 }
 
 function sign(payload: string): string {
@@ -100,13 +103,18 @@ export function parseCookie(header: string): Record<string, string> {
   return out;
 }
 
-export function buildSessionCookie(token: string): string {
-  const maxAge = SESSION_TTL_HOURS * 3600;
+export async function buildSessionCookie(token: string): Promise<string> {
+  const cfg = await getConfig();
+  const session = cfg.security.session;
+  const domain = cfg.security.network.cookieDomain;
+  const maxAge = session.ttlHours * 3600;
   const isHttps =
-    process.env.BASE_URL?.startsWith('https://') ||
-    process.env.NODE_ENV === 'production';
+    session.cookieSecure === 'always' ||
+    (session.cookieSecure === 'auto' &&
+      (process.env.BASE_URL?.startsWith('https://') || process.env.NODE_ENV === 'production'));
   const secure = isHttps ? '; Secure' : '';
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict${secure}; Max-Age=${maxAge}`;
+  const domainPart = domain ? `; Domain=${domain}` : '';
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=${session.cookieSameSite}${secure}${domainPart}; Max-Age=${maxAge}`;
 }
 
 export function clearSessionCookie(): string {

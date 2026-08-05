@@ -40,6 +40,42 @@ function defaultConfig(): Config {
       cardSize: 'medium',
       showDescriptions: true,
     },
+    security: {
+      session: {
+        ttlHours: 24,
+        cookieSameSite: 'Lax',
+        cookieSecure: 'auto',
+        rotateCsrfOnLogin: false,
+      },
+      auth: {
+        minPasswordLength: 0,
+        rateLimitMax: 30,
+        rateLimitWindowSec: 60,
+        csrfPolicy: 'mutations',
+      },
+      uploads: {
+        maxBytesLogo: 1 * 1024 * 1024,
+        maxBytesFavicon: 256 * 1024,
+        maxBytesIcon: 512 * 1024,
+        maxBytesBackground: 5 * 1024 * 1024,
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'image/gif'],
+        allowSvg: true,
+        sanitizeSvg: true,
+        processImages: true,
+      },
+      network: {
+        trustForwardedFor: false,
+        trustedProxies: [],
+        cookieDomain: null,
+      },
+      headers: {
+        csp:
+          "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
+        xFrameOptions: 'DENY',
+        referrerPolicy: 'no-referrer',
+        permissionsPolicy: 'camera=(), microphone=(), geolocation=()',
+      },
+    },
     categories: [
       { id: 'com', name: 'Comunicación', icon: 'message-circle' },
       { id: 'prod', name: 'Productividad', icon: 'briefcase' },
@@ -109,15 +145,47 @@ async function loadFresh(): Promise<Config> {
       `config.json está corrupto (JSON inválido). Reparalo o restaurá el volumen. Detalle: ${(err as Error).message}`,
     );
   }
+  // 1) Strict validation pass — if clean, return.
   const result = ConfigSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error(
-      `config.json no cumple el schema: ${result.error.issues
-        .map((i) => `${i.path.join('.')}: ${i.message}`)
-        .join('; ')}`,
-    );
+  if (result.success) return result.data;
+
+  // 2) Migration: if the file is a *partial* config (missing newer sections
+  // like `security` introduced in a later version), merge with defaults and
+  // rewrite the file so subsequent reads are clean.
+  const partial = ConfigSchema.partial().safeParse(parsed);
+  if (partial.success) {
+    const defaults = defaultConfig();
+    const merged: Config = {
+      ...defaults,
+      ...partial.data,
+      // deep-merge the nested objects so we keep what was there
+      branding: { ...defaults.branding, ...(partial.data.branding ?? {}) },
+      theme: {
+        ...defaults.theme,
+        ...(partial.data.theme ?? {}),
+        background: { ...defaults.theme.background, ...(partial.data.theme?.background ?? {}) },
+      },
+      layout: { ...defaults.layout, ...(partial.data.layout ?? {}) },
+      security: { ...defaults.security, ...(partial.data.security ?? {}) },
+      auth: partial.data.auth ?? defaults.auth,
+      _meta: { ...defaults._meta, ...(partial.data._meta ?? {}), updatedAt: new Date().toISOString() },
+    };
+    // Re-validate the merged result.
+    const revalidated = ConfigSchema.safeParse(merged);
+    if (revalidated.success) {
+      const tmp = CONFIG_PATH + '.tmp';
+      await fs.writeFile(tmp, JSON.stringify(revalidated.data, null, 2), 'utf8');
+      await fs.rename(tmp, CONFIG_PATH);
+      return revalidated.data;
+    }
   }
-  return result.data;
+
+  // 3) Hard failure.
+  throw new Error(
+    `config.json no cumple el schema: ${result.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join('; ')}`,
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -146,18 +214,31 @@ export async function getConfig(): Promise<Config> {
 
 export async function saveConfig(update: ConfigUpdate): Promise<Config> {
   const current = await getConfig();
+  // auth y _meta no se pueden actualizar desde el client — el server los
+  // gestiona (auth vía /api/password, _meta se regenera acá). Aunque el
+  // schema los acepte (z.unknown) los descartamos explícitamente.
+  const { auth: _ignoredAuth, _meta: _ignoredMeta, ...cleanUpdate } = update;
   const merged = {
     ...current,
-    ...update,
-    branding: { ...current.branding, ...(update.branding ?? {}) },
+    ...cleanUpdate,
+    branding: { ...current.branding, ...(cleanUpdate.branding ?? {}) },
     theme: {
       ...current.theme,
-      ...(update.theme ?? {}),
-      background: { ...current.theme.background, ...(update.theme?.background ?? {}) },
+      ...(cleanUpdate.theme ?? {}),
+      background: { ...current.theme.background, ...(cleanUpdate.theme?.background ?? {}) },
     },
-    layout: { ...current.layout, ...(update.layout ?? {}) },
-    categories: update.categories ?? current.categories,
-    cards: update.cards ?? current.cards,
+    layout: { ...current.layout, ...(cleanUpdate.layout ?? {}) },
+    security: {
+      ...current.security,
+      ...(cleanUpdate.security ?? {}),
+      session: { ...current.security.session, ...(cleanUpdate.security?.session ?? {}) },
+      auth: { ...current.security.auth, ...(cleanUpdate.security?.auth ?? {}) },
+      uploads: { ...current.security.uploads, ...(cleanUpdate.security?.uploads ?? {}) },
+      network: { ...current.security.network, ...(cleanUpdate.security?.network ?? {}) },
+      headers: { ...current.security.headers, ...(cleanUpdate.security?.headers ?? {}) },
+    },
+    categories: cleanUpdate.categories ?? current.categories,
+    cards: cleanUpdate.cards ?? current.cards,
     _meta: { ...current._meta, updatedAt: new Date().toISOString() },
   };
   // Re-validate the merged result.

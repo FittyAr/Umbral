@@ -17,12 +17,33 @@ export function noContent(extraHeaders?: HeadersInit): Response {
   return new Response(null, { status: 204, headers });
 }
 
-export function applySecurityHeaders(headers: Headers) {
+export interface SecurityHeaderOptions {
+  csp?: string | null;
+  xFrameOptions?: 'DENY' | 'SAMEORIGIN' | 'NONE';
+  referrerPolicy?: string;
+  permissionsPolicy?: string;
+}
+
+/**
+ * Apply security headers to an existing Headers object.
+ * Defaults are strict; if `csp` is null, no CSP header is sent (permissive).
+ * Used by middleware for page responses and by `json()` for API responses.
+ */
+export function applySecurityHeaders(headers: Headers, opts: SecurityHeaderOptions = {}): void {
   if (!headers.has('x-content-type-options')) headers.set('x-content-type-options', 'nosniff');
-  if (!headers.has('referrer-policy')) headers.set('referrer-policy', 'no-referrer');
-  if (!headers.has('x-frame-options')) headers.set('x-frame-options', 'DENY');
-  if (!headers.has('permissions-policy')) {
-    headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=()');
+  if (!headers.has('referrer-policy') && opts.referrerPolicy !== undefined) {
+    headers.set('referrer-policy', opts.referrerPolicy);
+  } else if (!headers.has('referrer-policy')) {
+    headers.set('referrer-policy', 'no-referrer');
+  }
+  if (!headers.has('x-frame-options') && opts.xFrameOptions && opts.xFrameOptions !== 'NONE') {
+    headers.set('x-frame-options', opts.xFrameOptions);
+  }
+  if (!headers.has('permissions-policy') && opts.permissionsPolicy) {
+    headers.set('permissions-policy', opts.permissionsPolicy);
+  }
+  if (opts.csp && !headers.has('content-security-policy')) {
+    headers.set('content-security-policy', opts.csp);
   }
 }
 

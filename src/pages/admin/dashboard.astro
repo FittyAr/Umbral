@@ -33,7 +33,8 @@ const builtinIcons = await getBuiltinIconNames();
       <button class="tab" :class="tab==='cards' && 'active'" @click="tab='cards'">Tarjetas</button>
       <button class="tab" :class="tab==='assets' && 'active'" @click="tab='assets'">Assets</button>
       <button class="tab" :class="tab==='status' && 'active'" @click="tab='status'">Status</button>
-      <button class="tab" :class="tab==='security' && 'active'" @click="tab='security'">Seguridad</button>
+      <button class="tab" :class="tab==='hardening' && 'active'" @click="tab='hardening'">Hardening</button>
+      <button class="tab" :class="tab==='security' && 'active'" @click="tab='security'">Password</button>
       <button class="tab" :class="tab==='advanced' && 'active'" @click="tab='advanced'">Avanzado</button>
     </div>
 
@@ -310,7 +311,149 @@ const builtinIcons = await getBuiltinIconNames();
       </div>
     </div>
 
-    <!-- SECURITY -->
+    <!-- HARDENING -->
+    <div class="panel" :class="tab==='hardening' && 'active'">
+      <h2 style="margin-top:0">Hardening</h2>
+      <p class="muted" style="color:#94a3b8;font-size:0.85rem">
+        Defaults permisivos: la app funciona recién salida de la caja.
+        Endurecé lo que necesites. Los cambios se aplican al guardar.
+      </p>
+
+      <h3 style="margin-top:1.5rem">Sesión y cookies</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Duración (horas)</label>
+          <input type="number" min="1" max="720" x-model.number="cfg.security.session.ttlHours" />
+        </div>
+        <div class="form-group">
+          <label>SameSite</label>
+          <select x-model="cfg.security.session.cookieSameSite">
+            <option value="Lax">Lax (permisivo, default)</option>
+            <option value="Strict">Strict (más seguro)</option>
+            <option value="None">None (requiere Secure)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Secure flag</label>
+          <select x-model="cfg.security.session.cookieSecure">
+            <option value="auto">Auto (recomendado)</option>
+            <option value="always">Siempre</option>
+            <option value="never">Nunca</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.security.session.rotateCsrfOnLogin" /> Rotar CSRF en cada login</label>
+        </div>
+      </div>
+
+      <h3 style="margin-top:1.5rem">Login y CSRF</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Largo mínimo del password</label>
+          <input type="number" min="0" max="128" x-model.number="cfg.security.auth.minPasswordLength" />
+          <small style="color:#94a3b8">0 = sin mínimo (permite passwords cortos legados)</small>
+        </div>
+        <div class="form-group">
+          <label>Rate limit (intentos)</label>
+          <input type="number" min="1" max="10000" x-model.number="cfg.security.auth.rateLimitMax" />
+        </div>
+        <div class="form-group">
+          <label>Rate limit (ventana, seg)</label>
+          <input type="number" min="1" max="3600" x-model.number="cfg.security.auth.rateLimitWindowSec" />
+        </div>
+        <div class="form-group">
+          <label>Política CSRF</label>
+          <select x-model="cfg.security.auth.csrfPolicy">
+            <option value="mutations">Mutations (default, recomendado)</option>
+            <option value="all">Todos los requests</option>
+            <option value="none">Ninguno (no recomendado)</option>
+          </select>
+        </div>
+      </div>
+
+      <h3 style="margin-top:1.5rem">Uploads</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Máx logo (KB)</label>
+          <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesLogo / 1024)" @change="cfg.security.uploads.maxBytesLogo = $event.target.value * 1024" />
+        </div>
+        <div class="form-group">
+          <label>Máx favicon (KB)</label>
+          <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesFavicon / 1024)" @change="cfg.security.uploads.maxBytesFavicon = $event.target.value * 1024" />
+        </div>
+        <div class="form-group">
+          <label>Máx ícono (KB)</label>
+          <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesIcon / 1024)" @change="cfg.security.uploads.maxBytesIcon = $event.target.value * 1024" />
+        </div>
+        <div class="form-group">
+          <label>Máx fondo (KB)</label>
+          <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesBackground / 1024)" @change="cfg.security.uploads.maxBytesBackground = $event.target.value * 1024" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>MIME permitidos (coma-separado)</label>
+          <input type="text" :value="cfg.security.uploads.allowedMimeTypes.join(', ')" @change="cfg.security.uploads.allowedMimeTypes = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.security.uploads.allowSvg" /> Permitir SVG</label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.security.uploads.sanitizeSvg" /> Sanitizar SVG con DOMPurify</label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.security.uploads.processImages" /> Procesar imágenes con sharp</label>
+        </div>
+      </div>
+
+      <h3 style="margin-top:1.5rem">Red</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.security.network.trustForwardedFor" /> Confiar en X-Forwarded-For (sólo con reverse proxy)</label>
+        </div>
+        <div class="form-group">
+          <label>Cookie domain (ej: .example.com)</label>
+          <input type="text" x-model="cfg.security.network.cookieDomain" placeholder="(vacío = sin domain)" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Proxies confiables (uno por línea, informativo)</label>
+        <textarea x-model="cfg.security.network.trustedProxiesText" rows="3" placeholder="10.0.0.1&#10;192.168.1.0/24"></textarea>
+      </div>
+
+      <h3 style="margin-top:1.5rem">Headers de seguridad</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>X-Frame-Options</label>
+          <select x-model="cfg.security.headers.xFrameOptions">
+            <option value="DENY">DENY (recomendado)</option>
+            <option value="SAMEORIGIN">SAMEORIGIN</option>
+            <option value="NONE">NONE (desactivar)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Referrer-Policy</label>
+          <select x-model="cfg.security.headers.referrerPolicy">
+            <option value="no-referrer">no-referrer</option>
+            <option value="same-origin">same-origin</option>
+            <option value="strict-origin-when-cross-origin">strict-origin-when-cross-origin</option>
+            <option value="no-referrer-when-downgrade">no-referrer-when-downgrade</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Content-Security-Policy (vacío = no se envía header)</label>
+        <textarea x-model="cfg.security.headers.csp" rows="4"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Permissions-Policy</label>
+        <input type="text" x-model="cfg.security.headers.permissionsPolicy" />
+      </div>
+    </div>
+
+    <!-- PASSWORD -->
     <div class="panel" :class="tab==='security' && 'active'">
       <h2 style="margin-top:0">Seguridad</h2>
       <h3>Cambiar contraseña</h3>
@@ -427,6 +570,8 @@ const builtinIcons = await getBuiltinIconNames();
 
   <!-- Alpine.js + Sortable + dashboard logic -->
   <script is:inline define:vars={{ initialConfig: config, builtinIcons }}>
+    // Mirror trustedProxies (array) into a text form so the textarea can edit it.
+    initialConfig.security.network.trustedProxiesText = (initialConfig.security.network.trustedProxies || []).join('\n');
     // expose config to adminApp data
     window.__initialConfig = initialConfig;
     window.__builtinIcons = builtinIcons;
@@ -474,6 +619,10 @@ const builtinIcons = await getBuiltinIconNames();
             if (window.hpAdmin) await this.refreshAssets();
           }
           this.$nextTick(() => this.initSortable());
+          // Auto-mark dirty on any cfg change. x-model alone doesn't fire markDirty,
+          // so we deep-watch cfg and re-check after each mutation. Cheap because
+          // we only stringify when something actually changes.
+          this.$watch('cfg', () => this.markDirty());
         },
 
         markDirty() { this.dirty = JSON.stringify(this.cfg) !== JSON.stringify(this.original); },
@@ -572,6 +721,9 @@ const builtinIcons = await getBuiltinIconNames();
         async saveAll() {
           this.busy = true;
           try {
+            // Sync textarea → array before sending.
+            this.cfg.security.network.trustedProxies = (this.cfg.security.network.trustedProxiesText || '')
+              .split('\n').map((s) => s.trim()).filter(Boolean);
             const updated = await window.hpAdmin.api('PUT', '/api/config', this.cfg);
             this.cfg = structuredClone(updated);
             this.original = structuredClone(updated);

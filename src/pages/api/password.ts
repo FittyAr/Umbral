@@ -6,12 +6,18 @@ import { json, error, readJson } from '~/lib/http';
 
 export const prerender = false;
 
-const BodySchema = z.object({
-  currentPassword: z.string().min(1).max(200),
-  newPassword: z.string().min(8, 'Mínimo 8 caracteres').max(200),
-});
-
 export const POST: APIRoute = async ({ request }) => {
+  const cfg = await getConfig();
+  const minLen = cfg.security.auth.minPasswordLength;
+
+  const BodySchema = z.object({
+    currentPassword: z.string().min(1).max(200),
+    newPassword: z
+      .string()
+      .min(Math.max(1, minLen), `Mínimo ${Math.max(1, minLen)} caracteres`)
+      .max(200),
+  });
+
   let body: z.infer<typeof BodySchema>;
   try {
     body = BodySchema.parse(await readJson(request));
@@ -19,7 +25,6 @@ export const POST: APIRoute = async ({ request }) => {
     return error((err as Error).message, 400);
   }
 
-  const cfg = await getConfig();
   if (!cfg.auth) return error('Auth no inicializado', 500);
 
   const bcrypt = await import('bcryptjs');

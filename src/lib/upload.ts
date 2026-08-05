@@ -5,36 +5,41 @@ import sharp from 'sharp';
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import crypto from 'node:crypto';
-import { UPLOADS_DIR } from './config';
+import { UPLOADS_DIR, getConfig } from './config';
+import type { UploadSecurity } from './schema';
 
 export type AssetKind = 'logo' | 'favicon' | 'icon' | 'background';
 
-interface AssetLimits {
-  maxBytes: number;
+interface AssetStatic {
   targetWidth?: number;
-  processAs: 'image' | 'svg' | 'raw';
   outExt: string;
 }
 
-const LIMITS: Record<AssetKind, AssetLimits> = {
-  logo: { maxBytes: 1 * 1024 * 1024, targetWidth: 512, processAs: 'image', outExt: 'webp' },
-  favicon: { maxBytes: 256 * 1024, targetWidth: 64, processAs: 'image', outExt: 'webp' },
-  icon: { maxBytes: 512 * 1024, targetWidth: 128, processAs: 'image', outExt: 'webp' },
-  background: { maxBytes: 5 * 1024 * 1024, targetWidth: 1920, processAs: 'image', outExt: 'webp' },
+/** Static structural limits (resizing, output format). Size limits come from config. */
+const STATIC: Record<AssetKind, AssetStatic> = {
+  logo: { targetWidth: 512, outExt: 'webp' },
+  favicon: { targetWidth: 64, outExt: 'webp' },
+  icon: { targetWidth: 128, outExt: 'webp' },
+  background: { targetWidth: 1920, outExt: 'webp' },
 };
 
-const ALLOWED_MIME = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/svg+xml',
-  'image/gif',
-]);
+function maxBytesFor(kind: AssetKind, sec: UploadSecurity): number {
+  switch (kind) {
+    case 'logo':
+      return sec.maxBytesLogo;
+    case 'favicon':
+      return sec.maxBytesFavicon;
+    case 'icon':
+      return sec.maxBytesIcon;
+    case 'background':
+      return sec.maxBytesBackground;
+  }
+}
 
 // DOMPurify singleton (jsdom is heavy; reuse)
-const window = new JSDOM('').window;
+const jsdomWindow = new JSDOM('').window;
 // @ts-expect-error JSDOM window is structurally compatible
-const purify = createDOMPurify(window);
+const purify = createDOMPurify(jsdomWindow);
 
 export interface ProcessedAsset {
   /** Stored filename (no path), relative to uploads dir. */
@@ -55,38 +60,43 @@ export class UploadError extends Error {
   }
 }
 
-function safeExt(mime: string, processAs: 'image' | 'svg' | 'raw', outExt: string): string {
-  if (processAs === 'image') return outExt;
-  if (mime === 'image/svg+xml') return 'svg';
-  return outExt;
-}
-
 function newStoredName(ext: string): string {
   return `${crypto.randomUUID()}.${ext}`;
 }
 
 async function sanitizeSvg(input: string): Promise<string> {
-  const cleaned = purify.sanitize(input, {
+  return purify.sanitize(input, {
     USE_PROFILES: { svg: true, svgFilters: true },
     FORBID_TAGS: ['script', 'foreignObject'],
     FORBID_ATTR: ['onload', 'onclick', 'onerror', 'onmouseover', 'onfocus'],
   });
-  return cleaned;
+}
+
+/** Minimal script/event removal for the no-sanitize path. */
+function svgNoScripts(input: string): string {
+  return input
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
 }
 
 export async function processAndStore(
   file: File,
   kind: AssetKind,
 ): Promise<ProcessedAsset> {
-  const limits = LIMITS[kind];
-  if (!limits) throw new UploadError(`Tipo de asset inválido: ${kind}`);
+  const limits = STATIC[kind];
+  if (!limits) throw new UploadError(`Tipo de asset inválido: ${kind}`, 400);
 
-  // 1) Size cap (cheap fast-path)
+  const cfg = await getConfig();
+  const sec = cfg.security.uploads;
+  const maxBytes = maxBytesFor(kind, sec);
+  const allowed = new Set(sec.allowedMimeTypes);
+
+  // 1) Size cap
   if (file.size === 0) throw new UploadError('Archivo vacío', 400);
-  if (file.size > limits.maxBytes) {
+  if (file.size > maxBytes) {
     throw new UploadError(
       `Archivo demasiado grande (${(file.size / 1024).toFixed(0)} KB). Máximo ${(
-        limits.maxBytes / 1024
+        maxBytes / 1024
       ).toFixed(0)} KB para ${kind}.`,
       413,
     );
@@ -98,23 +108,33 @@ export async function processAndStore(
   const detected = await fileTypeFromBuffer(buf);
   let mime: string;
 
-  if (kind === 'favicon' || (detected && ALLOWED_MIME.has(detected.mime))) {
-    mime = detected?.mime ?? '';
+  if (detected && allowed.has(detected.mime)) {
+    mime = detected.mime;
   } else {
     // Fallback: check if SVG by content sniff (no magic number for SVG)
     const head = buf.subarray(0, 512).toString('utf8').trimStart();
-    if (head.startsWith('<svg') || head.startsWith('<?xml')) {
+    if (
+      (head.startsWith('<svg') || head.startsWith('<?xml')) &&
+      sec.allowSvg &&
+      allowed.has('image/svg+xml')
+    ) {
       mime = 'image/svg+xml';
     } else {
       throw new UploadError(
-        `Tipo de archivo no permitido. Aceptados: PNG, JPEG, WebP, SVG, GIF.`,
+        `Tipo de archivo no permitido. Aceptados: ${[...allowed].join(', ')}.`,
         415,
       );
     }
   }
 
-  if (!ALLOWED_MIME.has(mime)) {
+  if (!allowed.has(mime)) {
     throw new UploadError(`Tipo no permitido: ${mime}`, 415);
+  }
+  if (mime === 'image/svg+xml' && !sec.allowSvg) {
+    throw new UploadError(
+      'SVG no está permitido (config.security.uploads.allowSvg = false)',
+      415,
+    );
   }
 
   // 3) Process / sanitize
@@ -122,14 +142,14 @@ export async function processAndStore(
   let storedExt: string;
   let sanitized = false;
 
-  if (mime === 'image/svg+xml' || limits.processAs === 'svg') {
-    const svgString = buf.toString('utf8');
-    const cleaned = await sanitizeSvg(svgString);
+  if (mime === 'image/svg+xml') {
+    const cleaned = sec.sanitizeSvg
+      ? await sanitizeSvg(buf.toString('utf8'))
+      : svgNoScripts(buf.toString('utf8'));
     outBuffer = Buffer.from(cleaned, 'utf8');
     storedExt = 'svg';
     sanitized = true;
-  } else {
-    // Raster → resize / re-encode with sharp
+  } else if (sec.processImages) {
     try {
       let pipeline = sharp(buf, { failOn: 'error' }).rotate(); // auto-rotate EXIF
       if (limits.targetWidth) {
@@ -148,12 +168,21 @@ export async function processAndStore(
         400,
       );
     }
+  } else {
+    // No processing — write original bytes.
+    outBuffer = buf;
+    const extMap: Record<string, string> = {
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/webp': 'webp',
+      'image/gif': 'gif',
+    };
+    storedExt = extMap[mime] || 'bin';
   }
 
   // 4) Write to disk
   const storedName = newStoredName(storedExt);
   const target = path.join(UPLOADS_DIR, storedName);
-  // path.resolve guard against path traversal
   const resolved = path.resolve(target);
   const resolvedUploads = path.resolve(UPLOADS_DIR);
   if (!resolved.startsWith(resolvedUploads + path.sep) && resolved !== resolvedUploads) {
@@ -187,12 +216,12 @@ export async function readAsset(name: string): Promise<{ buffer: Buffer; mime: s
       ext === 'svg'
         ? 'image/svg+xml'
         : ext === 'png'
-        ? 'image/png'
-        : ext === 'jpg' || ext === 'jpeg'
-        ? 'image/jpeg'
-        : ext === 'gif'
-        ? 'image/gif'
-        : 'image/webp';
+          ? 'image/png'
+          : ext === 'jpg' || ext === 'jpeg'
+            ? 'image/jpeg'
+            : ext === 'gif'
+              ? 'image/gif'
+              : 'image/webp';
     return { buffer: buf, mime };
   } catch {
     return null;

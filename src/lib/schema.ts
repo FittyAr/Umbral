@@ -88,6 +88,113 @@ export const AuthSchema = z.object({
 });
 
 // ──────────────────────────────────────────────────────────────────────────
+// Security (editables desde /admin → Hardening)
+//
+// Defaults permisivos: la app tiene que "simplemente funcionar" recién salida
+// de la caja. Quien quiera endurecer va a /admin → Hardening.
+// ──────────────────────────────────────────────────────────────────────────
+export const SessionSecuritySchema = z.object({
+  // Duración de la cookie de sesión. Default 24h.
+  ttlHours: z.number().int().min(1).max(720).default(24),
+  // SameSite. Default 'Lax' (más permisivo que 'Strict' para que funcionen
+  // links externos y formularios cross-site razonables). Endurecer a 'Strict'.
+  cookieSameSite: z.enum(['Strict', 'Lax', 'None']).default('Lax'),
+  // Flag Secure. 'auto' = sólo si BASE_URL empieza con https://.
+  // 'always' = forzar siempre (útil en deployments internos con TLS terminado).
+  // 'never' = no marcar nunca.
+  cookieSecure: z.enum(['auto', 'always', 'never']).default('auto'),
+  // Rotar el CSRF token en cada login (mejora seguridad, fuerza re-render del admin).
+  rotateCsrfOnLogin: z.boolean().default(false),
+});
+
+export const AuthSecuritySchema = z.object({
+  // Largo mínimo para nuevos passwords (en /api/password).
+  // 0 = sin mínimo. Default 0 (permisivo, respeta passwords legados cortos).
+  minPasswordLength: z.number().int().min(0).max(128).default(0),
+  // Rate limit en /api/login por IP.
+  rateLimitMax: z.number().int().min(1).max(10000).default(30),
+  rateLimitWindowSec: z.number().int().min(1).max(3600).default(60),
+  // Política CSRF. 'mutations' = POST/PUT/DELETE/PATCH requieren CSRF.
+  // 'all' = también GET (raro, máxima paranoia).
+  // 'none' = desactivado (NO recomendado salvo en LAN aislada).
+  csrfPolicy: z.enum(['mutations', 'all', 'none']).default('mutations'),
+});
+
+export const UploadSecuritySchema = z.object({
+  // Tamaños máximos por tipo de asset (en bytes).
+  maxBytesLogo: z.number().int().min(1024).max(50 * 1024 * 1024).default(1 * 1024 * 1024),
+  maxBytesFavicon: z.number().int().min(1024).max(10 * 1024 * 1024).default(256 * 1024),
+  maxBytesIcon: z.number().int().min(1024).max(20 * 1024 * 1024).default(512 * 1024),
+  maxBytesBackground: z.number().int().min(1024).max(100 * 1024 * 1024).default(5 * 1024 * 1024),
+  // MIME types permitidos (whitelist). Default: lo común para web.
+  // Endurecer: sacar 'image/svg+xml' si no necesitás SVG, o 'image/gif' si no.
+  allowedMimeTypes: z
+    .array(z.string())
+    .default(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'image/gif']),
+  // Permitir SVG. Si lo desactivás, se rechazan todos los SVG subidos.
+  // Si lo permitís, sanitizeSvg decide si pasan por DOMPurify.
+  allowSvg: z.boolean().default(true),
+  sanitizeSvg: z.boolean().default(true),
+  // Procesar imágenes con sharp (resize + WebP). Desactivar ahorra CPU
+  // pero sirve archivos originales sin optimizar.
+  processImages: z.boolean().default(true),
+});
+
+export const NetworkSecuritySchema = z.object({
+  // Confiar en X-Forwarded-For / X-Real-IP para rate limit.
+  // Activar SOLO si hay un reverse proxy en frente que sanea esos headers.
+  // Activar sin proxy = cualquier cliente puede falsificar su IP.
+  trustForwardedFor: z.boolean().default(false),
+  // Lista de IPs/CIDRs confiables (para logging/auditoría). Hoy es informativo.
+  trustedProxies: z.array(z.string()).default([]),
+  // Dominio al que se emite la cookie (default: hostname del request).
+  // Útil si querés compartir sesión entre subdominios ('.example.com').
+  cookieDomain: z.string().nullable().default(null),
+});
+
+export const HeadersSecuritySchema = z.object({
+  // Content-Security-Policy. null = no se envía el header (permisivo).
+  // Endurecer: dejar el default sugerido.
+  //
+  // Nota sobre 'unsafe-eval' en script-src: Alpine.js 3 evalúa expresiones
+  // del estilo x-data, x-show, x-text, etc. con `new Function(...)` /
+  // `new AsyncFunction(...)`. Sin 'unsafe-eval' en la CSP, la consola se
+  // inunda de "EvalError: Evaluating a string as JavaScript violates…".
+  // Para endurecer realmente: usar el build CSP de Alpine (cambia import)
+  // o nonces por request. Por defecto dejamos 'unsafe-eval' para que la app
+  // "simplemente funcione" — quien quiera quitarlo sabe lo que hace.
+  csp: z
+    .string()
+    .nullable()
+    .default(
+      "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
+    ),
+  // X-Frame-Options. DENY por default (anti clickjacking).
+  xFrameOptions: z.enum(['DENY', 'SAMEORIGIN', 'NONE']).default('DENY'),
+  // Referrer-Policy. 'no-referrer' por default.
+  referrerPolicy: z
+    .enum(['no-referrer', 'same-origin', 'strict-origin-when-cross-origin', 'no-referrer-when-downgrade'])
+    .default('no-referrer'),
+  // Permissions-Policy. Default estricto (cámara/mic/geo deshabilitados).
+  permissionsPolicy: z.string().default('camera=(), microphone=(), geolocation=()'),
+});
+
+export const SecuritySchema = z.object({
+  session: SessionSecuritySchema,
+  auth: AuthSecuritySchema,
+  uploads: UploadSecuritySchema,
+  network: NetworkSecuritySchema,
+  headers: HeadersSecuritySchema,
+});
+
+export type Security = z.infer<typeof SecuritySchema>;
+export type SessionSecurity = z.infer<typeof SessionSecuritySchema>;
+export type AuthSecurity = z.infer<typeof AuthSecuritySchema>;
+export type UploadSecurity = z.infer<typeof UploadSecuritySchema>;
+export type NetworkSecurity = z.infer<typeof NetworkSecuritySchema>;
+export type HeadersSecurity = z.infer<typeof HeadersSecuritySchema>;
+
+// ──────────────────────────────────────────────────────────────────────────
 // Top-level Config
 // ──────────────────────────────────────────────────────────────────────────
 export const ConfigSchema = z.object({
@@ -95,6 +202,7 @@ export const ConfigSchema = z.object({
   branding: BrandingSchema,
   theme: ThemeSchema,
   layout: LayoutSchema,
+  security: SecuritySchema,
   categories: z.array(CategorySchema).default([]),
   cards: z.array(CardSchema).default([]),
   auth: AuthSchema.optional(),
@@ -132,8 +240,13 @@ export const ConfigUpdateSchema = z
     branding: BrandingSchema.partial().optional(),
     theme: ThemeSchema.partial().optional(),
     layout: LayoutSchema.partial().optional(),
+    security: SecuritySchema.partial().optional(),
     categories: z.array(CategorySchema).optional(),
     cards: z.array(CardSchema).optional(),
+    // auth y _meta son sólo del server — el client los manda sin querer al
+    // guardar el cfg entero. Aceptamos silenciosamente y los descartamos.
+    auth: z.unknown().optional(),
+    _meta: z.unknown().optional(),
   })
   .strict();
 
