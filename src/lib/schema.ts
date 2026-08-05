@@ -163,8 +163,11 @@ export const UploadSecuritySchema = z.object({
   maxBytesBackground: z.number().int().min(1024).max(100 * 1024 * 1024).default(5 * 1024 * 1024),
   // MIME types permitidos (whitelist). Default: lo común para web.
   // Endurecer: sacar 'image/svg+xml' si no necesitás SVG, o 'image/gif' si no.
+  // BUGFIX: antes aceptaba CUALQUIER string (incluyendo 'text/html'), lo que
+  // permitía a un admin subir HTML y servirlo como página (XSS via cache
+  // del browser o embed directo). Sólo image/*.
   allowedMimeTypes: z
-    .array(z.string())
+    .array(z.string().regex(/^image\//, 'Sólo se permiten MIME types image/*'))
     .default(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'image/gif']),
   // Permitir SVG. Si lo desactivás, se rechazan todos los SVG subidos.
   // Si lo permitís, sanitizeSvg decide si pasan por DOMPurify.

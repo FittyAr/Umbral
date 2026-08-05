@@ -33,12 +33,19 @@ function clientIp(request: Request, trustForwarded: boolean): string {
 }
 
 /** Detecta HTTPS: BASE_URL en env o X-Forwarded-Proto si el admin confió
- *  en el proxy. Sólo lo usamos para HSTS — no para lógica de auth. */
+ *  en el proxy. Sólo lo usamos para HSTS — no para lógica de auth.
+ *
+ *  BUGFIX: X-Forwarded-Proto puede ser "https,http" si el request pasó por
+ *  varios proxies. El primero es el protocolo original del cliente. */
 function detectHttps(request: Request, trustForwarded: boolean): boolean {
   if (process.env.BASE_URL?.startsWith('https://') === true) return true;
   if (trustForwarded) {
     const xfp = request.headers.get('x-forwarded-proto');
-    if (xfp?.toLowerCase() === 'https') return true;
+    if (xfp) {
+      // Tomamos el primer hop (el más cercano al cliente) y limpiamos espacios.
+      const first = xfp.split(',')[0]?.trim().toLowerCase();
+      if (first === 'https') return true;
+    }
   }
   return false;
 }

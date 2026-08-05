@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { UPLOADS_DIR, getConfig } from './config';
+import { UPLOADS_DIR, getConfig, _invalidate as invalidateConfig } from './config';
 
 export interface AssetInfo {
   name: string;
@@ -54,15 +54,41 @@ export async function listAssets(): Promise<AssetInfo[]> {
   return out;
 }
 
+/** Devuelve las referencias al asset en la config (sin leer el filesystem
+ *  entero). Más barato que listAssets() y elimina la TOCTOU entre "chequeo"
+ *  y "unlink" — leemos la config justo antes de borrar. */
+function findAssetRefs(cfg: import('./schema').Config, assetName: string): string[] {
+  const refs: string[] = [];
+  const stripPrefix = (n: string) => n.startsWith('/api/assets/') ? n.replace('/api/assets/', '') : n;
+  if (cfg.branding.logo && stripPrefix(cfg.branding.logo) === assetName) refs.push('branding.logo');
+  if (cfg.branding.favicon && stripPrefix(cfg.branding.favicon) === assetName) refs.push('branding.favicon');
+  cfg.cards.forEach((c, i) => {
+    if (c.icon && stripPrefix(c.icon) === assetName) refs.push(`cards[${i}].icon`);
+  });
+  if (cfg.theme.background.type === 'image') {
+    if (cfg.theme.background.value && stripPrefix(cfg.theme.background.value) === assetName) {
+      refs.push('theme.background');
+    }
+  }
+  return refs;
+}
+
 export async function deleteAsset(name: string): Promise<boolean> {
   if (!name || name.includes('/') || name.includes('\\') || name.includes('..')) return false;
   const full = path.resolve(UPLOADS_DIR, name);
   if (!full.startsWith(path.resolve(UPLOADS_DIR) + path.sep)) return false;
-  // Refuse to delete referenced assets.
-  const all = await listAssets();
-  const meta = all.find((a) => a.name === name);
-  if (meta && meta.usedBy.length > 0) {
-    throw new Error(`Asset en uso: ${meta.usedBy.join(', ')}`);
+  // BUGFIX: TOCTOU entre el check de usedBy y el unlink. Antes leíamos
+  // listAssets() (que cachea config) y después hacíamos unlink — un request
+  // concurrente que actualizara la config entre medio nos dejaba con un
+  // asset borrado y la config apuntando a un archivo inexistente. Ahora
+  // forzamos reload fresco y chequeamos las refs SIN pasar por la lista
+  // completa de assets (más barato y atómico desde el punto de vista del
+  // delete: o el asset está libre y se borra, o está en uso y se rechaza).
+  invalidateConfig();
+  const cfg = await getConfig();
+  const refs = findAssetRefs(cfg, name);
+  if (refs.length > 0) {
+    throw new Error(`Asset en uso: ${refs.join(', ')}`);
   }
   try {
     await fs.unlink(full);

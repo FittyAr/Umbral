@@ -41,14 +41,19 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
     return error('Password incorrecto', 401);
   }
 
-  const token = createSessionToken(cfg.auth.authEpoch ?? 0);
-  let csrfToken = cfg.auth.csrfToken;
-
-  // Optionally rotate CSRF token on successful login (config-driven).
+  // Si rotamos CSRF, hay que hacerlo ANTES de crear el session token, porque
+  // updateAuth() incrementa el authEpoch. Si creamos el token con el epoch
+  // viejo y después rotamos, el token queda con epoch (N) pero la config pasa
+  // a epoch (N+1) → el admin queda logueado pero cualquier request falla
+  // porque el token no matchea el epoch actual. BUGFIX: rotamos primero y
+  // usamos el nuevo epoch para el token.
   if (cfg.security.session.rotateCsrfOnLogin) {
-    csrfToken = generateToken(32);
-    await updateAuth(cfg.auth.passwordHash, csrfToken);
+    const newCsrf = generateToken(32);
+    const updated = await updateAuth(cfg.auth.passwordHash, newCsrf);
+    cfg.auth = updated.auth ?? null;
   }
+  const csrfToken = cfg.auth?.csrfToken ?? '';
+  const token = createSessionToken(cfg.auth?.authEpoch ?? 0);
 
   await audit('login_ok', `ip=${ip}`);
   return json(

@@ -742,10 +742,19 @@ const builtinIcons = await getBuiltinIconNames();
           this.markDirty();
         },
         removeCategory(idx) {
-          if (!confirm('¿Borrar esta categoría? Las tarjetas que la usen quedarán sin categoría.')) return;
+          if (this.cfg.categories.length <= 1) {
+            window.hpAdmin.toast('No podés borrar la última categoría (las tarjetas necesitan una)', 'error');
+            return;
+          }
+          if (!confirm('¿Borrar esta categoría? Las tarjetas que la usen se reasignan a la primera restante.')) return;
           const id = this.cfg.categories[idx].id;
           this.cfg.categories.splice(idx, 1);
-          this.cfg.cards.forEach(c => { if (c.category === id) c.category = this.cfg.categories[0]?.id || ''; });
+          // Reasignar cards huérfanas a la primera categoría que queda. Si por
+          // alguna razón quedó vacía (no debería pasar con el check de arriba),
+          // caemos a string vacío → el save fallará con un error claro del
+          // schema (category: min(1)).
+          const fallback = this.cfg.categories[0]?.id || '';
+          this.cfg.cards.forEach(c => { if (c.category === id) c.category = fallback; });
           this.markDirty();
         },
 

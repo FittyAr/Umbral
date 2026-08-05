@@ -94,11 +94,17 @@ function defaultConfig(): Config {
 // In-memory cache (one process, single instance)
 // ──────────────────────────────────────────────────────────────────────────
 let cache: { config: Config; loadedAt: number } | null = null;
+let seedPromise: Promise<Config> | null = null; // dedupes concurrent seeds
 const CACHE_TTL_MS = 5_000; // read-through TTL to balance freshness and perf
 
 function invalidate() {
   cache = null;
 }
+// Exportado para que otros módulos (assets.ts) puedan forzar reload fresco
+// antes de operaciones que dependen de la config vigente (evita TOCTOU entre
+// un check y un delete). El cache TTL es 5s, suficiente para la mayoría de
+// los casos, pero un delete necesita precisión.
+export const _invalidate = invalidate;
 
 // ──────────────────────────────────────────────────────────────────────────
 // Filesystem helpers
@@ -109,35 +115,51 @@ async function ensureDirs() {
 }
 
 async function seedIfMissing(initialPassword?: string): Promise<Config> {
-  await ensureDirs();
-  try {
-    await fs.access(CONFIG_PATH);
-  } catch {
-    const cfg = defaultConfig();
-    const now = new Date().toISOString();
-    cfg._meta = { createdAt: now, updatedAt: now };
+  // BUGFIX: race entre requests concurrentes en el primer boot. Sin este
+  // guard, dos requests que llegan al mismo tiempo ambos ven "no existe",
+  // ambos escriben un config con diferente password hash (si INITIAL_PASSWORD
+  // cambia entre ellos), y el segundo pisa al primero. Cacheamos la promesa
+  // para que ambos esperen el mismo resultado.
+  if (seedPromise) return seedPromise;
+  seedPromise = (async () => {
+    await ensureDirs();
+    try {
+      await fs.access(CONFIG_PATH);
+    } catch {
+      const cfg = defaultConfig();
+      const now = new Date().toISOString();
+      cfg._meta = { createdAt: now, updatedAt: now };
 
-    // First-run password setup
-    const password = initialPassword || process.env.INITIAL_PASSWORD;
-    cfg.auth = {
-      passwordHash: await hashPassword(password || 'admin'),
-      csrfToken: generateToken(32),
-      authEpoch: 0,
-    };
+      // First-run password setup
+      const password = initialPassword || process.env.INITIAL_PASSWORD;
+      cfg.auth = {
+        passwordHash: await hashPassword(password || 'admin'),
+        csrfToken: generateToken(32),
+        authEpoch: 0,
+      };
 
-    if (!password) {
-      console.warn(
-        '[homepage] No INITIAL_PASSWORD set. Default password is "admin" — change it from /admin ASAP.',
-      );
-    } else {
-      console.log('[homepage] Initial password set from INITIAL_PASSWORD env var.');
+      if (!password) {
+        console.warn(
+          '[homepage] No INITIAL_PASSWORD set. Default password is "admin" — change it from /admin ASAP.',
+        );
+      } else {
+        console.log('[homepage] Initial password set from INITIAL_PASSWORD env var.');
+      }
+
+      await fs.writeFile(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
+      return cfg;
     }
-
-    await fs.writeFile(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
-    return cfg;
+    // File exists; load and validate.
+    return loadFresh();
+  })();
+  try {
+    return await seedPromise;
+  } catch (err) {
+    // Si el seed falló, limpiamos para que el próximo request pueda
+    // reintentar (ej: archivo quedó en estado corrupto transitorio).
+    seedPromise = null;
+    throw err;
   }
-  // File exists; load and validate.
-  return loadFresh();
 }
 
 async function loadFresh(): Promise<Config> {
@@ -174,6 +196,7 @@ async function loadFresh(): Promise<Config> {
   const partial = ConfigSchema.partial().safeParse(parsed);
   if (partial.success) {
     const defaults = defaultConfig();
+    const partialSec = partial.data.security ?? {};
     const merged: Config = {
       ...defaults,
       ...partial.data,
@@ -185,7 +208,19 @@ async function loadFresh(): Promise<Config> {
         background: { ...defaults.theme.background, ...(partial.data.theme?.background ?? {}) },
       },
       layout: { ...defaults.layout, ...(partial.data.layout ?? {}) },
-      security: { ...defaults.security, ...(partial.data.security ?? {}) },
+      // BUGFIX: el merge shallow anterior pisaba el objeto `security` entero
+      // si el partial tenía solo una subsección (ej: { security: { auth:
+      // { rateLimitMax: 5 } } } perdiá session/uploads/network/headers).
+      // Deep-merge igual que theme.
+      security: {
+        ...defaults.security,
+        ...partialSec,
+        session: { ...defaults.security.session, ...(partialSec.session ?? {}) },
+        auth: { ...defaults.security.auth, ...(partialSec.auth ?? {}) },
+        uploads: { ...defaults.security.uploads, ...(partialSec.uploads ?? {}) },
+        network: { ...defaults.security.network, ...(partialSec.network ?? {}) },
+        headers: { ...defaults.security.headers, ...(partialSec.headers ?? {}) },
+      },
       auth: partial.data.auth,  // puede ser undefined; lo regeneramos abajo
       _meta: { ...defaults._meta, ...(partial.data._meta ?? {}), updatedAt: new Date().toISOString() },
     };
@@ -343,32 +378,44 @@ export async function updateAuth(newPasswordHash: string, newCsrf: string): Prom
 const AUDIT_MAX_BYTES = 10 * 1024 * 1024;
 const AUDIT_KEEP_ROTATIONS = 3;
 
+let auditWriteLock: Promise<void> = Promise.resolve();
+
 export async function audit(action: string, detail?: string) {
-  try {
-    await ensureDirs();
-    // Chequeamos tamaño antes de appendear. Cheap, fire-and-forget.
-    let needsRotate = false;
+  // BUGFIX: serializamos TODAS las escrituras del audit log. Antes dos
+  // audit() concurrentes podian ver "needsRotate=false" ambos, los dos
+  // appendeaban, y el archivo pasaba de 10MB. Con la lock, sólo uno chequea
+  // tamaño/rota a la vez; el otro appendea al final de la cola.
+  const myTurn = auditWriteLock.then(async () => {
     try {
-      const st = await fs.stat(AUDIT_LOG_PATH);
-      if (st.size >= AUDIT_MAX_BYTES) needsRotate = true;
-    } catch {
-      // archivo no existe aún, no rotar
-    }
-    if (needsRotate) {
-      // Shift rotaciones: audit.log.2 → audit.log.3, audit.log.1 → audit.log.2, etc.
-      // Borrar la más vieja si excede el keep.
-      const oldest = `${AUDIT_LOG_PATH}.${AUDIT_KEEP_ROTATIONS}`;
-      try { await fs.unlink(oldest); } catch { /* puede no existir */ }
-      for (let i = AUDIT_KEEP_ROTATIONS - 1; i >= 1; i--) {
-        const from = `${AUDIT_LOG_PATH}.${i}`;
-        const to = `${AUDIT_LOG_PATH}.${i + 1}`;
-        try { await fs.rename(from, to); } catch { /* skip */ }
+      await ensureDirs();
+      // Chequeamos tamaño antes de appendear.
+      let needsRotate = false;
+      try {
+        const st = await fs.stat(AUDIT_LOG_PATH);
+        if (st.size >= AUDIT_MAX_BYTES) needsRotate = true;
+      } catch {
+        // archivo no existe aún, no rotar
       }
-      try { await fs.rename(AUDIT_LOG_PATH, `${AUDIT_LOG_PATH}.1`); } catch { /* skip */ }
+      if (needsRotate) {
+        // Shift rotaciones: audit.log.2 → audit.log.3, audit.log.1 → audit.log.2, etc.
+        // Borrar la más vieja si excede el keep. Cada rename puede fallar
+        // en Windows si el destino existe — por eso los try/catch.
+        const oldest = `${AUDIT_LOG_PATH}.${AUDIT_KEEP_ROTATIONS}`;
+        try { await fs.unlink(oldest); } catch { /* puede no existir */ }
+        for (let i = AUDIT_KEEP_ROTATIONS - 1; i >= 1; i--) {
+          const from = `${AUDIT_LOG_PATH}.${i}`;
+          const to = `${AUDIT_LOG_PATH}.${i + 1}`;
+          try { await fs.rename(from, to); } catch { /* skip */ }
+        }
+        try { await fs.rename(AUDIT_LOG_PATH, `${AUDIT_LOG_PATH}.1`); } catch { /* skip */ }
+      }
+      const line = `${new Date().toISOString()}\t${action}\t${detail ?? ''}\n`;
+      await fs.appendFile(AUDIT_LOG_PATH, line, 'utf8');
+    } catch (err) {
+      console.error('[homepage] audit log write failed:', err);
     }
-    const line = `${new Date().toISOString()}\t${action}\t${detail ?? ''}\n`;
-    await fs.appendFile(AUDIT_LOG_PATH, line, 'utf8');
-  } catch (err) {
-    console.error('[homepage] audit log write failed:', err);
-  }
+  });
+  // Encadenamos la siguiente escritura; si esta falla, la lock se libera igual.
+  auditWriteLock = myTurn.catch(() => {});
+  await myTurn;
 }

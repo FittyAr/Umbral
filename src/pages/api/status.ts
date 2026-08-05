@@ -72,14 +72,22 @@ async function isPublicHttpUrl(rawUrl: string): Promise<{ ok: boolean; reason?: 
 
 /** Concurrent health check for a list of card URLs. Used by the admin preview. */
 export const POST: APIRoute = async ({ request }) => {
-  let body: { ids?: string[] };
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return error('JSON inválido', 400);
   }
+  // BUGFIX: antes hacíamos `body.ids.includes(c.id)` sin chequear que ids
+  // sea array. Si el client mandaba { ids: "foo" } o { ids: 42 }, .includes
+  // tiraba TypeError no capturado y el handler devolvía 500 opaco.
+  const ids = (typeof body === 'object' && body !== null && 'ids' in body) ? (body as { ids?: unknown }).ids : undefined;
+  if (ids !== undefined && !Array.isArray(ids)) {
+    return error('ids debe ser array de strings', 400);
+  }
+  const idSet = ids ? new Set(ids.filter((x): x is string => typeof x === 'string')) : undefined;
   const cfg = await getConfig();
-  const targets = cfg.cards.filter((c) => c.enabled && (!body.ids || body.ids.includes(c.id)));
+  const targets = cfg.cards.filter((c) => c.enabled && (!idSet || idSet.has(c.id)));
 
   // Cap total a 50 chequeos para evitar abuso si alguien carga miles de cards.
   const capped = targets.slice(0, 50);
