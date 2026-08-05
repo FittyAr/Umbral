@@ -358,69 +358,71 @@ const builtinIcons = await getBuiltinIconNames();
     </div>
 
     <!-- Card editor modal -->
-    <div x-show="editingCard !== null" x-cloak class="modal-backdrop" @click.self="cancelEdit()">
-      <div class="modal" x-show="editingCard !== null">
-        <h2 style="margin-top:0">Editar tarjeta</h2>
-        <form @submit.prevent="saveCard()">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Título</label>
-              <input type="text" x-model="editingCard.title" required maxlength="80" />
+    <template x-if="editingCard !== null">
+      <div class="modal-backdrop" @click.self="cancelEdit()">
+        <div class="modal">
+          <h2 style="margin-top:0">Editar tarjeta</h2>
+          <form @submit.prevent="saveCard()">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Título</label>
+                <input type="text" x-model="editingCard.title" required maxlength="80" />
+              </div>
+              <div class="form-group">
+                <label>URL</label>
+                <input type="url" x-model="editingCard.url" required placeholder="https://…" />
+              </div>
             </div>
             <div class="form-group">
-              <label>URL</label>
-              <input type="url" x-model="editingCard.url" required placeholder="https://…" />
+              <label>Descripción</label>
+              <textarea x-model="editingCard.description" maxlength="200"></textarea>
             </div>
-          </div>
-          <div class="form-group">
-            <label>Descripción</label>
-            <textarea x-model="editingCard.description" maxlength="200"></textarea>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Categoría</label>
-              <select x-model="editingCard.category" required>
-                  <option value="">— seleccionar —</option>
-                  <template x-for="c in cfg.categories" :key="c.id">
-                    <option :value="c.id" x-text="c.name"></option>
-                  </template>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Color</label>
-              <input type="color" x-model="editingCard.color" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Ícono</label>
-            <div style="display:flex;gap:0.5rem;align-items:center">
-              <input type="text" x-model="editingCard.icon" placeholder="nombre-iconexto o /api/assets/..." style="flex:1" />
-              <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
-            </div>
-            <small style="color:#94a3b8">Íconos predefinidos: chat, briefcase, code, etc. o un asset subido (/api/assets/...)</small>
-            <div class="icon-picker" style="margin-top:0.4rem">
-              <template x-for="i in builtinIcons" :key="i">
-                <button type="button" :class="editingCard.icon===i && 'selected'" @click="editingCard.icon=i; markDirty()" :title="i">
-                  <img :src="'/icons/' + i + '.svg'" :alt="i" />
-                </button>
-              </template>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label><input type="checkbox" x-model="editingCard.openInNewTab" /> Abrir en nueva pestaña</label>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Categoría</label>
+                <select x-model="editingCard.category" required>
+                    <option value="">— seleccionar —</option>
+                    <template x-for="c in cfg.categories" :key="c.id">
+                      <option :value="c.id" x-text="c.name"></option>
+                    </template>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Color</label>
+                <input type="color" x-model="editingCard.color" />
+              </div>
             </div>
             <div class="form-group">
-              <label><input type="checkbox" x-model="editingCard.enabled" /> Activa</label>
+              <label>Ícono</label>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <input type="text" x-model="editingCard.icon" placeholder="nombre-iconexto o /api/assets/..." style="flex:1" />
+                <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
+              </div>
+              <small style="color:#94a3b8">Íconos predefinidos: chat, briefcase, code, etc. o un asset subido (/api/assets/...)</small>
+              <div class="icon-picker" style="margin-top:0.4rem">
+                <template x-for="i in builtinIcons" :key="i">
+                  <button type="button" :class="editingCard.icon===i && 'selected'" @click="editingCard.icon=i; markDirty()" :title="i">
+                    <img :src="'/icons/' + i + '.svg'" :alt="i" />
+                  </button>
+                </template>
+              </div>
             </div>
-          </div>
-          <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
-            <button type="button" class="btn btn-ghost" @click="cancelEdit()">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Guardar</button>
-          </div>
-        </form>
+            <div class="form-row">
+              <div class="form-group">
+                <label><input type="checkbox" x-model="editingCard.openInNewTab" /> Abrir en nueva pestaña</label>
+              </div>
+              <div class="form-group">
+                <label><input type="checkbox" x-model="editingCard.enabled" /> Activa</label>
+              </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+              <button type="button" class="btn btn-ghost" @click="cancelEdit()">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </template>
   </div>
 
   <!-- Alpine.js + Sortable + dashboard logic -->
@@ -453,12 +455,24 @@ const builtinIcons = await getBuiltinIconNames();
         healthInfo: null,
         selectedAsset: null,
         builtinIcons: window.__builtinIcons || [],
+        csrfToken: (document.body.dataset.csrf || ''),
         pwForm: { current: '', next: '', confirm: '' },
 
         async init() {
           this.cfg = structuredClone(window.__initialConfig);
           this.original = structuredClone(window.__initialConfig);
-          await this.refreshAssets();
+          // Defer refreshAssets until after the page's hpAdmin is defined.
+          // AdminLayout's inline script defines it; this module script may run
+          // before or after that depending on Vite's module loading order.
+          if (window.hpAdmin) {
+            await this.refreshAssets();
+          } else {
+            // Retry a few times in case the inline script hasn't parsed yet.
+            for (let i = 0; i < 5 && !window.hpAdmin; i++) {
+              await new Promise((r) => setTimeout(r, 20));
+            }
+            if (window.hpAdmin) await this.refreshAssets();
+          }
           this.$nextTick(() => this.initSortable());
         },
 

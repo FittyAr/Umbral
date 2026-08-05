@@ -35,13 +35,16 @@ const { title, csrfToken, isAuthed, showNav = true } = Astro.props;
     <slot />
 
     {/* Global admin helpers (Alpine.js, fetch wrapper, toast) */}
-    <script>
-      // Inline auth/fetch wrapper available on every admin page.
+    <script is:inline>
+      // Define window.hpAdmin BEFORE any module scripts run.
+      // Using is:inline so Vite doesn't bundle/move this — guarantees it executes
+      // synchronously during HTML parsing, before the page's module script imports.
       window.hpAdmin = {
         csrf: document.body.dataset.csrf || '',
         authed: document.body.dataset.authed === '1',
         async api(method, url, body) {
-          const headers = { 'content-type': 'application/json', 'x-csrf-token': this.csrf };
+          const csrf = this.csrf;
+          const headers = { 'content-type': 'application/json', 'x-csrf-token': csrf };
           const res = await fetch(url, {
             method,
             headers,
