@@ -50,7 +50,10 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   if (cfg.security.session.rotateCsrfOnLogin) {
     const newCsrf = generateToken(32);
     const updated = await updateAuth(cfg.auth.passwordHash, newCsrf);
-    cfg.auth = updated.auth ?? null;
+    // `updated.auth` is `Auth | undefined` per the Config schema; assign
+    // explicitly via the field rather than `cfg.auth = ... ?? null` to
+    // avoid the null/undefined type mismatch.
+    if (updated.auth) cfg.auth = updated.auth;
   }
   const csrfToken = cfg.auth?.csrfToken ?? '';
   const token = createSessionToken(cfg.auth?.authEpoch ?? 0);

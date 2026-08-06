@@ -216,7 +216,10 @@ async function loadFresh(): Promise<Config> {
   const partial = ConfigSchema.partial().safeParse(parsed);
   if (partial.success) {
     const defaults = defaultConfig();
-    const partialSec = partial.data.security ?? {};
+    // `partial()` over `ConfigSchema` infers `{}` for nested objects, so the
+    // optional `security` here is typed as `{}`. Cast to `Partial<Security>`
+    // so the deep-merge below type-checks against the real keys.
+    const partialSec = (partial.data.security ?? {}) as Partial<Config['security']>;
     const merged: Config = {
       ...defaults,
       ...partial.data,

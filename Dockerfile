@@ -45,6 +45,11 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app/dist ./dist
 COPY --from=builder --chown=app:app /app/node_modules ./node_modules
 COPY --from=builder --chown=app:app /app/package.json ./package.json
+# Documentation folder — mounted at runtime by src/pages/docs/*.astro via
+# process.cwd()/docs. We bundle it into the image so /docs works out of the
+# box without needing a host bind-mount. The folder is read-only at runtime
+# (the app never writes to it), so no volume is needed.
+COPY --from=builder --chown=app:app /app/docs ./docs
 
 # Pre-create writable dirs (these are the only writable points in the container)
 RUN mkdir -p /app/data/uploads && chown -R app:app /app/data

@@ -16,5 +16,8 @@ export const GET: APIRoute = async ({ params }) => {
   applySecurityHeaders(headers);
   // Allow inline SVG only for trusted (own) origin
   headers.set('x-content-type-options', 'nosniff');
-  return new Response(result.buffer, { headers });
+  // Cast Buffer → BodyInit. Node's Buffer extends Uint8Array which is a
+  // valid BodyInit; the type mismatch is from lib.dom's narrower BodyInit
+  // union that predates the Node Buffer type.
+  return new Response(result.buffer as unknown as BodyInit, { headers });
 };

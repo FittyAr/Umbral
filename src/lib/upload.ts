@@ -38,7 +38,6 @@ function maxBytesFor(kind: AssetKind, sec: UploadSecurity): number {
 
 // DOMPurify singleton (jsdom is heavy; reuse)
 const jsdomWindow = new JSDOM('').window;
-// @ts-expect-error JSDOM window is structurally compatible
 const purify = createDOMPurify(jsdomWindow);
 
 export interface ProcessedAsset {

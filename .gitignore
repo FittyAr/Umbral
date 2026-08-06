@@ -2,6 +2,8 @@
 # one-off rebrand scripts (can be deleted)
 rename-umbral.ps1
 rename-umbral-2.ps1
+# update script backups
+.update-backups/
 # dependencies
 node_modules/
 

@@ -27,6 +27,8 @@ Pensado para intranets detrás de VPN, equipos chicos, sysadmins que prefieren *
 
 ## Quick start (Docker)
 
+La imagen oficial está en `ghcr.io/fittyar/umbral` (multi-arch: `linux/amd64` y `linux/arm64`).
+
 ```bash
 docker run -d \
   --name umbral \
@@ -35,14 +37,14 @@ docker run -d \
   -e SESSION_SECRET="$(openssl rand -hex 32)" \
   -v umbral-data:/app/data \
   --restart unless-stopped \
-  umbral:latest
+  ghcr.io/fittyar/umbral:latest
 ```
 
 - **Portada:** <http://localhost:3000>
 - **Admin:** <http://localhost:3000/admin> (login con `cambiame`, cambiala ya)
-- **Docs:** <http://localhost:3000/docs> (auto-generadas desde `docs/`)
+- **Docs:** <http://localhost:3000/docs> (auto-generadas desde `docs/`, incluidas en la imagen)
 
-Si tenés `docker-compose`:
+Si preferís `docker-compose`:
 
 ```bash
 git clone https://github.com/FittyAr/Umbral.git umbral && cd umbral
@@ -165,6 +167,102 @@ docker run --rm -v umbral-data:/data -v $(pwd):/backup alpine \
 ```
 
 Ver [Backup y restore](./docs/usage/backup.md) para restore, automatización, off-site, etc.
+
+## Actualizar
+
+El flujo oficial es **pull + restart** preservando `data/`. Hay un script que detecta el modo automáticamente:
+
+```bash
+# Linux / macOS
+./scripts/update.sh                # a :latest
+./scripts/update.sh v1.2.0         # a un tag específico
+```
+
+```powershell
+# Windows
+.\scripts\update.ps1
+.\scripts\update.ps1 -Tag v1.2.0
+```
+
+El script:
+
+1. Detecta si usás **docker compose**, **docker run**, o **local** (`node_modules` + `dist` presentes).
+2. **Backup defensivo** del `config.json` a `.update-backups/<timestamp>/`.
+3. Pull de la nueva imagen (o `git pull` + `npm ci` + build en modo local).
+4. Restart del proceso, **sin tocar el volumen** `data/`.
+5. Si pinneás una versión (ej: `v1.2.0`), la escribe en `docker-compose.yml` para que el próximo `docker compose pull` la respete (en vez de saltar a :latest).
+
+> ⚠️ **El volumen `data/` NUNCA se borra ni se reemplaza.** Tu config, uploads y audit log están a salvo. El script sólo hace backup extra por si las dudas.
+
+### Manualmente, sin script
+
+**Docker compose:**
+```bash
+docker compose pull           # baja :latest
+docker compose up -d          # reinicia con la imagen nueva
+# O para fijar versión:
+sed -i 's/:latest/:v1.2.0/' docker-compose.yml   # Linux
+docker compose pull && docker compose up -d
+```
+
+**Docker run (sin compose):**
+```bash
+docker pull ghcr.io/fittyar/umbral:latest
+docker stop umbral && docker rm umbral
+docker run -d --name umbral -p 3000:4321 \
+  -e SESSION_SECRET="$(openssl rand -hex 32)" \
+  -v umbral-data:/app/data \
+  --restart unless-stopped \
+  ghcr.io/fittyar/umbral:latest
+```
+
+**Local (bare-metal):**
+```bash
+git pull
+npm ci
+npm run build
+sudo systemctl restart umbral    # o el método que uses (NSSM, pm2, etc.)
+```
+
+### Versiones disponibles
+
+Las imágenes en GHCR se taggean así:
+
+| Tag | Apunta a | Cuándo se actualiza |
+|---|---|---|
+| `latest` | Última release de `main` | En cada push de tag `v*.*.*` a la rama default |
+| `v1.2.0` (ejemplo) | Release específico | Inmutable |
+| `1` | Última minor de major 1 | En cada nueva 1.x |
+| `1.2` | Última patch de 1.2 | En cada nueva 1.2.x |
+| `sha-abc1234` | Build por SHA | Útil para debuggear un commit específico |
+
+**Fijar una versión** (recomendado en producción para no sorprenderte con breaking changes):
+```yaml
+# docker-compose.yml
+services:
+  umbral:
+    image: ghcr.io/fittyar/umbral:v1.2.0   # en vez de :latest
+```
+
+### Antes de actualizar
+
+- Revisá el [CHANGELOG.md](./CHANGELOG.md) por breaking changes entre tu versión actual y la nueva.
+- Si vas a un major (ej: `1.x` → `2.x`), **hacé backup completo de `data/`** primero ([guía](./docs/usage/backup.md)). Los majors pueden cambiar el schema del config.
+- Para minors y patches (recomendado), con el script alcanza — el `data/` se preserva solo.
+
+### Cómo se publican las releases
+
+1. Alguien mergea cambios a `main` (vía PR).
+2. El CI corre (build + smoke test) en cada push.
+3. Para publicar una release, se taggea `main` con `vX.Y.Z` y se pushea:
+   ```bash
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+4. El workflow `.github/workflows/release.yml` se dispara:
+   - Build multi-arch (`linux/amd64` + `linux/arm64`).
+   - Push a `ghcr.io/fittyar/umbral` con los tags de la tabla de arriba.
+   - Crea un [GitHub Release](https://github.com/FittyAr/Umbral/releases) con notas auto-generadas de los PRs mergeados.
 
 ## Estructura del proyecto
 

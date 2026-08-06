@@ -1,0 +1,60 @@
+name: CI
+
+# Build + smoke test en cada PR y push a main. No pushea imágenes.
+# El workflow de release es el que genera y pushea la imagen a GHCR.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build + smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons
+        run: npm run gen:icons
+
+      - name: Build
+        run: npm run build
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Smoke test
+        env:
+          INITIAL_PASSWORD: ci-test-1234
+          SESSION_SECRET: ci-test-secret-which-is-long-enough-for-the-app
+          NODE_ENV: production
+          PORT: 4321
+        run: |
+          # Arranca el server en background, espera, prueba, mata.
+          node ./dist/server/entry.mjs &
+          SERVER_PID=$!
+          sleep 4
+          echo "--- GET / ---"
+          curl -fsS -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:4321/
+          echo "--- GET /api/health ---"
+          curl -fsS http://127.0.0.1:4321/api/health
+          echo ""
+          echo "--- GET /docs ---"
+          curl -fsS -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:4321/docs
+          echo "--- GET /docs/install/quickstart ---"
+          curl -fsS -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:4321/docs/install/quickstart
+          kill $SERVER_PID 2>/dev/null || true
+          wait $SERVER_PID 2>/dev/null || true
