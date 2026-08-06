@@ -1,4 +1,4 @@
-﻿# Quickstart Docker
+# Quickstart Docker
 
 > **Tiempo total: 2 minutos.** Si ya tenés Docker instalado, copiá y pegá.
 
@@ -6,26 +6,26 @@
 
 ```bash
 docker run -d \
-  --name atajo \
+  --name umbral \
   -p 3000:4321 \
   -e INITIAL_PASSWORD=cambiame \
   -e SESSION_SECRET="$(openssl rand -hex 32)" \
   -v umbral-data:/app/data \
   --restart unless-stopped \
-  ghcr.io/<user>/umbral:latest
+  ghcr.io/FittyAr/Umbral:latest
 ```
 
-Si todavía no tenés la imagen (`ghcr.io/<user>/umbral:latest`), reemplazá esa línea por la imagen local que construiste con `docker build`, o usá la imagen que viene en el repo de tu organización.
+Si todavía no tenés la imagen (`ghcr.io/FittyAr/Umbral:latest`), reemplazá esa línea por la imagen local que construiste con `docker build`, o usá la imagen que viene en el repo de tu organización.
 
 Si querés probar **sin generar SESSION_SECRET** (sólo para development, **no para producción**):
 
 ```bash
 docker run -d \
-  --name atajo \
+  --name umbral \
   -p 3000:4321 \
   -e INITIAL_PASSWORD=cambiame \
   -v umbral-data:/app/data \
-  ghcr.io/<user>/umbral:latest
+  ghcr.io/FittyAr/Umbral:latest
 ```
 
 El server te va a loguear un warning diciendo que el secret es débil. Para producción usá siempre el primer comando.

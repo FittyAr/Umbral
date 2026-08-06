@@ -1,4 +1,4 @@
-﻿# Backup y restore
+# Backup y restore
 
 > La carpeta `data/` es lo **único** que necesitás backupear. Todo lo demás se regenera de los assets subidos + la config.
 
@@ -70,7 +70,7 @@ docker run --rm -v umbral-data:/data -v ${PWD}:/backup alpine tar czf /backup/um
 
 ```cron
 # Diario a las 3am, conserva 7 días
-0 3 * * * cd /opt/umbral && /usr/local/bin/docker run --rm -v umbral-data:/data -v /backups/atajo:/backup alpine tar czf /backup/data-$(date +\%F).tgz -C /data . && find /backups/atajo -name "data-*.tgz" -mtime +7 -delete
+0 3 * * * cd /opt/umbral && /usr/local/bin/docker run --rm -v umbral-data:/data -v /backups/umbral:/backup alpine tar czf /backup/data-$(date +\%F).tgz -C /data . && find /backups/umbral -name "data-*.tgz" -mtime +7 -delete
 ```
 
 #### Task Scheduler (Windows)
@@ -78,9 +78,9 @@ docker run --rm -v umbral-data:/data -v ${PWD}:/backup alpine tar czf /backup/um
 1. Crear `backup-umbral.ps1`:
    ```powershell
    $date = Get-Date -Format "yyyy-MM-dd"
-   docker run --rm -v umbral-data:/data -v C:\backups\atajo:/backup alpine tar czf /backup/data-$date.tgz -C /data .
+   docker run --rm -v umbral-data:/data -v C:\backups\umbral:/backup alpine tar czf /backup/data-$date.tgz -C /data .
    # Limpiar backups > 7 días
-   Get-ChildItem C:\backups\atajo\data-*.tgz | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } | Remove-Item
+   Get-ChildItem C:\backups\umbral\data-*.tgz | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } | Remove-Item
    ```
 2. Task Scheduler → New Task → Trigger diario 3am → Action: `powershell.exe -File C:\scripts\backup-umbral.ps1`.
 
@@ -170,7 +170,7 @@ Sugerencias según criticidad:
 # backup-umbral.sh
 #!/bin/bash
 set -e
-BACKUP_DIR=/backups/atajo
+BACKUP_DIR=/backups/umbral
 mkdir -p $BACKUP_DIR
 docker run --rm -v umbral-data:/data -v $BACKUP_DIR:/backup alpine \
   tar czf $BACKUP_DIR/daily-$(date +\%F).tgz -C /data .
@@ -219,7 +219,7 @@ Para no perder el backup si se rompe el disco del server:
 
 - **S3 / S3-compatible** (MinIO, Backblaze B2, Wasabi):
   ```bash
-  aws s3 cp /backups/umbral/daily-2024-03-22.tgz s3://mi-bucket/atajo/
+  aws s3 cp /backups/umbral/daily-2024-03-22.tgz s3://mi-bucket/umbral/
   ```
 - **rsync a otro server:**
   ```bash
@@ -227,7 +227,7 @@ Para no perder el backup si se rompe el disco del server:
   ```
 - **rclone** (Google Drive, Dropbox, OneDrive, etc):
   ```bash
-  rclone copy /backups/atajo remote:atajo-backups
+  rclone copy /backups/umbral remote:umbral-backups
   ```
 
 ## Resumen rápido

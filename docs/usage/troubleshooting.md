@@ -1,6 +1,6 @@
-﻿# Troubleshooting
+# Troubleshooting
 
-> Errores comunes y soluciones. Si tu problema no está acá, revisá `docker logs umbral` o `journalctl -u atajo` (la app loguea el error exacto).
+> Errores comunes y soluciones. Si tu problema no está acá, revisá `docker logs umbral` o `journalctl -u umbral` (la app loguea el error exacto).
 
 ---
 
@@ -9,7 +9,7 @@
 **Causa:** el container está arrancando o falló.
 
 ```bash
-docker ps -a | grep atajo
+docker ps -a | grep umbral
 docker logs umbral
 ```
 
@@ -315,10 +315,10 @@ healthcheck:
 
 ## Problema no listado
 
-1. **Logs del container:** `docker logs umbral 2>&1 | tail -50` (o `journalctl -u atajo -n 50`).
+1. **Logs del container:** `docker logs umbral 2>&1 | tail -50` (o `journalctl -u umbral -n 50`).
 2. **Healthcheck manual:** `curl -v http://localhost:3000/api/health`.
 3. **Disco lleno:** `df -h` (el container puede haber dejado de escribir el audit log).
-4. **Memoria:** `docker stats atajo` (si llegó al límite, OOM killer lo mató — los logs van a decir `Killed`).
+4. **Memoria:** `docker stats umbral` (si llegó al límite, OOM killer lo mató — los logs van a decir `Killed`).
 
 Si nada de eso da pistas, abrí un issue con:
 - Versión de la app (de `package.json` o el tag de la imagen).

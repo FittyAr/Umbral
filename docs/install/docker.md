@@ -1,11 +1,11 @@
-﻿# Docker — Setup completo
+# Docker — Setup completo
 
 Setup de producción con `docker-compose.yml`, variables de entorno, healthcheck y volúmenes persistentes.
 
 ## Prerequisitos
 
 - Docker 20.10+ y Docker Compose v2
-- Un directorio para el proyecto (ej: `~/atajo` o `/opt/umbral`)
+- Un directorio para el proyecto (ej: `~/umbral` o `/opt/umbral`)
 
 ## 1. Clonar / bajar los archivos
 
@@ -17,7 +17,7 @@ mkdir umbral && cd umbral
 Si tenés git:
 
 ```bash
-git clone <repo-url> umbral
+git clone https://github.com/FittyAr/Umbral.git umbral
 cd umbral
 ```
 
@@ -103,7 +103,7 @@ El que viene en el repo:
 
 ```yaml
 services:
-  atajo:
+  umbral:
     build: .
     image: umbral:latest
     container_name: umbral
@@ -144,7 +144,7 @@ volumes:
 - **`cap_drop: ALL`** + **`no-new-privileges: true`** — el container no puede escalar privilegios ni cargar capabilities del kernel.
 - **Usuario no-root** dentro del container (definido en el Dockerfile con `USER app`).
 - **Healthcheck** que Docker usa para saber si el container está sano.
-- **Volumen `atajo-data`** montado en `/app/data` — la única cosa que necesitás backupear.
+- **Volumen `umbral-data`** montado en `/app/data` — la única cosa que necesitás backupear.
 
 ## Variables de entorno
 

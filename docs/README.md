@@ -48,13 +48,13 @@ Si querés probarlo ya:
 
 ```bash
 docker run -d \
-  --name atajo \
+  --name umbral \
   -p 3000:4321 \
   -e INITIAL_PASSWORD=cambiame \
   -e SESSION_SECRET=$(openssl rand -hex 32) \
   -v umbral-data:/app/data \
   --restart unless-stopped \
-  ghcr.io/<user>/umbral:latest
+  ghcr.io/FittyAr/Umbral:latest
 ```
 
 Abre <http://localhost:3000>, andá a `/admin`, login con `cambiame`, y cambialo.

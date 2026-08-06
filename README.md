@@ -45,7 +45,7 @@ docker run -d \
 Si tenés `docker-compose`:
 
 ```bash
-git clone <repo-url> umbral && cd umbral
+git clone https://github.com/FittyAr/Umbral.git umbral && cd umbral
 cp .env.example .env   # editar SESSION_SECRET e INITIAL_PASSWORD
 docker compose up -d
 ```

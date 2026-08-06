@@ -1,4 +1,4 @@
-﻿# Nginx / Traefik — reverse proxies alternativos
+# Nginx / Traefik — reverse proxies alternativos
 
 > Si preferís no usar Caddy, Nginx y Traefik son las otras opciones mainstream. Nginx es el clásico; Traefik brilla cuando ya tenés Docker swarm / k8s.
 
@@ -85,7 +85,7 @@ sudo certbot renew --dry-run
 
 ```yaml
 services:
-  atajo:
+  umbral:
     build: .
     image: umbral:latest
     expose: ["4321"]   # sólo accesible desde otros containers
@@ -93,7 +93,7 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
-    depends_on: [atajo]
+    depends_on: [umbral]
     ports:
       - "80:80"
       - "443:443"
@@ -144,7 +144,7 @@ services:
       - traefik-cert:/letsencrypt
     restart: unless-stopped
 
-  atajo:
+  umbral:
     build: .
     image: umbral:latest
     labels:
@@ -157,14 +157,14 @@ services:
       - "traefik.http.middlewares.umbral-headers.headers.customRequestHeaders.X-Forwarded-For=:remote_addr"
       - "traefik.http.middlewares.umbral-headers.headers.customRequestHeaders.X-Real-IP=:remote_addr"
       - "traefik.http.middlewares.umbral-headers.headers.customRequestHeaders.X-Forwarded-Proto=https"
-      - "traefik.http.routers.umbral.middlewares=atajo-headers@docker"
+      - "traefik.http.routers.umbral.middlewares=umbral-headers@docker"
     restart: unless-stopped
 
 volumes:
   traefik-cert:
 ```
 
-Traefik detecta los labels de `atajo`, configura el router y pide el cert automáticamente.
+Traefik detecta los labels de `umbral`, configura el router y pide el cert automáticamente.
 
 ### Dashboard de Traefik
 

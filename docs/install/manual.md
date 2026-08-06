@@ -1,6 +1,6 @@
-﻿# Instalación manual (bare-metal)
+# Instalación manual (bare-metal)
 
-> Para correr Atajo **sin Docker** directamente sobre Node.js. Útil en hosts donde no podés instalar Docker, o en setups tipo LXC/VM minimalistas.
+> Para correr Umbral **sin Docker** directamente sobre Node.js. Útil en hosts donde no podés instalar Docker, o en setups tipo LXC/VM minimalistas.
 
 ## Requisitos
 
@@ -12,7 +12,7 @@
 ## 1. Bajar el código
 
 ```bash
-git clone <repo-url> umbral
+git clone https://github.com/FittyAr/Umbral.git umbral
 cd umbral
 ```
 
@@ -101,7 +101,7 @@ WantedBy=multi-user.target
 ```
 
 ```bash
-sudo useradd -r -s /usr/sbin/nologin -d /opt/umbral atajo
+sudo useradd -r -s /usr/sbin/nologin -d /opt/umbral umbral
 sudo chown -R umbral:umbral /opt/umbral
 sudo systemctl daemon-reload
 sudo systemctl enable --now umbral

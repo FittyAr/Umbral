@@ -14,7 +14,7 @@
 
 ```bash
 # 1. Clonar
-git clone <repo-url> umbral
+git clone https://github.com/FittyAr/Umbral.git umbral
 cd umbral
 
 # 2. Instalar deps
