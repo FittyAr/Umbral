@@ -1,4 +1,6 @@
 .test-tmp/
+# one-off rebrand script (can be deleted)
+rename-umbral.ps1
 # dependencies
 node_modules/
 

@@ -1,4 +1,4 @@
-# Variables de entorno
+﻿# Variables de entorno
 
 > Las **mínimas** que necesita la app. El resto de la configuración vive en `data/config.json` y se edita desde el panel admin.
 
@@ -33,7 +33,7 @@
 SESSION_SECRET=5f4dcc3b5aa765d61d8327deb882cf99...
 ```
 
-**En systemd**, en el `EnvironmentFile=/opt/atajo/.env`.
+**En systemd**, en el `EnvironmentFile=/opt/umbral/.env`.
 
 ## `INITIAL_PASSWORD`
 
@@ -91,11 +91,11 @@ Dónde persiste la app sus archivos:
 - `audit.log` (log de eventos)
 
 - **Default:** `./data` (relativo al cwd).
-- **En Docker:** `/app/data` (el volumen `homepage-data` se monta ahí).
-- **En systemd:** algo como `/opt/atajo/data`.
+- **En Docker:** `/app/data` (el volumen `umbral-data` se monta ahí).
+- **En systemd:** algo como `/opt/umbral/data`.
 
 ```env
-DATA_DIR=/opt/atajo/data
+DATA_DIR=/opt/umbral/data
 ```
 
 El proceso necesita **escritura** en esta carpeta. Si lo corrés con un usuario no-root, dale ownership.

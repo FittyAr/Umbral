@@ -1,4 +1,4 @@
-# Nginx / Traefik — reverse proxies alternativos
+﻿# Nginx / Traefik — reverse proxies alternativos
 
 > Si preferís no usar Caddy, Nginx y Traefik son las otras opciones mainstream. Nginx es el clásico; Traefik brilla cuando ya tenés Docker swarm / k8s.
 
@@ -9,7 +9,7 @@
 ### Setup básico con TLS auto-firmado (lab)
 
 ```nginx
-upstream atajo {
+upstream umbral {
     server 127.0.0.1:4321;
 }
 
@@ -45,12 +45,12 @@ server {
     proxy_http_version 1.1;
 
     location / {
-        proxy_pass http://atajo;
+        proxy_pass http://umbral;
     }
 
     location /api/health {
         access_log off;  # no loguear el healthcheck
-        proxy_pass http://atajo;
+        proxy_pass http://umbral;
     }
 }
 ```
@@ -87,7 +87,7 @@ sudo certbot renew --dry-run
 services:
   atajo:
     build: .
-    image: atajo:latest
+    image: umbral:latest
     expose: ["4321"]   # sólo accesible desde otros containers
     ...
 
@@ -146,18 +146,18 @@ services:
 
   atajo:
     build: .
-    image: atajo:latest
+    image: umbral:latest
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.atajo.rule=Host(`home.example.com`)"
-      - "traefik.http.routers.atajo.entrypoints=websecure"
-      - "traefik.http.routers.atajo.tls.certresolver=letsencrypt"
-      - "traefik.http.services.atajo.loadbalancer.server.port=4321"
-      - "traefik.http.middlewares.atajo-headers.headers.forwardedHeaders=true"
-      - "traefik.http.middlewares.atajo-headers.headers.customRequestHeaders.X-Forwarded-For=:remote_addr"
-      - "traefik.http.middlewares.atajo-headers.headers.customRequestHeaders.X-Real-IP=:remote_addr"
-      - "traefik.http.middlewares.atajo-headers.headers.customRequestHeaders.X-Forwarded-Proto=https"
-      - "traefik.http.routers.atajo.middlewares=atajo-headers@docker"
+      - "traefik.http.routers.umbral.rule=Host(`home.example.com`)"
+      - "traefik.http.routers.umbral.entrypoints=websecure"
+      - "traefik.http.routers.umbral.tls.certresolver=letsencrypt"
+      - "traefik.http.services.umbral.loadbalancer.server.port=4321"
+      - "traefik.http.middlewares.umbral-headers.headers.forwardedHeaders=true"
+      - "traefik.http.middlewares.umbral-headers.headers.customRequestHeaders.X-Forwarded-For=:remote_addr"
+      - "traefik.http.middlewares.umbral-headers.headers.customRequestHeaders.X-Real-IP=:remote_addr"
+      - "traefik.http.middlewares.umbral-headers.headers.customRequestHeaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.umbral.middlewares=atajo-headers@docker"
     restart: unless-stopped
 
 volumes:

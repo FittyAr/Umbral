@@ -8,7 +8,7 @@ const { theme } = Astro.props;
 <script is:inline define:vars={{ theme }}>
   // Color mode: apply on first paint, before body renders, to avoid flash.
   (function () {
-    const stored = localStorage.getItem('hp-color-mode');
+    const stored = localStorage.getItem('umbral-color-mode');
     const mode = stored || theme.colorMode || 'auto';
     let actual = mode;
     if (mode === 'auto') {
@@ -49,7 +49,7 @@ const { theme } = Astro.props;
       toggle.addEventListener('click', function () {
         const current = document.documentElement.getAttribute('data-mode') || 'dark';
         const next = current === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('hp-color-mode', next);
+        localStorage.setItem('umbral-color-mode', next);
         document.documentElement.setAttribute('data-mode', next);
         toggle.setAttribute('aria-label', next === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
       });

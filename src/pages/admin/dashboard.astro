@@ -638,17 +638,17 @@ const builtinIcons = await getBuiltinIconNames();
         async init() {
           this.cfg = structuredClone(window.__initialConfig);
           this.original = structuredClone(window.__initialConfig);
-          // Defer refreshAssets until after the page's hpAdmin is defined.
+          // Defer refreshAssets until after the page's umbralAdmin is defined.
           // AdminLayout's inline script defines it; this module script may run
           // before or after that depending on Vite's module loading order.
-          if (window.hpAdmin) {
+          if (window.umbralAdmin) {
             await this.refreshAssets();
           } else {
             // Retry a few times in case the inline script hasn't parsed yet.
-            for (let i = 0; i < 5 && !window.hpAdmin; i++) {
+            for (let i = 0; i < 5 && !window.umbralAdmin; i++) {
               await new Promise((r) => setTimeout(r, 20));
             }
-            if (window.hpAdmin) await this.refreshAssets();
+            if (window.umbralAdmin) await this.refreshAssets();
           }
           this.$nextTick(() => this.initSortable());
           // Auto-mark dirty on any cfg change. x-model alone doesn't fire markDirty,
@@ -677,7 +677,7 @@ const builtinIcons = await getBuiltinIconNames();
 
         async refreshAssets() {
           try {
-            const data = await window.hpAdmin.api('GET', '/api/assets');
+            const data = await window.umbralAdmin.api('GET', '/api/assets');
             this.assets = data.items || [];
           } catch (e) { console.error(e); }
         },
@@ -696,7 +696,7 @@ const builtinIcons = await getBuiltinIconNames();
 
         addCard() {
           if (!this.cfg.categories.length) {
-            window.hpAdmin.toast('Primero creá una categoría', 'error');
+            window.umbralAdmin.toast('Primero creá una categoría', 'error');
             this.tab = 'categories';
             return;
           }
@@ -744,7 +744,7 @@ const builtinIcons = await getBuiltinIconNames();
         },
         removeCategory(idx) {
           if (this.cfg.categories.length <= 1) {
-            window.hpAdmin.toast('No podés borrar la última categoría (las tarjetas necesitan una)', 'error');
+            window.umbralAdmin.toast('No podés borrar la última categoría (las tarjetas necesitan una)', 'error');
             return;
           }
           if (!confirm('¿Borrar esta categoría? Las tarjetas que la usen se reasignan a la primera restante.')) return;
@@ -765,14 +765,14 @@ const builtinIcons = await getBuiltinIconNames();
             // Sync textarea → array before sending.
             this.cfg.security.network.trustedProxies = (this.cfg.security.network.trustedProxiesText || '')
               .split('\n').map((s) => s.trim()).filter(Boolean);
-            const updated = await window.hpAdmin.api('PUT', '/api/config', this.cfg);
+            const updated = await window.umbralAdmin.api('PUT', '/api/config', this.cfg);
             this.cfg = structuredClone(updated);
             this.original = structuredClone(updated);
             this.dirty = false;
-            window.hpAdmin.toast('Configuración guardada', 'success');
+            window.umbralAdmin.toast('Configuración guardada', 'success');
             await this.refreshAssets();
           } catch (e) {
-            window.hpAdmin.toast('Error: ' + e.message, 'error');
+            window.umbralAdmin.toast('Error: ' + e.message, 'error');
           } finally {
             this.busy = false;
           }
@@ -781,12 +781,12 @@ const builtinIcons = await getBuiltinIconNames();
         async reloadConfig() {
           if (this.dirty && !confirm('Hay cambios sin guardar. ¿Recargar igual?')) return;
           try {
-            const cfg = await window.hpAdmin.api('GET', '/api/config');
+            const cfg = await window.umbralAdmin.api('GET', '/api/config');
             this.cfg = structuredClone(cfg);
             this.original = structuredClone(cfg);
             this.dirty = false;
-            window.hpAdmin.toast('Recargado', 'success');
-          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+            window.umbralAdmin.toast('Recargado', 'success');
+          } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
         },
 
         async handleFileSelect(e) {
@@ -805,15 +805,15 @@ const builtinIcons = await getBuiltinIconNames();
               fd.append('kind', this.uploadKind);
               const res = await fetch('/api/upload', {
                 method: 'POST',
-                headers: { 'x-csrf-token': window.hpAdmin.csrf },
+                headers: { 'x-csrf-token': window.umbralAdmin.csrf },
                 body: fd,
               });
               if (res.status === 401) { window.location.href = '/admin'; return; }
               const data = await res.json();
-              if (!res.ok) { window.hpAdmin.toast(file.name + ': ' + (data.error || 'Error'), 'error'); continue; }
-              window.hpAdmin.toast('Subido: ' + data.storedName + ' (' + (data.bytes/1024).toFixed(1) + ' KB)', 'success');
+              if (!res.ok) { window.umbralAdmin.toast(file.name + ': ' + (data.error || 'Error'), 'error'); continue; }
+              window.umbralAdmin.toast('Subido: ' + data.storedName + ' (' + (data.bytes/1024).toFixed(1) + ' KB)', 'success');
             } catch (err) {
-              window.hpAdmin.toast(file.name + ': ' + err.message, 'error');
+              window.umbralAdmin.toast(file.name + ': ' + err.message, 'error');
             }
           }
           await this.refreshAssets();
@@ -822,16 +822,16 @@ const builtinIcons = await getBuiltinIconNames();
         async deleteAsset(name) {
           if (!confirm('¿Borrar ' + name + '?')) return;
           try {
-            await window.hpAdmin.api('DELETE', '/api/assets', { name });
-            window.hpAdmin.toast('Borrado', 'success');
+            await window.umbralAdmin.api('DELETE', '/api/assets', { name });
+            window.umbralAdmin.toast('Borrado', 'success');
             await this.refreshAssets();
-          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+          } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
         },
 
         copyToClipboard(text) {
           navigator.clipboard?.writeText(text).then(
-            () => window.hpAdmin.toast('URL copiada', 'success'),
-            () => window.hpAdmin.toast('No se pudo copiar', 'error')
+            () => window.umbralAdmin.toast('URL copiada', 'success'),
+            () => window.umbralAdmin.toast('No se pudo copiar', 'error')
           );
         },
 
@@ -839,43 +839,43 @@ const builtinIcons = await getBuiltinIconNames();
           this.checkingStatus = true;
           this.statusResults = [];
           try {
-            const data = await window.hpAdmin.api('POST', '/api/status', { ids: this.cfg.cards.filter(c=>c.enabled).map(c=>c.id) });
+            const data = await window.umbralAdmin.api('POST', '/api/status', { ids: this.cfg.cards.filter(c=>c.enabled).map(c=>c.id) });
             this.statusResults = data.results || [];
-          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+          } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
           finally { this.checkingStatus = false; }
         },
 
         async changePassword() {
           if (this.pwForm.next !== this.pwForm.confirm) {
-            window.hpAdmin.toast('Las contraseñas no coinciden', 'error');
+            window.umbralAdmin.toast('Las contraseñas no coinciden', 'error');
             return;
           }
           try {
-            const data = await window.hpAdmin.api('POST', '/api/password', {
+            const data = await window.umbralAdmin.api('POST', '/api/password', {
               currentPassword: this.pwForm.current,
               newPassword: this.pwForm.next,
             });
             if (data && data.csrfToken) {
-              window.hpAdmin.csrf = data.csrfToken;
+              window.umbralAdmin.csrf = data.csrfToken;
               document.body.dataset.csrf = data.csrfToken;
             }
             this.pwForm = { current: '', next: '', confirm: '' };
-            window.hpAdmin.toast('Contraseña cambiada', 'success');
-          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+            window.umbralAdmin.toast('Contraseña cambiada', 'success');
+          } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
         },
 
         async exportConfig() {
           try {
-            const cfg = await window.hpAdmin.api('GET', '/api/config');
+            const cfg = await window.umbralAdmin.api('GET', '/api/config');
             const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `homepage-config-${new Date().toISOString().slice(0,10)}.json`;
+            a.download = `umbral-config-${new Date().toISOString().slice(0,10)}.json`;
             a.click();
             URL.revokeObjectURL(url);
-            window.hpAdmin.toast('Exportado', 'success');
-          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+            window.umbralAdmin.toast('Exportado', 'success');
+          } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
         },
 
         async importConfig(e) {
@@ -885,7 +885,7 @@ const builtinIcons = await getBuiltinIconNames();
           // un archivo de 100MB en el browser congela la UI y se lleva la RAM.
           const MAX_IMPORT_BYTES = 1024 * 1024;
           if (file.size > MAX_IMPORT_BYTES) {
-            window.hpAdmin.toast(`Archivo demasiado grande (${(file.size/1024).toFixed(0)} KB, máx ${MAX_IMPORT_BYTES/1024} KB)`, 'error');
+            window.umbralAdmin.toast(`Archivo demasiado grande (${(file.size/1024).toFixed(0)} KB, máx ${MAX_IMPORT_BYTES/1024} KB)`, 'error');
             e.target.value = ''; return;
           }
           if (!confirm('Importar reemplazará TODA la configuración actual. ¿Continuar?')) {
@@ -894,11 +894,11 @@ const builtinIcons = await getBuiltinIconNames();
           try {
             const text = await file.text();
             const data = JSON.parse(text);
-            await window.hpAdmin.api('PUT', '/api/import', data);
-            window.hpAdmin.toast('Importado. Recargando…', 'success');
+            await window.umbralAdmin.api('PUT', '/api/import', data);
+            window.umbralAdmin.toast('Importado. Recargando…', 'success');
             setTimeout(() => location.reload(), 800);
           } catch (err) {
-            window.hpAdmin.toast('Error: ' + err.message, 'error');
+            window.umbralAdmin.toast('Error: ' + err.message, 'error');
           } finally { e.target.value = ''; }
         },
 
@@ -906,19 +906,19 @@ const builtinIcons = await getBuiltinIconNames();
           const confirmText = prompt('Esto restaurará la configuración a defaults. Escribí RESET para confirmar:');
           if (confirmText !== 'RESET') return;
           try {
-            const cfg = await window.hpAdmin.api('DELETE', '/api/config');
+            const cfg = await window.umbralAdmin.api('DELETE', '/api/config');
             this.cfg = structuredClone(cfg);
             this.original = structuredClone(cfg);
             this.dirty = false;
-            window.hpAdmin.toast('Reseteado', 'success');
+            window.umbralAdmin.toast('Reseteado', 'success');
             await this.refreshAssets();
-          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+          } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
         },
 
         async checkHealth() {
           try {
-            this.healthInfo = await window.hpAdmin.api('GET', '/api/health');
-          } catch (e) { window.hpAdmin.toast(e.message, 'error'); }
+            this.healthInfo = await window.umbralAdmin.api('GET', '/api/health');
+          } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
         },
 
         updateFontUrl() {

@@ -1,4 +1,4 @@
-# Plan de Implementación — Homepage Personalizado (Personal Dashboard)
+﻿# Plan de Implementación — Umbral 
 
 > Documento de planificación para un dashboard intranet que centraliza los accesos a las herramientas internas de la empresa (Mattermost, Excalidraw, etc.) detrás de la VPN. Editable desde el navegador, sin base de datos.
 
@@ -51,7 +51,7 @@ Una sola página que lista las apps internas como tarjetas con icono. La configu
 ```
 ┌──────────────────────────────────────────────┐
 │           Navegador del usuario              │
-│   • Lee homepage público (sin auth)          │
+│   • Lee umbral público (sin auth)          │
 │   • Lee /admin (con cookie de sesión)        │
 └────────────────┬─────────────────────────────┘
                  │ HTTP
@@ -99,10 +99,10 @@ Una sola página que lista las apps internas como tarjetas con icono. La configu
 ## 4. Estructura del proyecto
 
 ```
-personalized_homepage/
+Umbral/
 ├─ src/
 │  ├─ pages/
-│  │  ├─ index.astro              # Homepage público
+│  │  ├─ index.astro              # Portada pública
 │  │  ├─ admin/
 │  │  │  ├─ index.astro           # Login
 │  │  │  └─ dashboard.astro       # Panel (CRUD + tema)
@@ -303,10 +303,10 @@ CMD ["node", "./dist/server/entry.mjs"]
 
 ```yaml
 services:
-  homepage:
+  umbral:
     build: .
-    image: personalized-homepage:latest
-    container_name: homepage
+    image: umbral:latest
+    container_name: umbral
     restart: unless-stopped
     ports:
       - "3000:4321"

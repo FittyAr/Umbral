@@ -1,4 +1,4 @@
-# Arquitectura
+﻿# Arquitectura
 
 > Cómo está organizado el código, qué hace cada pieza, cómo se conectan.
 
@@ -163,7 +163,7 @@ Astro components reusables.
 ### 5. `layouts/`
 
 - `PublicLayout.astro` — wrap de la portada. Inyecta CSS vars del theme, font, background, OG meta, ThemeScript.
-- `AdminLayout.astro` — wrap del panel. Inyecta el `hpAdmin` global (api wrapper, toast) y el nav de admin.
+- `AdminLayout.astro` — wrap del panel. Inyecta el `umbralAdmin` global (api wrapper, toast) y el nav de admin.
 
 ## Flujo de un request
 

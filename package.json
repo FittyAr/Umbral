@@ -1,9 +1,9 @@
 {
-  "name": "personalized-homepage",
+  "name": "umbral",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Atajo — self-hosted portal to internal apps behind a VPN. Editable from a simple admin panel. No database.",
+  "description": "Umbral — self-hosted portal to internal apps behind a VPN. Editable from a simple admin panel. No database.",
   "scripts": {
     "gen:icons": "node scripts/gen-icons.mjs",
     "prebuild": "npm run gen:icons",

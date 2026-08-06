@@ -1,4 +1,4 @@
-# Caddy — reverse proxy con HTTPS automático
+﻿# Caddy — reverse proxy con HTTPS automático
 
 > **Recomendado** para deployments en producción. Caddy gestiona TLS solo, sin pelearse con certs.
 
@@ -27,7 +27,7 @@ El `Caddyfile` del repo:
     # tls your-email@example.com
 
     encode zstd gzip
-    reverse_proxy homepage:4321 {
+    reverse_proxy umbral:4321 {
         header_up X-Forwarded-For {remote_host}
         header_up X-Real-IP {remote_host}
     }
@@ -38,7 +38,7 @@ Qué hace cada pieza:
 
 - **`{$DOMAIN:home.example.internal}`** — el sitio que Caddy sirve. `{$VAR:default}` es la sintaxis de Caddy para placeholders de env vars con default.
 - **`encode zstd gzip`** — compresión brotli-equivalente (zstd) + gzip, automático según Accept-Encoding del cliente.
-- **`reverse_proxy homepage:4321`** — proxy al container de la app (nombre del servicio en `docker-compose.yml`).
+- **`reverse_proxy umbral:4321`** — proxy al container de la app (nombre del servicio en `docker-compose.yml`).
 - **`header_up X-Forwarded-For {remote_host}`** — pasa la IP real del cliente al upstream. La app la usa para rate limit **si activás** `cfg.security.network.trustForwardedFor = true` (recomendado cuando hay Caddy delante).
 
 ### 2. Tres modos de operación
@@ -50,7 +50,7 @@ El más simple. Útil cuando todo el tráfico está dentro de la VPN.
 ```caddyfile
 home.lan.internal {
     encode zstd gzip
-    reverse_proxy homepage:4321
+    reverse_proxy umbral:4321
 }
 ```
 
@@ -67,7 +67,7 @@ Para cuando tenés un dominio real (ej: `home.example.com`) apuntando a tu serve
 home.example.com {
     tls your-email@example.com
     encode zstd gzip
-    reverse_proxy homepage:4321 {
+    reverse_proxy umbral:4321 {
         header_up X-Forwarded-For {remote_host}
         header_up X-Real-IP {remote_host}
     }
@@ -110,9 +110,9 @@ Opciones:
 Si tenés un dominio en Cloudflare, el [tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) te da HTTPS público sin abrir puertos:
 
 ```bash
-cloudflared tunnel create atajo
-cloudflared tunnel route dns atajo home.example.com
-cloudflared tunnel run atajo
+cloudflared tunnel create umbral
+cloudflared tunnel route dns umbral home.example.com
+cloudflared tunnel run umbral
 ```
 
 Y en Caddy cambiás el `reverse_proxy` para que apunte a `localhost:` donde corre `cloudflared`.
@@ -173,7 +173,7 @@ log {
 ```caddyfile
 home.example.com, status.example.com {
     tls your-email@example.com
-    reverse_proxy homepage:4321
+    reverse_proxy umbral:4321
 }
 ```
 
@@ -186,7 +186,7 @@ home.example.com {
     handle @blocked {
         respond 403
     }
-    reverse_proxy homepage:4321
+    reverse_proxy umbral:4321
 }
 ```
 

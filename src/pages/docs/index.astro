@@ -41,7 +41,9 @@ async function listDocs(): Promise<DocFile[]> {
       } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name.toLowerCase() !== 'readme.md') {
         const slug = prefix ? `${prefix}/${entry.name.replace(/\.md$/, '')}` : entry.name.replace(/\.md$/, '');
         try {
-          const raw = await fs.readFile(full, 'utf8');
+          let raw = await fs.readFile(full, 'utf8');
+          // Strip UTF-8 BOM if present. See [...slug].astro for the rationale.
+          if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
           const { title, description } = parseFrontmatter(raw);
           out.push({
             slug,
@@ -77,8 +79,8 @@ function parseFrontmatter(md: string): { title: string; description: string } {
   for (const line of lines) {
     const trimmed = line.trim();
     if (!title && trimmed.startsWith('# ')) {
-      title = trimmed.replace(/^#\s+/, '').replace(/^Atajo\s*—\s*/i, '').replace(/^Documentación\s*—\s*/i, '').trim();
-      // If the title is just "Atajo" (e.g. from `## Atajo`), use the section
+      title = trimmed.replace(/^#\s+/, '').replace(/^Umbral\s*—\s*/i, '').replace(/^Documentación\s*—\s*/i, '').trim();
+      // If the title is just "Umbral" (e.g. from `## Umbral`), use the section
       // or file name later. For now we keep what we got.
       pastTitle = true;
       continue;
@@ -132,7 +134,7 @@ const sectionLabels: Record<string, string> = {
   general: 'General',
 };
 ---
-<PublicLayout config={config} title="Documentación — Atajo">
+<PublicLayout config={config} title="Documentación — Umbral">
   <main class="page-wrap">
     <header class="header">
       {logoUrl && (

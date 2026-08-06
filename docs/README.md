@@ -1,8 +1,8 @@
-# Atajo — Documentación
+﻿# Umbral — Documentación
 
 Self-hosted portal para herramientas internas. Single container, sin base de datos, configurable desde el navegador.
 
-> **Atajo** — el shortcut a tus herramientas internas.
+> **Umbral** — el shortcut a tus herramientas internas.
 
 ## Índice
 
@@ -52,9 +52,9 @@ docker run -d \
   -p 3000:4321 \
   -e INITIAL_PASSWORD=cambiame \
   -e SESSION_SECRET=$(openssl rand -hex 32) \
-  -v atajo-data:/app/data \
+  -v umbral-data:/app/data \
   --restart unless-stopped \
-  ghcr.io/<user>/atajo:latest
+  ghcr.io/<user>/umbral:latest
 ```
 
 Abre <http://localhost:3000>, andá a `/admin`, login con `cambiame`, y cambialo.

@@ -1,11 +1,11 @@
-# Estructura de `data/config.json`
+﻿# Estructura de `data/config.json`
 
 > Referencia completa del schema. El archivo se autogenera en el primer arranque; podés editarlo a mano o desde el panel admin (`/admin`).
 
 ## Ubicación
 
 - **Container:** `/app/data/config.json` (default; configurable con `DATA_DIR`).
-- **Host (Docker compose):** volumen `homepage-data:/app/data`.
+- **Host (Docker compose):** volumen `umbral-data:/app/data`.
 - **Host (manual):** `<directorio-del-proyecto>/data/config.json`.
 
 > ⚠️ **No edites el archivo mientras la app corre.** Los cambios a mano se pisan con la próxima escritura. Usá `/admin` o, si necesitás editar, pará la app primero.
@@ -230,10 +230,10 @@ Timestamps ISO 8601. Se actualizan automáticamente en cada save/reset.
 
 Si tenés un `config.json` de una versión vieja sin `security` (u otro campo nuevo), la app **mergea con los defaults** automáticamente y reescribe el archivo. No perdés tu config — sólo se completan los huecos.
 
-Si tenés un archivo **muy viejo o con campos deprecados**, podés ver el error exacto en los logs (`docker logs atajo`):
+Si tenés un archivo **muy viejo o con campos deprecados**, podés ver el error exacto en los logs (`docker logs umbral`):
 
 ```
-[homepage] config.json no cumple el schema: cards.0.url: URL inválida; theme.fontFamily: ...
+[umbral] config.json no cumple el schema: cards.0.url: URL inválida; theme.fontFamily: ...
 ```
 
 Soluciones:

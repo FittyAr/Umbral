@@ -1,4 +1,4 @@
-# Quickstart Docker
+﻿# Quickstart Docker
 
 > **Tiempo total: 2 minutos.** Si ya tenés Docker instalado, copiá y pegá.
 
@@ -10,12 +10,12 @@ docker run -d \
   -p 3000:4321 \
   -e INITIAL_PASSWORD=cambiame \
   -e SESSION_SECRET="$(openssl rand -hex 32)" \
-  -v atajo-data:/app/data \
+  -v umbral-data:/app/data \
   --restart unless-stopped \
-  ghcr.io/<user>/atajo:latest
+  ghcr.io/<user>/umbral:latest
 ```
 
-Si todavía no tenés la imagen (`ghcr.io/<user>/atajo:latest`), reemplazá esa línea por la imagen local que construiste con `docker build`, o usá la imagen que viene en el repo de tu organización.
+Si todavía no tenés la imagen (`ghcr.io/<user>/umbral:latest`), reemplazá esa línea por la imagen local que construiste con `docker build`, o usá la imagen que viene en el repo de tu organización.
 
 Si querés probar **sin generar SESSION_SECRET** (sólo para development, **no para producción**):
 
@@ -24,8 +24,8 @@ docker run -d \
   --name atajo \
   -p 3000:4321 \
   -e INITIAL_PASSWORD=cambiame \
-  -v atajo-data:/app/data \
-  ghcr.io/<user>/atajo:latest
+  -v umbral-data:/app/data \
+  ghcr.io/<user>/umbral:latest
 ```
 
 El server te va a loguear un warning diciendo que el secret es débil. Para producción usá siempre el primer comando.
@@ -51,16 +51,16 @@ Listo. Recargá la portada y tu tarjeta aparece.
 
 ```bash
 # Ver logs
-docker logs -f atajo
+docker logs -f umbral
 
 # Parar
-docker stop atajo
+docker stop umbral
 
 # Arrancar de nuevo
-docker start atajo
+docker start umbral
 
 # Borrar todo (config + uploads + audit log)
-docker rm -f atajo && docker volume rm atajo-data
+docker rm -f umbral && docker volume rm umbral-data
 ```
 
 ## Próximos pasos
@@ -72,26 +72,26 @@ docker rm -f atajo && docker volume rm atajo-data
 ## Troubleshooting
 
 **"Connection refused" al abrir localhost:3000**
-El container está arrancando. Esperá 2-3 segundos y recargá. Para ver el estado: `docker logs atajo`.
+El container está arrancando. Esperá 2-3 segundos y recargá. Para ver el estado: `docker logs umbral`.
 
 **"404 en /admin"**
-Estás yendo a `http://localhost:3000/admin` pero el container no está corriendo. Verificá: `docker ps | grep atajo`.
+Estás yendo a `http://localhost:3000/admin` pero el container no está corriendo. Verificá: `docker ps | grep umbral`.
 
 **"Auth no inicializado"**
 Pasó si editaste `data/config.json` a mano y borraste el campo `auth`. Solución:
 ```bash
-docker stop atajo
-docker volume rm atajo-data
+docker stop umbral
+docker volume rm umbral-data
 docker run -d ... (el mismo comando de arriba)
 ```
 
 **Olvidé la password**
 ```bash
-docker stop atajo
+docker stop umbral
 # Editar el config para resetear auth:
-docker run --rm -v atajo-data:/data alpine sh -c \
+docker run --rm -v umbral-data:/data alpine sh -c \
   "rm /data/config.json"
-docker start atajo
+docker start umbral
 # Re-crea con INITIAL_PASSWORD nuevo
 ```
 

@@ -89,7 +89,7 @@ El `<style is:inline set:html>` del PublicLayout emite CSS vars. Sacar `'unsafe-
 
 ### Default `cookieSameSite: 'Lax'` (no `'Strict'`)
 
-`Strict` rompe links cross-site y formularios que en una intranet son razonables. `Lax` es el balance correcto para una homepage interna. Decisión: **default permisivo**, hardening disponible en el panel.
+`Strict` rompe links cross-site y formularios que en una intranet son razonables. `Lax` es el balance correcto para una umbral interna. Decisión: **default permisivo**, hardening disponible en el panel.
 
 ### Default `rateLimitMax: 30/min`
 

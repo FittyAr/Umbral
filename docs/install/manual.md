@@ -1,4 +1,4 @@
-# Instalación manual (bare-metal)
+﻿# Instalación manual (bare-metal)
 
 > Para correr Atajo **sin Docker** directamente sobre Node.js. Útil en hosts donde no podés instalar Docker, o en setups tipo LXC/VM minimalistas.
 
@@ -12,8 +12,8 @@
 ## 1. Bajar el código
 
 ```bash
-git clone <repo-url> atajo
-cd atajo
+git clone <repo-url> umbral
+cd umbral
 ```
 
 Si no usás git, bajá el release desde GitHub y descomprimí.
@@ -62,7 +62,7 @@ npm start
 Vas a ver algo así:
 
 ```
-[homepage] Initial password set from INITIAL_PASSWORD env var.
+[umbral] Initial password set from INITIAL_PASSWORD env var.
 astro v5.x.x ready in xxx ms
 ┃ Local    http://0.0.0.0:4321/
 ```
@@ -73,19 +73,19 @@ Abrí `http://localhost:4321` y listo.
 
 ### systemd (Linux moderno)
 
-Creá `/etc/systemd/system/atajo.service`:
+Creá `/etc/systemd/system/umbral.service`:
 
 ```ini
 [Unit]
-Description=Atajo - homepage
+Description=Umbral homepage
 After=network.target
 
 [Service]
 Type=simple
-User=atajo
-Group=atajo
-WorkingDirectory=/opt/atajo
-EnvironmentFile=/opt/atajo/.env
+User=umbral
+Group=umbral
+WorkingDirectory=/opt/umbral
+EnvironmentFile=/opt/umbral/.env
 ExecStart=/usr/bin/node ./dist/server/entry.mjs
 Restart=on-failure
 RestartSec=5
@@ -94,33 +94,33 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/opt/atajo/data
+ReadWritePaths=/opt/umbral/data
 
 [Install]
 WantedBy=multi-user.target
 ```
 
 ```bash
-sudo useradd -r -s /usr/sbin/nologin -d /opt/atajo atajo
-sudo chown -R atajo:atajo /opt/atajo
+sudo useradd -r -s /usr/sbin/nologin -d /opt/umbral atajo
+sudo chown -R umbral:umbral /opt/umbral
 sudo systemctl daemon-reload
-sudo systemctl enable --now atajo
-sudo systemctl status atajo
+sudo systemctl enable --now umbral
+sudo systemctl status umbral
 ```
 
-Logs en vivo: `sudo journalctl -u atajo -f`.
+Logs en vivo: `sudo journalctl -u umbral -f`.
 
 ### OpenRC (Alpine, Gentoo)
 
-`/etc/init.d/atajo`:
+`/etc/init.d/umbral`:
 
 ```sh
 #!/sbin/openrc-run
 
-name="atajo"
-description="Atajo homepage"
-command_user="atajo:atajo"
-directory="/opt/atajo"
+name="umbral"
+description="Umbral homepage"
+command_user="umbral:umbral"
+directory="/opt/umbral"
 command="/usr/bin/node"
 command_args="./dist/server/entry.mjs"
 pidfile="/run/${RC_SVCNAME}.pid"
@@ -133,20 +133,20 @@ depend() {
 ```
 
 ```bash
-sudo chmod +x /etc/init.d/atajo
-sudo rc-update add atajo default
-sudo rc-service atajo start
+sudo chmod +x /etc/init.d/umbral
+sudo rc-update add umbral default
+sudo rc-service umbral start
 ```
 
 ### Windows Service (con NSSM)
 
 1. Bajá [NSSM](https://nssm.cc/).
-2. `nssm install Atajo`
+2. `nssm install Umbral`
 3. Path: `C:\Program Files\nodejs\node.exe`
-4. Startup directory: `C:\atajo`
+4. Startup directory: `C:\umbral`
 5. Arguments: `.\dist\server\entry.mjs`
 6. Environment: cargá el `.env` con `EnvironmentFile`.
-7. `nssm start Atajo`.
+7. `nssm start Umbral`.
 
 (Ojo: el soporte de Windows tiene algunas diferencias con Linux — `cap_drop` y similares obviamente no aplican, y los permisos NTFS son distintos. Para producción en Windows, considera correr bajo WSL2 con systemd.)
 
@@ -160,11 +160,11 @@ Si lo vas a exponer más allá de `localhost`, **ponelo detrás de un reverse pr
 ## 8. Actualizar
 
 ```bash
-cd /opt/atajo
+cd /opt/umbral
 git pull
 npm ci
 npm run build
-sudo systemctl restart atajo
+sudo systemctl restart umbral
 ```
 
 Los datos en `data/` (config + uploads + audit) se mantienen.
@@ -172,7 +172,7 @@ Los datos en `data/` (config + uploads + audit) se mantienen.
 ## Troubleshooting
 
 **"EACCES: permission denied" en `./data`**
-El usuario con el que corrés Node no puede escribir. `chown -R atajo:atajo /opt/atajo/data`.
+El usuario con el que corrés Node no puede escribir. `chown -R umbral:umbral /opt/umbral/data`.
 
 **"Cannot find module" al hacer `npm start`**
 Faltó el build. Corré `npm run build` primero.

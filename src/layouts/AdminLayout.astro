@@ -36,10 +36,10 @@ const { title, csrfToken, isAuthed, showNav = true } = Astro.props;
 
     {/* Global admin helpers (Alpine.js, fetch wrapper, toast) */}
     <script is:inline>
-      // Define window.hpAdmin BEFORE any module scripts run.
+      // Define window.umbralAdmin BEFORE any module scripts run.
       // Using is:inline so Vite doesn't bundle/move this — guarantees it executes
       // synchronously during HTML parsing, before the page's module script imports.
-      window.hpAdmin = {
+      window.umbralAdmin = {
         csrf: document.body.dataset.csrf || '',
         authed: document.body.dataset.authed === '1',
         async api(method, url, body) {
@@ -78,7 +78,7 @@ const { title, csrfToken, isAuthed, showNav = true } = Astro.props;
       document.addEventListener('click', async (e) => {
         const target = e.target;
         if (target && target instanceof Element && target.closest('[data-action="logout"]')) {
-          await fetch('/api/logout', { method: 'POST', headers: { 'x-csrf-token': window.hpAdmin.csrf } });
+          await fetch('/api/logout', { method: 'POST', headers: { 'x-csrf-token': window.umbralAdmin.csrf } });
           window.location.href = '/admin';
         }
       });

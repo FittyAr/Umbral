@@ -5,7 +5,7 @@ import { json, error, readJson } from '~/lib/http';
 
 export const prerender = false;
 
-/** GET → returns the full config (admin use, also public homepage uses server-side render) */
+/** GET → returns the full config (admin use, also the public homepage uses server-side render) */
 export const GET: APIRoute = async () => {
   const cfg = await getConfig();
   return json(cfg);

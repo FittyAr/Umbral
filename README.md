@@ -1,12 +1,12 @@
-# Atajo
+﻿# Umbral
 
-> El shortcut a tus herramientas internas. Self-hosted portal para centralizar accesos a Mattermost, Excalidraw, etc. detrás de la VPN.
+> El portal a tus herramientas internas. Self-hosted, single container, sin base de datos. Centraliza accesos a Mattermost, Excalidraw, etc. detrás de la VPN.
 
 ![Stack](https://img.shields.io/badge/Astro-5-FF5D01) ![Node](https://img.shields.io/badge/Node-20%2B-339933) ![Docker](https://img.shields.io/badge/Docker-ready-2496ED) ![License](https://img.shields.io/badge/license-MIT-blue)
 
-## ¿Qué es Atajo?
+## ¿Qué es Umbral?
 
-Una **homepage interna** que lista tus herramientas con un click, editable desde el navegador, en un único container Docker de ~80 MB. **Sin base de datos**, todo en `data/config.json` + archivos subidos.
+Un **portal interno** que lista tus herramientas con un click, editable desde el navegador, en un único container Docker de ~80 MB. **Sin base de datos**, todo en `data/config.json` + archivos subidos.
 
 Pensado para intranets detrás de VPN, equipos chicos, sysadmins que prefieren **poseer** su infra.
 
@@ -29,13 +29,13 @@ Pensado para intranets detrás de VPN, equipos chicos, sysadmins que prefieren *
 
 ```bash
 docker run -d \
-  --name atajo \
+  --name umbral \
   -p 3000:4321 \
   -e INITIAL_PASSWORD=cambiame \
   -e SESSION_SECRET="$(openssl rand -hex 32)" \
-  -v atajo-data:/app/data \
+  -v umbral-data:/app/data \
   --restart unless-stopped \
-  atajo:latest
+  umbral:latest
 ```
 
 - **Portada:** <http://localhost:3000>
@@ -45,7 +45,7 @@ docker run -d \
 Si tenés `docker-compose`:
 
 ```bash
-git clone <repo-url> atajo && cd atajo
+git clone <repo-url> umbral && cd umbral
 cp .env.example .env   # editar SESSION_SECRET e INITIAL_PASSWORD
 docker compose up -d
 ```
@@ -160,8 +160,8 @@ Ver [Hardening / seguridad](./docs/config/security.md) y [Seguridad — auditor�
 La carpeta `data/` es lo único que necesitás backupear:
 
 ```bash
-docker run --rm -v atajo-data:/data -v $(pwd):/backup alpine \
-  tar czf /backup/atajo-data-$(date +%F).tgz -C /data .
+docker run --rm -v umbral-data:/data -v $(pwd):/backup alpine \
+  tar czf /backup/umbral-data-$(date +%F).tgz -C /data .
 ```
 
 Ver [Backup y restore](./docs/usage/backup.md) para restore, automatización, off-site, etc.

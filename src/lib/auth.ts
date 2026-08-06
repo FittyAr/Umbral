@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { getConfig } from './config';
 
-export const SESSION_COOKIE = 'hp_session';
+export const SESSION_COOKIE = 'umbral_session';
 export const CSRF_HEADER = 'x-csrf-token';
 const BCRYPT_COST = 12;
 
@@ -51,7 +51,7 @@ function getSecret(): string {
   if (s && s.length >= 16) {
     if (!_secretChecked && process.env.NODE_ENV === 'production' && KNOWN_WEAK_SECRETS.has(s)) {
       console.error(
-        '\n[HOMEPAGE FATAL] SESSION_SECRET está usando un valor conocido (de .env.example o docker-compose).\n' +
+        '\n[umbral FATAL] SESSION_SECRET está usando un valor conocido (de .env.example o docker-compose).\n' +
         'Esto es un riesgo crítico de seguridad: cualquiera puede forjar sesiones.\n' +
         'Generá uno con `openssl rand -hex 32` y pasalo vía -e SESSION_SECRET=... o .env.\n' +
         'El server sigue corriendo para no romper sesiones existentes, pero cambiá esto YA.\n',
@@ -64,7 +64,7 @@ function getSecret(): string {
   // Dev fallback — in prod this is set by docker-compose.
   if (process.env.NODE_ENV === 'production') {
     console.warn(
-      '[homepage] SESSION_SECRET not set or too short. Using a random secret (sessions will invalidate on restart).',
+      '[umbral] SESSION_SECRET not set or too short. Using a random secret (sessions will invalidate on restart).',
     );
   }
   _secretChecked = true;

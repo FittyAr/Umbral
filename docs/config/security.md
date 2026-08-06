@@ -1,4 +1,4 @@
-# Hardening / seguridad
+﻿# Hardening / seguridad
 
 > Todo lo que el admin puede ajustar desde `/admin` → tab **Hardening**. Los defaults son permisivos para que la app "simplemente funcione"; endurecé lo que necesites.
 
@@ -188,7 +188,7 @@ Cada cambio importante (config_update, login, password_change, asset_delete, etc
 
 ```bash
 # Ver el log
-docker exec atajo tail -f /app/data/audit.log
+docker exec umbral tail -f /app/data/audit.log
 # → 2024-03-22T14:32:11.000Z  login  ok ip=10.0.0.5
 # → 2024-03-22T14:35:02.000Z  config_update
 # → 2024-03-22T14:36:11.000Z  password_change

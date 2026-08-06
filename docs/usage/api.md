@@ -1,4 +1,4 @@
-# API REST
+﻿# API REST
 
 > Endpoints HTTP que la app expone. Útil para integraciones, scripts, monitoring.
 
@@ -28,7 +28,7 @@ curl -X POST http://localhost:3000/api/login \
 ```
 
 - **Body:** `{ "password": "..." }`.
-- **200:** setea cookie `atajo_session` y devuelve `{ "ok": true, "csrfToken": "..." }`.
+- **200:** setea cookie `umbral_session` y devuelve `{ "ok": true, "csrfToken": "..." }`.
 - **401:** password incorrecta.
 - **429:** rate limit excedido (ver `cfg.security.auth.rateLimitMax`).
 
@@ -254,7 +254,7 @@ Códigos comunes:
 #!/bin/bash
 set -e
 BASE="http://localhost:3000"
-COOKIES="/tmp/atajo-cookies.txt"
+COOKIES="/tmp/umbral-cookies.txt"
 PASSWORD="tu-password"
 
 # 1. Login

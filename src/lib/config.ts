@@ -96,13 +96,13 @@ function defaultConfig(): Config {
       {
         id: 'docs',
         title: 'Documentación',
-        description: 'Cómo instalar, configurar y usar Atajo',
+        description: 'Cómo instalar, configurar y usar Umbral',
         url: '/docs',
         icon: 'file-text',
         category: 'dev',
         openInNewTab: false,
         color: '#10b981',
-        order: -1,
+        order: 0,
         enabled: true,
       },
     ],
@@ -160,10 +160,10 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
 
       if (!password) {
         console.warn(
-          '[homepage] No INITIAL_PASSWORD set. Default password is "admin" — change it from /admin ASAP.',
+          '[umbral] No INITIAL_PASSWORD set. Default password is "admin" — change it from /admin ASAP.',
         );
       } else {
-        console.log('[homepage] Initial password set from INITIAL_PASSWORD env var.');
+        console.log('[umbral] Initial password set from INITIAL_PASSWORD env var.');
       }
 
       await fs.writeFile(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
@@ -201,7 +201,7 @@ async function loadFresh(): Promise<Config> {
     if (!result.data.auth) {
       const password = process.env.INITIAL_PASSWORD || 'admin';
       const fixed = { ...result.data, auth: { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0 } };
-      console.warn('[homepage] config sin auth — regenerando. Cambiá la password desde /admin ASAP.');
+      console.warn('[umbral] config sin auth — regenerando. Cambiá la password desde /admin ASAP.');
       const tmp = CONFIG_PATH + '.tmp';
       await fs.writeFile(tmp, JSON.stringify(fixed, null, 2), 'utf8');
       await fs.rename(tmp, CONFIG_PATH);
@@ -248,7 +248,7 @@ async function loadFresh(): Promise<Config> {
     if (!merged.auth) {
       const password = process.env.INITIAL_PASSWORD || 'admin';
       merged.auth = { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0 };
-      console.warn('[homepage] config migrada sin auth — regenerando. Cambiá la password desde /admin ASAP.');
+      console.warn('[umbral] config migrada sin auth — regenerando. Cambiá la password desde /admin ASAP.');
     } else if (merged.auth.authEpoch === undefined) {
       // Auth existe pero no tiene epoch (versión vieja del schema).
       // Lo agregamos sin invalidar sesiones existentes (epoch=0 matchea
@@ -432,10 +432,10 @@ export async function audit(action: string, detail?: string) {
       const line = `${new Date().toISOString()}\t${action}\t${detail ?? ''}\n`;
       await fs.appendFile(AUDIT_LOG_PATH, line, 'utf8');
     } catch (err) {
-      console.error('[homepage] audit log write failed:', err);
+      console.error('[umbral] audit log write failed:', err);
     }
   });
   // Encadenamos la siguiente escritura; si esta falla, la lock se libera igual.
-  auditWriteLock = myTurn.catch(() => {});
+  auditWriteLock = myTurn.catch(() => { });
   await myTurn;
 }

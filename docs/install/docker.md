@@ -1,24 +1,24 @@
-# Docker — Setup completo
+﻿# Docker — Setup completo
 
 Setup de producción con `docker-compose.yml`, variables de entorno, healthcheck y volúmenes persistentes.
 
 ## Prerequisitos
 
 - Docker 20.10+ y Docker Compose v2
-- Un directorio para el proyecto (ej: `~/atajo` o `/opt/atajo`)
+- Un directorio para el proyecto (ej: `~/atajo` o `/opt/umbral`)
 
 ## 1. Clonar / bajar los archivos
 
 ```bash
-mkdir atajo && cd atajo
+mkdir umbral && cd umbral
 # Copiar los archivos del proyecto: Dockerfile, docker-compose.yml, Caddyfile, .env.example
 ```
 
 Si tenés git:
 
 ```bash
-git clone <repo-url> atajo
-cd atajo
+git clone <repo-url> umbral
+cd umbral
 ```
 
 ## 2. Configurar variables de entorno
@@ -52,12 +52,12 @@ docker compose build
 
 ```bash
 docker compose up -d
-docker compose logs -f atajo
+docker compose logs -f umbral
 ```
 
 Esperá a ver:
 ```
-[homepage] Initial password set from INITIAL_PASSWORD env var.
+[umbral] Initial password set from INITIAL_PASSWORD env var.
 ```
 
 Y luego:
@@ -105,8 +105,8 @@ El que viene en el repo:
 services:
   atajo:
     build: .
-    image: atajo:latest
-    container_name: atajo
+    image: umbral:latest
+    container_name: umbral
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:4321"
@@ -119,7 +119,7 @@ services:
       - INITIAL_PASSWORD=${INITIAL_PASSWORD:-}
       - BASE_URL=${BASE_URL:-}
     volumes:
-      - atajo-data:/app/data
+      - umbral-data:/app/data
     cap_drop:
       - ALL
     security_opt:
@@ -136,7 +136,7 @@ services:
   #   ...
 
 volumes:
-  atajo-data:
+  umbral-data:
 ```
 
 ### Highlights de seguridad
@@ -165,16 +165,16 @@ Ver [Variables de entorno](../config/env.md) para más detalle.
 
 ```bash
 # Ver el volumen
-docker volume inspect atajo-data
+docker volume inspect umbral-data
 
 # Backup
-docker run --rm -v atajo-data:/data -v $(pwd):/backup alpine \
-  tar czf /backup/atajo-data-$(date +%F).tgz -C /data .
+docker run --rm -v umbral-data:/data -v $(pwd):/backup alpine \
+  tar czf /backup/umbral-data-$(date +%F).tgz -C /data .
 
 # Restore
 docker compose down
-docker run --rm -v atajo-data:/data -v $(pwd):/backup alpine \
-  tar xzf /backup/atajo-data-XXX.tgz -C /data
+docker run --rm -v umbral-data:/data -v $(pwd):/backup alpine \
+  tar xzf /backup/umbral-data-XXX.tgz -C /data
 docker compose up -d
 ```
 
@@ -183,7 +183,7 @@ También podés usar el botón **Export** del panel admin para bajar un `config.
 ## Actualizar
 
 ```bash
-cd atajo
+cd umbral
 git pull   # o bajá la nueva versión
 docker compose build
 docker compose up -d

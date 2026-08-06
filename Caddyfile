@@ -1,4 +1,4 @@
-# Caddy config for the homepage app.
+# Caddy config for the umbral app.
 # Used when the optional `caddy` service in docker-compose.yml is enabled.
 #
 # Set DOMAIN in the environment (e.g. home.example.internal).
@@ -14,7 +14,7 @@
     # For internal networks, you can issue certs with a local CA or just use HTTP.
     # The simplest internal-only setup is HTTP on a private domain:
     encode zstd gzip
-    reverse_proxy homepage:4321 {
+    reverse_proxy umbral:4321 {
         header_up X-Forwarded-For {remote_host}
         header_up X-Real-IP {remote_host}
     }

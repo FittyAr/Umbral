@@ -47,10 +47,14 @@ try {
 } catch {
   return new Response('Not found', { status: 404 });
 }
+// Strip UTF-8 BOM if present. Notepad y PowerShell 5 `Set-Content -Encoding UTF8`
+// lo agregan; si no lo sacamos, el primer H1 del archivo (ej: `# Quickstart
+// Docker`) no matchea `/^#\s+/` porque la línea empieza con \uFEFF.
+if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
 
 // ── 2) Parse and sanitize the markdown.
 const titleMatch = raw.match(/^#\s+(.+?)$/m);
-const pageTitle = titleMatch?.[1]?.replace(/^Atajo\s*—\s*/i, '').replace(/^Documentación\s*—\s*/i, '').trim() ?? 'Documentación';
+const pageTitle = titleMatch?.[1]?.replace(/^Umbral\s*—\s*/i, '').replace(/^Documentación\s*—\s*/i, '').trim() ?? 'Documentación';
 
 marked.setOptions({
   gfm: true,

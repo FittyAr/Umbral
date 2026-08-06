@@ -1,4 +1,4 @@
-# Setup de desarrollo
+﻿# Setup de desarrollo
 
 > Cómo correr el proyecto en local para modificarlo. Asumimos Node 20+.
 
@@ -14,8 +14,8 @@
 
 ```bash
 # 1. Clonar
-git clone <repo-url> atajo
-cd atajo
+git clone <repo-url> umbral
+cd umbral
 
 # 2. Instalar deps
 npm install
@@ -133,7 +133,7 @@ Astro hace HMR de:
 ### Logs
 
 - Dev mode: `console.log` aparece en la terminal del dev server.
-- Production: `docker logs atajo`.
+- Production: `docker logs umbral`.
 
 Para logs más verbosos en dev, agregá `DEBUG=*` al env o `console.log` directo.
 
@@ -154,12 +154,12 @@ Equivalente a lo que corre en Docker, sin el container. Útil para debuggear un 
 ## Build con Docker
 
 ```bash
-docker build -t atajo:test .
+docker build -t umbral:test .
 docker run --rm -p 3000:4321 \
   -e SESSION_SECRET=test \
   -e INITIAL_PASSWORD=test \
   -v $(pwd)/data-test:/app/data \
-  atajo:test
+  umbral:test
 ```
 
 Ver [Docker (completo)](../install/docker.md) para más detalle.

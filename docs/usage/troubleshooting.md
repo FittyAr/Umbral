@@ -1,6 +1,6 @@
-# Troubleshooting
+﻿# Troubleshooting
 
-> Errores comunes y soluciones. Si tu problema no está acá, revisá `docker logs atajo` o `journalctl -u atajo` (la app loguea el error exacto).
+> Errores comunes y soluciones. Si tu problema no está acá, revisá `docker logs umbral` o `journalctl -u atajo` (la app loguea el error exacto).
 
 ---
 
@@ -10,7 +10,7 @@
 
 ```bash
 docker ps -a | grep atajo
-docker logs atajo
+docker logs umbral
 ```
 
 - Si dice `Exited (1)`, hay un error fatal — pasame el log.
@@ -23,7 +23,7 @@ docker logs atajo
 **Causa:** el container no está corriendo, o estás yendo a la URL equivocada.
 
 ```bash
-docker ps | grep atajo
+docker ps | grep umbral
 curl -I http://localhost:3000/
 ```
 
@@ -40,10 +40,10 @@ curl -I http://localhost:3000/
 
 ```bash
 # 1. Parar
-docker stop atajo
+docker stop umbral
 
 # 2. Editar el config y agregar un auth placeholder (lo regeneramos)
-docker run --rm -v homepage-data:/data alpine sh -c \
+docker run --rm -v umbral-data:/data alpine sh -c \
   "rm /data/config.json"
 
 # 3. Levantar con INITIAL_PASSWORD nuevo
@@ -54,7 +54,7 @@ docker compose up -d
 **Solución B — si querés recuperar la config existente:**
 
 1. Parar el container.
-2. `docker run --rm -v homepage-data:/data -v $(pwd):/backup alpine cp /data/config.json /backup/`.
+2. `docker run --rm -v umbral-data:/data -v $(pwd):/backup alpine cp /data/config.json /backup/`.
 3. Editar `/backup/config.json` y agregar:
    ```json
    "auth": {
@@ -77,7 +77,7 @@ docker compose up -d
 **Causa:** corte de luz mientras escribía, edición manual con error de sintaxis.
 
 ```bash
-docker logs atajo 2>&1 | tail -20
+docker logs umbral 2>&1 | tail -20
 # → "config.json está corrupto (JSON inválido). Reparalo o restaurá el volumen."
 ```
 
@@ -85,10 +85,10 @@ docker logs atajo 2>&1 | tail -20
 
 ```bash
 docker compose down
-docker volume rm homepage-data
-docker volume create homepage-data
-docker run --rm -v homepage-data:/data -v $(pwd):/backup alpine \
-  tar xzf /backup/homepage-data-2024-03-22.tgz -C /data
+docker volume rm umbral-data
+docker volume create umbral-data
+docker run --rm -v umbral-data:/data -v $(pwd):/backup alpine \
+  tar xzf /backup/umbral-data-2024-03-22.tgz -C /data
 docker compose up -d
 ```
 
@@ -96,7 +96,7 @@ docker compose up -d
 
 ```bash
 docker compose down
-docker run --rm -v homepage-data:/data alpine sh -c "rm /data/config.json"
+docker run --rm -v umbral-data:/data alpine sh -c "rm /data/config.json"
 docker compose up -d
 # La app regenera el config con defaults. Los assets en /data/uploads/ siguen.
 ```
@@ -107,10 +107,10 @@ docker compose up -d
 
 ```bash
 # 1. Parar
-docker stop atajo
+docker stop umbral
 
 # 2. Borrar el config (vas a perder el resto de la config también)
-docker run --rm -v homepage-data:/data alpine sh -c "rm /data/config.json"
+docker run --rm -v umbral-data:/data alpine sh -c "rm /data/config.json"
 
 # 3. Levantar con INITIAL_PASSWORD nuevo
 # (asegurá .env: INITIAL_PASSWORD=mi-nueva-password)
@@ -256,7 +256,7 @@ curl http://tu.IP.publ.ica
 # → debería responder Caddy con un redirect a HTTPS
 
 # 3. Logs de Caddy
-docker logs atajo-caddy | tail -20
+docker logs umbral-caddy | tail -20
 # → debería mostrar el ACME challenge fallando
 ```
 
@@ -315,13 +315,13 @@ healthcheck:
 
 ## Problema no listado
 
-1. **Logs del container:** `docker logs atajo 2>&1 | tail -50` (o `journalctl -u atajo -n 50`).
+1. **Logs del container:** `docker logs umbral 2>&1 | tail -50` (o `journalctl -u atajo -n 50`).
 2. **Healthcheck manual:** `curl -v http://localhost:3000/api/health`.
 3. **Disco lleno:** `df -h` (el container puede haber dejado de escribir el audit log).
 4. **Memoria:** `docker stats atajo` (si llegó al límite, OOM killer lo mató — los logs van a decir `Killed`).
 
 Si nada de eso da pistas, abrí un issue con:
 - Versión de la app (de `package.json` o el tag de la imagen).
-- Output de `docker logs atajo` (al menos las últimas 50 líneas).
+- Output de `docker logs umbral` (al menos las últimas 50 líneas).
 - Output de `curl -v http://localhost:3000/api/health`.
 - Tu `docker-compose.yml` y `.env` (con secrets redactados).
