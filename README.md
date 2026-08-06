@@ -2,7 +2,7 @@
 
 > El portal a tus herramientas internas. Self-hosted, single container, sin base de datos. Centraliza accesos a Mattermost, Excalidraw, etc. detrás de la VPN.
 
-![Stack](https://img.shields.io/badge/Astro-7-FF5D01) ![Node](https://img.shields.io/badge/Node-22%2B-339933) ![Docker](https://img.shields.io/badge/Docker-ready-2496ED) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Stack](https://img.shields.io/badge/Astro-7-FF5D01) ![Node](https://img.shields.io/badge/Node-24%2B-339933) ![Docker](https://img.shields.io/badge/Docker-ready-2496ED) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## ¿Qué es Umbral?
 
