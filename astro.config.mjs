@@ -25,9 +25,6 @@ export default defineConfig({
   // when the client sends Host: host:port but Origin: http://host:port differently.
   security: { checkOrigin: false },
   vite: {
-    // @ts-expect-error — @tailwindcss/vite brings its own Vite version;
-    // Astro 5's bundled Vite is one minor behind. The plugin is structurally
-    // compatible at runtime; this is purely a type-version skew upstream.
     plugins: [tailwindcss()],
     ssr: {
       noExternal: ['sortablejs', 'alpinejs'],
