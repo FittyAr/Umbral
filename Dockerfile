@@ -8,11 +8,28 @@
 # will be supported through April 2029, giving this image the longest
 # runway before another base-image bump.
 FROM node:24-alpine AS builder
+# Build native modules (sharp) from source against the system libvips instead
+# of using sharp's prebuilt binaries. Reasons:
+#   1. sharp@0.35 prebuilts require x86_64-v2 microarchitecture, which excludes
+#      older CPUs (e.g. pre-Sandy Bridge Xeons, some embedded boards). The
+#      generic image must run everywhere, so we trade a few seconds of build
+#      time for universal portability.
+#   2. Building against the system libvips also avoids bundling the ~20MB
+#      prebuilt libvips into the image — the runtime stage just apt-installs
+#      libvips directly, which is much smaller.
+# Tooling required by node-gyp + libvips headers.
+RUN apk add --no-cache python3 make g++ vips-dev
 WORKDIR /app
 
-# Install deps first (cache-friendly)
+# Install deps first (cache-friendly). SHARP_FORCE_BUILD=1 forces sharp to
+# compile from source rather than downloading a prebuilt. --include=optional
+# pulls platform-specific bindings that npm otherwise skips by default.
 COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN if [ -f package-lock.json ]; then \
+      SHARP_FORCE_BUILD=1 npm ci --include=optional; \
+    else \
+      SHARP_FORCE_BUILD=1 npm install --include=optional; \
+    fi
 
 # Copy source and build
 COPY . .
@@ -21,15 +38,14 @@ RUN npm run build
 # Prune dev dependencies to keep node_modules small
 RUN npm prune --omit=dev
 
-# Sharp carries prebuilt binaries for every platform; strip the ones we don't need.
-# Keep: @img/colour (always needed), @img/sharp-linuxmusl-x64 (our platform),
-#       @img/sharp-libvips-linuxmusl-x64 (bundled libvips for our platform).
+# Defence in depth: if any other @img/* prebuilt bindings snuck in (e.g. for
+# darwin from a developer's local install), strip them. After SHARP_FORCE_BUILD
+# we typically only have @img/colour (pure-JS, always needed), but this guard
+# keeps the image lean if sharp's install behaviour changes upstream.
 RUN cd /app/node_modules/@img && \
     for d in */; do \
       case "$d" in \
         colour/) ;; \
-        sharp-linuxmusl-x64/) ;; \
-        sharp-libvips-linuxmusl-x64/) ;; \
         *) rm -rf "$d" ;; \
       esac; \
     done
@@ -38,9 +54,11 @@ RUN cd /app/node_modules/@img && \
 # Stage 2: runtime
 # ────────────────────────────────────────────────────────────────────────
 FROM node:24-alpine AS runtime
-# sharp ships its own libvips via @img/sharp-libvips-*, so we don't need system vips.
+# sharp was compiled in the builder stage against the system libvips (vips-dev),
+# so the dynamic linker here needs the matching runtime libvips (no -dev) to
+# load the binding. This is smaller than shipping a prebuilt libvips would be.
 # tini for proper signal handling; wget for the healthcheck.
-RUN apk add --no-cache tini wget \
+RUN apk add --no-cache tini wget vips \
     && addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
