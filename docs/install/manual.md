@@ -4,8 +4,8 @@
 
 ## Requisitos
 
-- **Node.js 20+** (recomendado LTS actual). Verificá con `node -v`.
-- **npm 10+** (incluido con Node 20).
+- **Node.js 22+** (Astro 7 requiere ≥22.12). Verificá con `node -v`.
+- **npm 10+** (incluido con Node 22).
 - Al menos **200 MB libres** en disco (dependencias + cache de Astro).
 - Un usuario **no-root** para correr el proceso (recomendado).
 

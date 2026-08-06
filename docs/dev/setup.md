@@ -1,6 +1,6 @@
 ﻿# Setup de desarrollo
 
-> Cómo correr el proyecto en local para modificarlo. Asumimos Node 20+.
+> Cómo correr el proyecto en local para modificarlo. Asumimos Node 22+ (Astro 7 requiere ≥22.12).
 
 ## Prereqs
 

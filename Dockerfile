@@ -3,7 +3,10 @@
 # ────────────────────────────────────────────────────────────────────────
 # Stage 1: build
 # ────────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+# Astro 7 requires Node >=22.12.0. We pin to node:22-alpine (current LTS line)
+# for both the builder and runtime stages so the resulting image stays self-
+# contained — no need for a separate "build on 22, run on 20" split.
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Install deps first (cache-friendly)
@@ -33,7 +36,7 @@ RUN cd /app/node_modules/@img && \
 # ────────────────────────────────────────────────────────────────────────
 # Stage 2: runtime
 # ────────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 # sharp ships its own libvips via @img/sharp-libvips-*, so we don't need system vips.
 # tini for proper signal handling; wget for the healthcheck.
 RUN apk add --no-cache tini wget \
