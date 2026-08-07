@@ -1,18 +1,46 @@
 # syntax=docker/dockerfile:1.7
 
 # ────────────────────────────────────────────────────────────────────────
-# Stage 1: build
+# Umbral — Dockerfile variant para hardware legacy (sin x86_64-v2)
 # ────────────────────────────────────────────────────────────────────────
-# Astro 7 requires Node >=22.12.0. We use node:24-alpine (current Active LTS
-# line) for both builder and runtime — Node 24 is the most recent LTS and
-# will be supported through April 2029, giving this image the longest
-# runway before another base-image bump.
+# NO usar como reemplazo del Dockerfile principal. Éste existe únicamente
+# para servidores con CPUs viejos que no soportan la microarquitectura
+# x86_64-v2 (típicamente pre-2011, ej. Atom, Celeron viejo, Xeon pre-Sandy
+# Bridge). El error que produce es:
+#
+#   Error: Could not load the "sharp" module using the linuxmusl-x64 runtime
+#   Unsupported CPU: Prebuilt binaries for Linux x64 require v2 microarchitecture
+#
+# sharp 0.35+ (la versión que usa Umbral por defecto) sólo publica prebuilt
+# binaries para CPUs v2+. Este Dockerfile hace downgrade de sharp a 0.33.5
+# dentro del paso de build, sin tocar package.json/package-lock.json del
+# proyecto principal.
+#
+# Trade-off: sharp 0.33.5 usa libvips 8.15.1, que tiene CVEs de buffer
+# overflow arreglados en versiones posteriores. Para un portal interno con
+# usuarios de confianza, el riesgo es bajo. Cuando el server se modernize,
+# volver al Dockerfile principal.
+#
+# Cómo usar (desde la raíz del proyecto):
+#   docker compose -f legacy/docker-compose.yml build
+#   docker compose -f legacy/docker-compose.yml up -d
+#
+# Cómo borrar todo cuando ya no haga falta:
+#   rm -rf legacy/
+#   docker rmi umbral:legacy
+#   docker volume rm umbral-data-legacy
+
 FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Install deps first (cache-friendly)
 COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN if [ -f package-lock.json ]; then npm ci --include=optional; else npm install --include=optional; fi
+
+# Downgrade sharp a 0.33.5 (la última con prebuilt para v1).
+# --no-save evita tocar package.json/package-lock.json del proyecto; el
+# cambio es sólo dentro de la imagen.
+RUN npm install --no-save sharp@0.33.5
 
 # Copy source and build
 COPY . .
@@ -49,10 +77,7 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app/dist ./dist
 COPY --from=builder --chown=app:app /app/node_modules ./node_modules
 COPY --from=builder --chown=app:app /app/package.json ./package.json
-# Documentation folder — mounted at runtime by src/pages/docs/*.astro via
-# process.cwd()/docs. We bundle it into the image so /docs works out of the
-# box without needing a host bind-mount. The folder is read-only at runtime
-# (the app never writes to it), so no volume is needed.
+# Documentation folder — same as the main Dockerfile.
 COPY --from=builder --chown=app:app /app/docs ./docs
 
 # Pre-create writable dirs (these are the only writable points in the container)
