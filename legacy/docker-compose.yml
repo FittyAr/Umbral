@@ -15,9 +15,10 @@ services:
       # Volumen dedicado para no pisar datos de la instalación estándar.
       - umbral-data-legacy:/app/data
     env_file:
-      # Lee el .env de la raíz del proyecto. Si necesitás valores distintos,
-      # copialo a legacy/.env y cambiá esta línea.
-      - ../.env
+      # El .env vive en legacy/ (mismo patrón que el proyecto original: el
+      # .env siempre al lado del docker-compose.yml que lo usa). Copiá
+      # legacy/.env.example a legacy/.env y personalizalo.
+      - .env
     healthcheck:
       test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:4321/api/health"]
       interval: 30s

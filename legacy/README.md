@@ -34,16 +34,22 @@ al Dockerfile principal** y borrar este directorio.
 Desde la raíz del proyecto (donde está el `docker-compose.yml` principal):
 
 ```bash
-# Build de la imagen legacy
+# 1. Configurar el entorno (mismo patrón que la raíz del proyecto)
+cd legacy
+cp .env.example .env
+msedit .env          # o el editor que uses
+cd ..
+
+# 2. Build de la imagen legacy
 docker compose -f legacy/docker-compose.yml build
 
-# Levantar el contenedor (puerto 4321, volumen dedicado)
+# 3. Levantar el contenedor (puerto 4321, volumen dedicado)
 docker compose -f legacy/docker-compose.yml up -d
 
-# Ver logs
+# 4. Ver logs
 docker compose -f legacy/docker-compose.yml logs -f
 
-# Frenar
+# 5. Frenar
 docker compose -f legacy/docker-compose.yml down
 ```
 
@@ -54,9 +60,15 @@ compose a `"4322:4321"` y exponé el legacy en otro puerto.
 
 ## Configuración
 
-El `docker-compose.yml` lee el `.env` de la raíz del proyecto (`env_file:
-../.env`). Si necesitás variables distintas para la instalación legacy,
-copiá el `.env` a `legacy/.env` y editá el `env_file` en el compose.
+El `.env` vive en `legacy/`, **al lado del `docker-compose.yml` que lo usa**
+(mismo patrón que el proyecto original en la raíz). El `.gitignore` ya lo
+cubre con la regla `*.env`, así que no se va a commitear por accidente.
+El template commiteado es `legacy/.env.example` — copialo a `.env` y editá
+los valores que necesites.
+
+Si querés valores distintos a la instalación estándar (por ejemplo, otro
+`PORT` o un `SESSION_SECRET` propio), simplemente editá `legacy/.env` con
+lo que quieras; el compose de la raíz usa su propio `.env` y no se entera.
 
 ## Cómo borrarlo
 
