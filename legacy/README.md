@@ -31,35 +31,33 @@ al Dockerfile principal** y borrar este directorio.
 
 ## Cómo usarlo
 
-Desde la raíz del proyecto (donde está el `docker-compose.yml` principal),
-igual que la instalación estándar:
+Desde la raíz del proyecto, todo se hace con el wrapper `legacy/umbral.sh`
+(que carga `legacy/.env` automáticamente):
 
 ```bash
 # 1. Configurar el entorno (el .env vive en legacy/)
 cp legacy/.env.example legacy/.env
 msedit legacy/.env       # o el editor que uses
 
-# 2. Build de la imagen legacy
-docker compose -f docker-compose.legacy.yml build
-
-# 3. Levantar el contenedor (puerto 4321, volumen dedicado)
-docker compose -f docker-compose.legacy.yml up -d
-
-# 4. Ver logs
-docker compose -f docker-compose.legacy.yml logs -f
-
-# 5. Frenar
-docker compose -f docker-compose.legacy.yml down
+# 2. Build + levantar (igual que la instalación estándar, pero con el wrapper)
+chmod +x legacy/umbral.sh
+./legacy/umbral.sh build
+./legacy/umbral.sh up -d
+./legacy/umbral.sh logs -f
+./legacy/umbral.sh down
 ```
 
-> **¿Por qué el compose está en la raíz y no en `legacy/`?**
-> Docker Compose resuelve las rutas de `env_file` y `build.context` relativas
-> al working directory cuando se invoca el comando, no al archivo compose.
-> Si el compose viviera en `legacy/`, vos tendrías que hacer `cd legacy` antes
-> de cada comando para que el `.env` se encuentre. Teniendo el compose en la
-> raíz, lo invocás igual que el principal (`docker compose -f ...`) y el
-> `env_file: legacy/.env` resuelve bien porque el working dir sigue siendo
-> la raíz del proyecto.
+> **¿Por qué un wrapper en vez de `docker compose -f` directo?**
+> El compose usa `${PORT}` para el puerto del host (interpolado desde
+> `legacy/.env`). Pero Docker Compose solo auto-carga el `.env` que está
+> **al lado del archivo compose**, y el nuestro está en `legacy/`. Para
+> cargarlo en la interpolación, hay que pasar `--env-file legacy/.env`
+> explícitamente. El wrapper lo hace por vos, así no se te olvida.
+>
+> Si preferís tipear el flag a mano, el wrapper es equivalente a:
+> ```bash
+> docker compose --env-file legacy/.env -f docker-compose.legacy.yml <args>
+> ```
 
 El contenedor se llama `umbral-legacy` y usa el volumen `umbral-data-legacy`,
 así que **no choca con la instalación estándar** (que usa `umbral` /
@@ -73,9 +71,11 @@ documentan la variante. El `.gitignore` ya lo cubre con la regla `*.env`,
 así que no se va a commitear por accidente. El template commiteado es
 `legacy/.env.example` — copialo a `.env` y editá los valores que necesites.
 
-Si querés valores distintos a la instalación estándar (por ejemplo, otro
-`PORT` o un `SESSION_SECRET` propio), simplemente editá `legacy/.env` con
-lo que quieras; el compose de la raíz usa su propio `.env` y no se entera.
+`PORT` en el `.env` controla el **puerto del host** (lo que el navegador
+usa para acceder al servicio). El container siempre escucha en 4321
+dentro de sí, gracias al `PORT=4321` forzado en el compose — eso evita
+que `PORT=80` haga que la app escuche en 80 internamente y rompa el
+mapeo de puertos.
 
 ## Cómo borrarlo
 
