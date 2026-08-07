@@ -1,0 +1,32 @@
+services:
+  umbral:
+    container_name: umbral-legacy
+    # Build context apunta a la raíz del proyecto para que el Dockerfile
+    # legacy pueda hacer COPY de package.json, src/, docs/, etc. El `dockerfile`
+    # apunta a la variante que downgrades sharp a 0.33.5 (compatible con
+    # CPUs sin x86_64-v2). Ver legacy/Dockerfile y legacy/README.md.
+    build:
+      context: .
+      dockerfile: legacy/Dockerfile
+    image: umbral:legacy
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    volumes:
+      # Volumen dedicado para no pisar datos de la instalación estándar.
+      - umbral-data-legacy:/app/data
+    env_file:
+      # El .env vive en legacy/, al lado del Dockerfile y del README que lo
+      # documentan. Mismo patrón conceptual que el proyecto original (cada
+      # compose lee su propio .env), solo que esta variante está aislada
+      # bajo legacy/ para no contaminar la raíz con personalizaciones.
+      - legacy/.env
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:4321/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  umbral-data-legacy:

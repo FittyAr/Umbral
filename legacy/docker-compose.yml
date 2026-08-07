@@ -1,30 +1,13 @@
-services:
-  umbral:
-    container_name: umbral-legacy
-    # Build context apunta a la raíz del proyecto (un nivel arriba) para que
-    # el Dockerfile pueda hacer COPY package.json, etc. El `dockerfile` apunta
-    # a la variante legacy, que es la que hace el downgrade de sharp.
-    build:
-      context: ..
-      dockerfile: legacy/Dockerfile
-    image: umbral:legacy
-    restart: unless-stopped
-    ports:
-      - "4321:4321"
-    volumes:
-      # Volumen dedicado para no pisar datos de la instalación estándar.
-      - umbral-data-legacy:/app/data
-    env_file:
-      # El .env vive en legacy/ (mismo patrón que el proyecto original: el
-      # .env siempre al lado del docker-compose.yml que lo usa). Copiá
-      # legacy/.env.example a legacy/.env y personalizalo.
-      - .env
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:4321/api/health"]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
-
-volumes:
-  umbral-data-legacy:
+# ⚠️  DEPRECATED — Este archivo ya no se usa.
+#
+# El compose legacy fue movido a la raíz del proyecto como
+# `docker-compose.legacy.yml` para que `env_file: legacy/.env` se resuelva
+# correctamente al correr desde la raíz (Docker Compose resuelve las rutas
+# de `env_file` y `build.context` relativas al working directory, no al
+# archivo compose).
+#
+# Si estás viendo este archivo en `git status`, podés borrarlo:
+#   rm legacy/docker-compose.yml
+#
+# El compose activo está en: /docker-compose.legacy.yml
+# Documentación:           /legacy/README.md
