@@ -1,6 +1,7 @@
 ---
 import '~/styles/global.css';
 import '~/styles/admin.css';
+import ThemeScript from '~/components/ThemeScript.astro';
 interface Props {
   title: string;
   csrfToken: string | null;
@@ -8,6 +9,15 @@ interface Props {
   showNav?: boolean;
 }
 const { title, csrfToken, isAuthed, showNav = true } = Astro.props;
+const theme = {
+  colorMode: 'auto' as 'light' | 'dark' | 'auto',
+  accentColor: '#60a5fa',
+  textColor: '#f1f5f9',
+  fontFamily: 'Inter',
+  fontUrl: null as string | null,
+  background: { type: 'color' as const, value: '#0b1220', blur: 0, overlay: 0, overlayColor: '#000' },
+  cardStyle: 'flat' as 'flat' | 'glass' | 'outlined',
+};
 ---
 <!doctype html>
 <html lang="es">
@@ -28,11 +38,25 @@ const { title, csrfToken, isAuthed, showNav = true } = Astro.props;
         <span class="nav-divider"></span>
         <span class="nav-title">Admin</span>
         <div class="nav-actions">
+          <button
+            data-action="toggle-mode"
+            class="mode-toggle-admin"
+            aria-label="Cambiar modo claro/oscuro"
+            title="Cambiar modo claro/oscuro"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+            </svg>
+          </button>
           <button data-action="logout" class="btn-ghost">Cerrar sesión</button>
         </div>
       </nav>
     )}
     <slot />
+
+    {/* Apply the same light/dark toggle the public pages use, so the admin
+        follows the user's preference and stays coherent across the platform. */}
+    <ThemeScript theme={theme} />
 
     {/* Global admin helpers (Alpine.js, fetch wrapper, toast) */}
     <script is:inline>
