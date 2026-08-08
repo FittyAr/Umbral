@@ -471,3 +471,118 @@ html[data-mode="light"] .header-title {
 
 /* Hidden by filter */
 .card.hidden-by-filter { display: none; }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Optional widgets
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Clock */
+.clock {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  color: var(--text);
+  margin-left: auto;
+  padding: 0 0.5rem;
+}
+.clock-time {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.clock-date {
+  font-size: 0.7rem;
+  color: var(--text-subtle);
+  text-transform: lowercase;
+}
+@media (max-width: 640px) {
+  .clock-date { display: none; }
+}
+
+/* Refresh button (matches the mode toggle's pill style) */
+.refresh-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s;
+  backdrop-filter: blur(8px);
+  padding: 0;
+  flex-shrink: 0;
+}
+.refresh-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+.refresh-btn.is-loading svg {
+  animation: refresh-spin 0.9s linear infinite;
+}
+@keyframes refresh-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Status bar */
+.status-bar {
+  margin-top: 2rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.status-bar-version { font-family: var(--font-mono); }
+.status-bar-sep     { opacity: 0.5; }
+
+/* Health check dot (corner of a card) */
+.health-dot {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  box-shadow: 0 0 0 2px var(--bg-elev);
+  transition: background 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.health-dot.ok      { background: #16a34a; }
+.health-dot.bad     { background: #dc2626; }
+.health-dot.pending { background: #f59e0b; animation: health-pulse 1s ease-in-out infinite; }
+@keyframes health-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50%      { opacity: 1;   transform: scale(1.1); }
+}
+
+/* Group layouts */
+.groups-vertical { display: block; }
+.groups-horizontal {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .groups-horizontal {
+    grid-template-columns: repeat(var(--groups-cols-tablet, 3), minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .groups-horizontal {
+    grid-template-columns: repeat(var(--groups-cols-desktop, 4), minmax(0, 1fr));
+  }
+}
+.group-col { min-width: 0; }
+.group-col .section-title { margin-top: 0; }

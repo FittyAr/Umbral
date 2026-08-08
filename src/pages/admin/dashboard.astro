@@ -144,6 +144,29 @@ const builtinIcons = await getBuiltinIconNames();
             <option value="light">Claro</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>Disposición de grupos</label>
+          <select x-model="cfg.theme.groupLayout">
+            <option value="vertical">Vertical (apilados)</option>
+            <option value="horizontal">Horizontal (en columnas)</option>
+          </select>
+        </div>
+      </div>
+
+      <h3 style="margin:1.25rem 0 0.5rem;font-size:0.95rem">Widgets opcionales</h3>
+      <p style="color:var(--text-subtle);font-size:0.82rem;margin:0 0 0.75rem">
+        Encendé los que quieras en el header / pie. Apagados = cero overhead.
+      </p>
+      <div class="form-row">
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.theme.showClock" /> Mostrar reloj</label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.theme.showRefresh" /> Mostrar botón de refresh</label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.theme.showStatusBar" /> Mostrar status bar (versión + última actualización)</label>
+        </div>
       </div>
 
       <h3>Vista previa</h3>
@@ -188,6 +211,15 @@ const builtinIcons = await getBuiltinIconNames();
       </div>
       <div class="form-group">
         <label><input type="checkbox" x-model="cfg.layout.showDescriptions" /> Mostrar descripciones</label>
+      </div>
+      <div class="form-group">
+        <label>Intervalo health check (segundos)
+          <span style="color:var(--text-faint);font-size:0.8rem" x-text="'— ' + (cfg.layout.healthCheckInterval || 60) + 's'"></span>
+        </label>
+        <input type="number" min="10" max="3600" x-model.number="cfg.layout.healthCheckInterval" />
+        <p style="color:var(--text-faint);font-size:0.75rem;margin:0.25rem 0 0">
+          Cada cuánto se vuelve a probar las tarjetas con health check activado. Mín 10s, máx 1h.
+        </p>
       </div>
     </div>
 
@@ -589,6 +621,9 @@ const builtinIcons = await getBuiltinIconNames();
               <div class="form-group">
                 <label><input type="checkbox" x-model="editingCard.enabled" /> Activa</label>
               </div>
+              <div class="form-group">
+                <label title="Ping periódico a la URL; muestra un dot verde/rojo en la card"><input type="checkbox" x-model="editingCard.healthCheck" /> Health check (dot en vivo)</label>
+              </div>
             </div>
             <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
               <button type="button" class="btn btn-ghost" @click="cancelEdit()">Cancelar</button>
@@ -712,6 +747,7 @@ const builtinIcons = await getBuiltinIconNames();
             color: this.cfg.theme.accentColor,
             order: this.cfg.cards.length,
             enabled: true,
+            healthCheck: false,
           };
         },
         editCard(idx) {

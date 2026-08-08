@@ -3,28 +3,36 @@ import PublicLayout from '~/layouts/PublicLayout.astro';
 import Card from '~/components/Card.astro';
 import Search from '~/components/Search.astro';
 import Logo from '~/components/Logo.astro';
+import Clock from '~/components/Clock.astro';
+import RefreshButton from '~/components/RefreshButton.astro';
+import StatusBar from '~/components/StatusBar.astro';
 import { getConfig } from '~/lib/config';
 import { resolveIconUrl } from '~/lib/icons';
 
 const config = await getConfig();
+const t = config.theme;
 const l = config.layout;
 const enabledCards = config.cards.filter((c) => c.enabled).sort((a, b) => a.order - b.order);
 const logoUrl = resolveIconUrl(config.branding.logo);
 
-// Group by category
+// Group by category (only categories that actually have enabled cards)
 const grouped = new Map<string, typeof enabledCards>();
 for (const c of enabledCards) {
   const arr = grouped.get(c.category) ?? [];
   arr.push(c);
   grouped.set(c.category, arr);
 }
+const groupEntries = Array.from(grouped.entries());
+const isHorizontal = t.groupLayout === 'horizontal';
 ---
 <PublicLayout config={config}>
-  <main class="page-wrap">
+  <main class="page-wrap" data-group-layout={t.groupLayout}>
     <header class="header">
       <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
       <h1 class="header-title">{config.branding.companyName}</h1>
+      {t.showClock && <Clock />}
       <Search />
+      {t.showRefresh && <RefreshButton />}
       <button
         data-action="toggle-mode"
         class="mode-toggle"
@@ -42,39 +50,109 @@ for (const c of enabledCards) {
         <h2>No hay aplicaciones todavía</h2>
         <p>Pedile al administrador que agregue algunas desde el panel.</p>
       </div>
+    ) : isHorizontal ? (
+      <div class="groups-horizontal" style={`--groups-cols-mobile:${l.columnsMobile};--groups-cols-tablet:${l.columnsTablet};--groups-cols-desktop:${l.columnsDesktop};`}>
+        {groupEntries.map(([catId, cards]) => {
+          const cat = config.categories.find((c) => c.id === catId);
+          return (
+            <section class="group-col">
+              {cat && <h2 class="section-title">{cat.name}</h2>}
+              <div class="grid">
+                {cards.map((c) => <Card card={c} layout={l} />)}
+              </div>
+            </section>
+          );
+        })}
+      </div>
     ) : (
-      Array.from(grouped.entries()).map(([catId, cards]) => {
-        const cat = config.categories.find((c) => c.id === catId);
-        return (
-          <section>
-            {cat && <h2 class="section-title">{cat.name}</h2>}
-            <div class="grid">
-              {cards.map((c) => <Card card={c} layout={l} />)}
-            </div>
-          </section>
-        );
-      })
+      <div class="groups-vertical">
+        {groupEntries.map(([catId, cards]) => {
+          const cat = config.categories.find((c) => c.id === catId);
+          return (
+            <section>
+              {cat && <h2 class="section-title">{cat.name}</h2>}
+              <div class="grid">
+                {cards.map((c) => <Card card={c} layout={l} />)}
+              </div>
+            </section>
+          );
+        })}
+      </div>
     )}
+
+    {t.showStatusBar && <StatusBar config={config} />}
   </main>
 </PublicLayout>
 
-<style>
-  .mode-toggle {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    color: var(--text);
-    width: 40px;
-    height: 40px;
-    border-radius: 999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.18s;
-    backdrop-filter: blur(8px);
+<script define:vars={{ healthCheckInterval: l.healthCheckInterval }}>
+  // ── Health check en vivo ──
+  // Pedimos al server (/api/status) que pingue las URLs. Esto evita
+  // exponer la CSP a dominios arbitrarios y mantiene el SSRF protection
+  // que ya está implementado en el endpoint (bloquea IPs privadas/loopback).
+  (function () {
+    const cards = Array.from(document.querySelectorAll('.card[data-health-check="true"]'));
+    if (cards.length === 0) return;
+    const dots = new Map(); // cardId → HTMLElement
+    for (const c of cards) {
+      const id = c.getAttribute('data-card-id');
+      if (!id) continue;
+      const d = document.createElement('span');
+      d.className = 'health-dot pending';
+      d.title = 'Verificando…';
+      c.appendChild(d);
+      dots.set(id, d);
+    }
+    const setDot = (id, state, title) => {
+      const d = dots.get(id);
+      if (!d) return;
+      d.classList.remove('ok', 'bad', 'pending');
+      d.classList.add(state);
+      d.title = title;
+    };
+    const tick = async () => {
+      // Marcar a todos como pending mientras dura el check
+      dots.forEach((d) => {
+        d.classList.remove('ok', 'bad');
+        d.classList.add('pending');
+        d.title = 'Verificando…';
+      });
+      try {
+        const res = await fetch('/api/status', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ids: Array.from(dots.keys()) }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        for (const r of (data.results || [])) {
+          setDot(
+            r.id,
+            r.ok ? 'ok' : 'bad',
+            r.ok ? `Servicio OK (${r.latencyMs ?? '?'}ms)` : (r.error || `HTTP ${r.status}`),
+          );
+        }
+      } catch (err) {
+        // Si el endpoint falla, marcamos a todos como bad (mejor rojo que
+        // un falso verde que oculte un problema real del server).
+        for (const id of dots.keys()) {
+          setDot(id, 'bad', 'Error al consultar /api/status');
+        }
+      }
+    };
+    tick();
+    setInterval(tick, Math.max(10, healthCheckInterval) * 1000);
+  })();
+
+  // ── Refresh button: location.reload conserva scroll/foco/search del
+  // browser. Fetch al /api/config primero (warm-up del cache) para que el
+  // reload sea casi instantáneo.
+  const refreshBtn = document.querySelector('[data-action="refresh-config"]');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      try {
+        await fetch('/api/config', { cache: 'no-store' });
+      } catch { /* ignorar — igual recargamos */ }
+      window.location.reload();
+    });
   }
-  .mode-toggle:hover {
-    background: color-mix(in srgb, var(--card-bg), white 8%);
-    border-color: var(--accent);
-  }
-</style>
+</script>

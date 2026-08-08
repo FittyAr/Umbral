@@ -1,0 +1,35 @@
+---
+// Status bar en el pie de página. Muestra:
+// - versión de la app (de package.json)
+// - fecha de la última actualización del config (de _meta.updatedAt)
+// Se renderiza solo si theme.showStatusBar === true.
+import pkg from '../../package.json';
+import type { Config } from '~/lib/schema';
+
+interface Props {
+  config: Config;
+}
+const { config } = Astro.props;
+const version = (pkg as { version?: string }).version ?? '?';
+const updatedAt = config._meta?.updatedAt ?? null;
+const shortHash = (() => {
+  // Si la versión incluye un sha (formato "1.0.0+abc1234" o "1.0.0 (abc1234)")
+  // lo extraemos para mostrarlo. Si no, lo dejamos fuera.
+  const m = version.match(/\(([0-9a-f]{7,})\)/);
+  if (m) return m[1];
+  return null;
+})();
+const versionLabel = shortHash ? `${version.split(' ')[0]} (${shortHash})` : version;
+const updatedLabel = updatedAt
+  ? new Date(updatedAt).toLocaleDateString('es', { year: 'numeric', month: 'short', day: 'numeric' })
+  : '—';
+---
+<footer class="status-bar" aria-label="Información de la app">
+  <span class="status-bar-version" title="Versión instalada">
+    v{versionLabel}
+  </span>
+  <span class="status-bar-sep" aria-hidden="true">·</span>
+  <span class="status-bar-updated" title="Última modificación del config">
+    actualizado {updatedLabel}
+  </span>
+</footer>

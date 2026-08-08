@@ -3,7 +3,11 @@ import { buildAuthContext, CSRF_HEADER } from '~/lib/auth';
 import { getConfig } from '~/lib/config';
 import { applySecurityHeaders } from '~/lib/http';
 
-const PUBLIC_API_PREFIXES = ['/api/login', '/api/health', '/api/assets/'];
+// /api/status: el home lo usa para el health check de las cards con
+// `card.healthCheck = true`. Es seguro hacerlo público — el endpoint sólo
+// hace HEAD a URLs que pasan la SSRF guard del handler y no expone
+// secrets (password hash, csrf, etc.).
+const PUBLIC_API_PREFIXES = ['/api/login', '/api/health', '/api/status', '/api/assets/'];
 const PUBLIC_PAGE_PATHS = new Set(['/', '/404', '/500', '/manifest.webmanifest', '/sw.js']);
 // Prefijos que matchean cualquier URL que EMPIEZA con ellos.
 // `_image` se matchea como exact (es un archivo estático, no un prefijo de

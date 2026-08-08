@@ -1,0 +1,40 @@
+---
+// Reloj en vivo. Renderiza la hora actual y la actualiza cada segundo via
+// setInterval. El formato respeta el locale del browser (es-AR por default
+// según el <html lang="es"> del layout). El usuario lo activa desde
+// Admin → Tema → "Mostrar reloj".
+---
+<time class="clock" datetime="" aria-label="Hora actual">
+  <span class="clock-time">--:--:--</span>
+  <span class="clock-date" aria-hidden="true"></span>
+</time>
+
+<script>
+  // Encapsulado: corre una vez por documento. Como Astro evalúa <script>
+  // default una vez por page load, el intervalo queda vivo hasta que se
+  // recarga la página (que es justamente cuando el clock debería reiniciar).
+  // Locale: forzamos 'es' (el del documento) para que el formato sea
+  // castellano independientemente del locale del browser. El user puede
+  // cambiarlo editando este componente si necesita otro idioma.
+  const el = document.querySelector('.clock');
+  if (el) {
+    const timeEl = el.querySelector('.clock-time');
+    const dateEl = el.querySelector('.clock-date');
+    const isoEl = el;
+    const locale = 'es';
+    const dateFmt = new Intl.DateTimeFormat(locale, {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
+    const timeFmt = new Intl.DateTimeFormat(locale, {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+    const tick = () => {
+      const now = new Date();
+      if (timeEl) timeEl.textContent = timeFmt.format(now);
+      if (dateEl) dateEl.textContent = dateFmt.format(now);
+      isoEl.setAttribute('datetime', now.toISOString());
+    };
+    tick();
+    setInterval(tick, 1000);
+  }
+</script>

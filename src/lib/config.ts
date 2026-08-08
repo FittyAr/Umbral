@@ -32,6 +32,10 @@ function defaultConfig(): Config {
       fontUrl:
         'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
       colorMode: 'auto',
+      groupLayout: 'vertical',
+      showClock: false,
+      showRefresh: false,
+      showStatusBar: false,
     },
     layout: {
       columnsDesktop: 4,
@@ -39,6 +43,7 @@ function defaultConfig(): Config {
       columnsMobile: 2,
       cardSize: 'medium',
       showDescriptions: true,
+      healthCheckInterval: 60,
     },
     security: {
       session: {

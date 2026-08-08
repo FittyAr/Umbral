@@ -62,6 +62,17 @@ export const ThemeSchema = z.object({
     )
     .default(''),
   colorMode: z.enum(['light', 'dark', 'auto']).default('auto'),
+  // ── Optional widgets (off by default — opt-in) ──
+  // groupLayout: 'vertical' = apila secciones (default actual);
+  //              'horizontal' = pone varias categorías side-by-side en columnas.
+  groupLayout: z.enum(['vertical', 'horizontal']).default('vertical'),
+  // showClock: agrega un reloj en vivo al header (HH:MM:SS, formato del navegador).
+  showClock: z.boolean().default(false),
+  // showRefresh: agrega un botón de refresh en el header que recarga el cfg
+  // (no la página entera — más rápido y conserva scroll/state del browser).
+  showRefresh: z.boolean().default(false),
+  // showStatusBar: pie de página con versión + última actualización del config.
+  showStatusBar: z.boolean().default(false),
 });
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -73,6 +84,9 @@ export const LayoutSchema = z.object({
   columnsMobile: z.number().int().min(1).max(3).default(2),
   cardSize: z.enum(['small', 'medium', 'large']).default('medium'),
   showDescriptions: z.boolean().default(true),
+  // healthCheckInterval: cada cuántos segundos volver a probar las cards con
+  // healthCheck=true. Mínimo 10s (evita martillar el server), máximo 1h.
+  healthCheckInterval: z.number().int().min(10).max(3600).default(60),
 });
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -114,6 +128,10 @@ export const CardSchema = z.object({
     .default('#60a5fa'),
   order: z.number().int().min(0).default(0),
   enabled: z.boolean().default(true),
+  // healthCheck: si true, el home hace ping a la URL periódicamente y muestra
+  // un dot verde/rojo en la card. Útil para detectar servicios caídos.
+  // Requiere que la URL responda a HEAD o GET dentro del timeout (default 5s).
+  healthCheck: z.boolean().default(false),
 });
 
 // ──────────────────────────────────────────────────────────────────────────
