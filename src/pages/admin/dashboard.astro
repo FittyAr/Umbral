@@ -789,6 +789,23 @@ const builtinIcons = await getBuiltinIconNames();
         async init() {
           this.cfg = structuredClone(window.__initialConfig);
           this.original = structuredClone(window.__initialConfig);
+          // BUGFIX (regresión reportada por el user): si el server arrancó
+          // con un config viejo (sin `ai` ni otras secciones nuevas) y por
+          // algún motivo el cache devolvió un cfg sin `ai`, Alpine tira
+          // "Cannot read properties of undefined (reading 'enabled')" en
+          // cada binding del tab IA. Rellenamos con defaults del lado del
+          // cliente como red de seguridad: el server también lo hace (ver
+          // loadFresh), pero esto evita la cascada de errores en lo que el
+          // cache se refresca.
+          if (!this.cfg.ai) this.cfg.ai = { enabled: false, provider: 'openai-compatible', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini', systemPrompt: '' };
+          // Mismo fallback para los widgets nuevos del theme (no deberían
+          // faltar porque el schema llena defaults, pero por si el cache
+          // quedó stale durante un rolling update).
+          if (typeof this.cfg.theme.showClock !== 'boolean') this.cfg.theme.showClock = false;
+          if (typeof this.cfg.theme.showRefresh !== 'boolean') this.cfg.theme.showRefresh = false;
+          if (typeof this.cfg.theme.showStatusBar !== 'boolean') this.cfg.theme.showStatusBar = false;
+          if (typeof this.cfg.theme.groupLayout !== 'string') this.cfg.theme.groupLayout = 'vertical';
+          if (typeof this.cfg.layout.healthCheckInterval !== 'number') this.cfg.layout.healthCheckInterval = 60;
           // Defer refreshAssets until after the page's umbralAdmin is defined.
           // AdminLayout's inline script defines it; this module script may run
           // before or after that depending on Vite's module loading order.

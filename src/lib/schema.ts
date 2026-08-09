@@ -125,9 +125,27 @@ export const CardSchema = z.object({
   // URL: para 'link' es obligatoria; para 'note' es opcional. Aceptamos
   // string vacío como caso válido (no falla el regex). El check de "es
   // obligatoria para link" está en el superRefine de abajo.
+  //
+  // BUGFIX (cards.10.url inválida reportado por el user): antes hacía solo
+  // .refine(regex). El regex rechaza cualquier whitespace, así que un
+  // copy-paste con \n al final o un espacio al principio reventaba con
+  // "URL inválida" — frustrante y silencioso. Ahora:
+  // 1) trim() de espacios/newlines al principio y al final
+  // 2) si no tiene esquema y no es path interno (/...), prepend "http://"
+  //    (cubre el caso común de tipear "10.155.49.240:40314" sin http://)
+  // 3) si empieza con "//" (protocol-relative), prepend "http:"
+  // El .refine() corre DESPUÉS del transform, así que la validación es
+  // sobre el valor ya normalizado.
   url: z
     .string()
     .max(2048)
+    .transform((v) => {
+      let s = v.trim();
+      if (!s) return s;
+      if (s.startsWith('//')) return 'http:' + s;
+      if (!/^https?:\/\//i.test(s) && !s.startsWith('/')) return 'http://' + s;
+      return s;
+    })
     .refine(
       (v) => v === '' || SAFE_CARD_URL.test(v),
       'URL inválida (http(s):// o path interno /...)',

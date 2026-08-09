@@ -26,7 +26,18 @@ export const PUT: APIRoute = async ({ request }) => {
       400,
     );
   }
-  const updated = await saveConfig(result.data);
+  let updated;
+  try {
+    // BUGFIX: saveConfig re-valida el merged (current + new). Si por algo
+    // el merge produce algo que rompe el schema, .parse() tira ZodError y
+    // la ruta devolvía un 500 opaco. Ahora lo capturamos y devolvemos un
+    // 400 con el detalle, así el admin puede mostrar el problema exacto.
+    updated = await saveConfig(result.data);
+  } catch (err) {
+    console.error('[umbral] saveConfig failed:', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return error(`Error guardando config: ${message}`, 400);
+  }
   await audit('config_update');
   return json(updated);
 };
