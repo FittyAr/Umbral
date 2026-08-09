@@ -117,8 +117,22 @@ const SAFE_CARD_URL = /^(https?:\/\/[^\s]+|\/[^\s]*)$/;
 export const CardSchema = z.object({
   id: z.string().min(1).max(80),
   title: z.string().min(1).max(80),
+  // kind: 'link' = tarjeta clickeable normal (con URL). 'note' = tarjeta
+  // informativa, sin link — el `url` es opcional y la card no es clickeable.
+  // Útil para tips, anuncios, info fija del equipo, etc.
+  kind: z.enum(['link', 'note']).default('link'),
   description: z.string().max(200).default(''),
-  url: z.string().max(2048).regex(SAFE_CARD_URL, 'URL inválida (http(s):// o path interno /...)'),
+  // URL: para 'link' es obligatoria; para 'note' es opcional. Aceptamos
+  // string vacío como caso válido (no falla el regex). El check de "es
+  // obligatoria para link" está en el superRefine de abajo.
+  url: z
+    .string()
+    .max(2048)
+    .refine(
+      (v) => v === '' || SAFE_CARD_URL.test(v),
+      'URL inválida (http(s):// o path interno /...)',
+    )
+    .default(''),
   icon: z.string().default('globe'), // nombre de ícono (Lucide) o path /api/assets/<file>
   category: z.string().min(1),
   openInNewTab: z.boolean().default(true),
@@ -130,8 +144,18 @@ export const CardSchema = z.object({
   enabled: z.boolean().default(true),
   // healthCheck: si true, el home hace ping a la URL periódicamente y muestra
   // un dot verde/rojo en la card. Útil para detectar servicios caídos.
+  // Solo aplica a kind='link' — una nota no tiene URL que monitorear.
   // Requiere que la URL responda a HEAD o GET dentro del timeout (default 5s).
   healthCheck: z.boolean().default(false),
+}).superRefine((card, ctx) => {
+  // kind='link' requiere URL no vacía.
+  if (card.kind === 'link' && !card.url) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['url'],
+      message: 'URL requerida para tarjeta tipo "link"',
+    });
+  }
 });
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -215,6 +239,42 @@ export const NetworkSecuritySchema = z.object({
   // Dominio al que se emite la cookie (default: hostname del request).
   // Útil si querés compartir sesión entre subdominios ('.example.com').
   cookieDomain: z.string().nullable().default(null),
+  // allowInternalHosts: en /api/status y otros lugares donde el server hace
+  // fetch saliente, decide si el SSRF guard permite hosts privados
+  // (10/8, 172.16/12, 192.168/16, 169.254/16, IPv6 link-local, etc.) o los
+  // bloquea por seguridad.
+  //
+  // Default `true` porque Umbral está pensado como portal interno (deploy en
+  // LAN o docker compose), y un admin legítimo quiere monitorear sus
+  // propios servicios. Cambialo a `false` si exponés Umbral a internet y
+  // querés cerrar el vector SSRF clásico (atacante mete una URL a
+  // http://169.254.169.254/ para traerte metadata de la nube).
+  allowInternalHosts: z.boolean().default(true),
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// AI (opcional — no se activa hasta que el admin configure provider+apiKey)
+//
+// Soporta el formato OpenAI-compatible (/v1/chat/completions). Eso cubre:
+// - OpenAI (https://api.openai.com/v1)
+// - Ollama local (http://localhost:11434/v1) — modelos open source
+// - LM Studio local (http://localhost:1234/v1)
+// - OpenRouter (https://openrouter.ai/api/v1)
+// - Cualquier otro proxy que respete la API de OpenAI
+//
+// Cuando `enabled` es false, /api/ai devuelve 503 — el admin lo activa
+// explícitamente. La apiKey puede ser vacía para providers que no la
+// requieren (algunos Ollama).
+// ──────────────────────────────────────────────────────────────────────────
+export const AISchema = z.object({
+  enabled: z.boolean().default(false),
+  provider: z.enum(['openai-compatible']).default('openai-compatible'),
+  baseUrl: z.string().max(200).default('https://api.openai.com/v1'),
+  apiKey: z.string().max(500).default(''),
+  model: z.string().max(80).default('gpt-4o-mini'),
+  // systemPrompt opcional: el admin puede customizar la personalidad del
+  // asistente. Si está vacío, usamos uno default.
+  systemPrompt: z.string().max(2000).default(''),
 });
 
 export const HeadersSecuritySchema = z.object({
@@ -270,6 +330,7 @@ export type AuthSecurity = z.infer<typeof AuthSecuritySchema>;
 export type UploadSecurity = z.infer<typeof UploadSecuritySchema>;
 export type NetworkSecurity = z.infer<typeof NetworkSecuritySchema>;
 export type HeadersSecurity = z.infer<typeof HeadersSecuritySchema>;
+export type AI = z.infer<typeof AISchema>;
 
 // ──────────────────────────────────────────────────────────────────────────
 // Top-level Config
@@ -280,6 +341,9 @@ export const ConfigSchema = z.object({
   theme: ThemeSchema,
   layout: LayoutSchema,
   security: SecuritySchema,
+  // `ai` es opt-in: el admin lo activa desde el panel cuando quiera.
+  // Default vacío → todos los endpoints /api/ai devuelven 503.
+  ai: AISchema.optional(),
   categories: z.array(CategorySchema).default([]),
   cards: z.array(CardSchema).default([]),
   auth: AuthSchema.optional(),
@@ -318,6 +382,7 @@ export const ConfigUpdateSchema = z
     theme: ThemeSchema.partial().optional(),
     layout: LayoutSchema.partial().optional(),
     security: SecuritySchema.partial().optional(),
+    ai: AISchema.partial().optional(),
     categories: z.array(CategorySchema).optional(),
     cards: z.array(CardSchema).optional(),
     // auth y _meta son sólo del server — el client los manda sin querer al

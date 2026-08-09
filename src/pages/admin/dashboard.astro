@@ -35,6 +35,7 @@ const builtinIcons = await getBuiltinIconNames();
       <button class="tab" :class="tab==='status' && 'active'" @click="tab='status'">Status</button>
       <button class="tab" :class="tab==='hardening' && 'active'" @click="tab='hardening'">Hardening</button>
       <button class="tab" :class="tab==='security' && 'active'" @click="tab='security'">Password</button>
+      <button class="tab" :class="tab==='ai' && 'active'" @click="tab='ai'">IA</button>
       <button class="tab" :class="tab==='advanced' && 'active'" @click="tab='advanced'">Avanzado</button>
     </div>
 
@@ -446,6 +447,9 @@ const builtinIcons = await getBuiltinIconNames();
           <label><input type="checkbox" x-model="cfg.security.network.trustForwardedFor" /> Confiar en X-Forwarded-For (sólo con reverse proxy)</label>
         </div>
         <div class="form-group">
+          <label><input type="checkbox" x-model="cfg.security.network.allowInternalHosts" /> Permitir health checks a hosts internos (10/8, 172.16/12, 192.168/16)</label>
+        </div>
+        <div class="form-group">
           <label>Cookie domain (ej: .example.com)</label>
           <input type="text" x-model="cfg.security.network.cookieDomain" placeholder="(vacío = sin domain)" />
         </div>
@@ -541,6 +545,54 @@ const builtinIcons = await getBuiltinIconNames();
       <code style="display:inline-block;padding:0.4rem 0.7rem;background:#0f172a;border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '—'"></code>
     </div>
 
+    <!-- AI -->
+    <div class="panel" :class="tab==='ai' && 'active'">
+      <h2 style="margin-top:0">Asistente IA</h2>
+      <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem">
+        Conectá un provider OpenAI-compatible para mejorar las tarjetas (título + descripción).
+        Soporta OpenAI, Ollama local, LM Studio, OpenRouter, o cualquier proxy con la misma API.
+        <strong>Apagado por default</strong>: la apiKey no se manda a ningún lado hasta que actives esto.
+      </p>
+      <div class="form-group">
+        <label><input type="checkbox" x-model="cfg.ai.enabled" /> Habilitar asistente IA</label>
+      </div>
+      <div class="form-row" x-show="cfg.ai.enabled">
+        <div class="form-group">
+          <label>Provider</label>
+          <select x-model="cfg.ai.provider">
+            <option value="openai-compatible">OpenAI-compatible (cualquier /v1/chat/completions)</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Base URL</label>
+          <input type="text" x-model="cfg.ai.baseUrl" placeholder="https://api.openai.com/v1" />
+          <small style="color:#94a3b8">Ollama local: <code>http://localhost:11434/v1</code> · LM Studio: <code>http://localhost:1234/v1</code> · OpenRouter: <code>https://openrouter.ai/api/v1</code></small>
+        </div>
+      </div>
+      <div class="form-row" x-show="cfg.ai.enabled">
+        <div class="form-group" style="flex:1">
+          <label>API Key</label>
+          <input type="password" x-model="cfg.ai.apiKey" placeholder="sk-..." autocomplete="off" />
+          <small style="color:#94a3b8">Dejá vacío para providers sin auth (algunos Ollama). Se guarda en <code>data/config.json</code> en texto plano — no es ideal pero es lo que hay sin un vault.</small>
+        </div>
+        <div class="form-group">
+          <label>Modelo</label>
+          <input type="text" x-model="cfg.ai.model" placeholder="gpt-4o-mini" />
+        </div>
+      </div>
+      <div class="form-group" x-show="cfg.ai.enabled">
+        <label>System prompt (opcional)</label>
+        <textarea x-model="cfg.ai.systemPrompt" rows="3" placeholder="Si lo dejás vacío, uso uno default en castellano rioplatense."></textarea>
+      </div>
+      <div class="form-group" x-show="cfg.ai.enabled">
+        <button type="button" class="btn btn-ghost btn-sm" @click="testAI()" :disabled="aiBusy || !cfg.ai.baseUrl">
+          <span x-show="!aiBusy">Probar conexión</span>
+          <span x-show="aiBusy" x-cloak>Probando…</span>
+        </button>
+        <span x-show="aiTestResult" x-text="aiTestResult" style="margin-left:0.75rem;font-size:0.85rem" x-cloak></span>
+      </div>
+    </div>
+
     <!-- ADVANCED -->
     <div class="panel" :class="tab==='advanced' && 'active'">
       <h2 style="margin-top:0">Avanzado</h2>
@@ -565,20 +617,73 @@ const builtinIcons = await getBuiltinIconNames();
 
     <!-- Card editor modal -->
     <template x-if="editingCard !== null">
-      <div class="modal-backdrop" @click.self="cancelEdit()">
-        <div class="modal">
+      <div class="modal-backdrop" @click.self="tryCancelEdit()">
+        <div class="modal" @keydown.escape.window="tryCancelEdit()">
           <h2 style="margin-top:0">Editar tarjeta</h2>
-          <form @submit.prevent="saveCard()">
+          <form @submit.prevent="saveCard()" @input="cardFormDirty = true">
             <div class="form-row">
               <div class="form-group">
                 <label>Título</label>
                 <input type="text" x-model="editingCard.title" required maxlength="80" />
               </div>
               <div class="form-group">
-                <label>URL</label>
-                <input type="text" x-model="editingCard.url" required placeholder="https://… o /docs" />
-                <small style="color:#94a3b8">URL externa (https://…) o path interno (/docs, /admin)</small>
+                <label>Tipo</label>
+                <select x-model="editingCard.kind">
+                  <option value="link">Link (clickeable)</option>
+                  <option value="note">Nota (informativa, sin link)</option>
+                </select>
+                <small style="color:#94a3b8">"Link" lleva a una URL. "Nota" es solo informativa (anuncios, tips, etc.).</small>
               </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex:1">
+                <label>URL <span x-show="editingCard.kind==='link'" style="color:#dc2626">*</span></label>
+                <div style="display:flex;gap:0.4rem;align-items:flex-start">
+                  <input
+                    type="text"
+                    x-model="editingCard.url"
+                    :required="editingCard.kind==='link'"
+                    placeholder="https://… o /docs"
+                    style="flex:1"
+                    @blur="maybeAutofillFromUrl()"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-ghost"
+                    @click="autofillFromUrl()"
+                    :disabled="autofillBusy || !editingCard.url"
+                    title="Traer título, descripción e imagen del sitio"
+                    x-show="editingCard.kind==='link'"
+                  >
+                    <span x-show="!autofillBusy">Auto-completar</span>
+                    <span x-show="autofillBusy" x-cloak>Buscando…</span>
+                  </button>
+                </div>
+                <small style="color:#94a3b8">
+                  <template x-if="editingCard.kind==='link'">
+                    <span>URL externa (https://…) o path interno (/docs, /admin). Obligatoria. Auto-completar trae título/desc/imagen del sitio.</span>
+                  </template>
+                  <template x-if="editingCard.kind==='note'">
+                    <span>Opcional para notas. Útil si querés un link de referencia dentro del texto.</span>
+                  </template>
+                </small>
+              </div>
+            </div>
+            <div class="form-group" x-show="cfg.ai?.enabled && editingCard.kind==='link'" style="display:flex;gap:0.4rem;align-items:center;padding:0.5rem 0.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+              <span style="color:var(--text-subtle);font-size:0.85rem">IA: </span>
+              <button
+                type="button"
+                class="btn btn-sm btn-ghost"
+                @click="improveWithAI()"
+                :disabled="aiBusy || !editingCard.title"
+                title="Mejorar el título y descripción con la IA configurada"
+              >
+                <span x-show="!aiBusy">Mejorar con IA</span>
+                <span x-show="aiBusy" x-cloak>Pensando…</span>
+              </button>
+              <span style="color:var(--text-faint);font-size:0.75rem">
+                Usa la config de IA (Admin → IA). Editá el prompt system ahí si querés otro estilo.
+              </span>
             </div>
             <div class="form-group">
               <label>Descripción</label>
@@ -615,18 +720,18 @@ const builtinIcons = await getBuiltinIconNames();
               </div>
             </div>
             <div class="form-row">
-              <div class="form-group">
+              <div class="form-group" x-show="editingCard.kind==='link'">
                 <label><input type="checkbox" x-model="editingCard.openInNewTab" /> Abrir en nueva pestaña</label>
               </div>
               <div class="form-group">
                 <label><input type="checkbox" x-model="editingCard.enabled" /> Activa</label>
               </div>
-              <div class="form-group">
-                <label title="Ping periódico a la URL; muestra un dot verde/rojo en la card"><input type="checkbox" x-model="editingCard.healthCheck" /> Health check (dot en vivo)</label>
+              <div class="form-group" x-show="editingCard.kind==='link'" title="Ping periódico a la URL; muestra un dot verde/rojo en la card">
+                <label><input type="checkbox" x-model="editingCard.healthCheck" /> Health check (dot en vivo)</label>
               </div>
             </div>
             <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
-              <button type="button" class="btn btn-ghost" @click="cancelEdit()">Cancelar</button>
+              <button type="button" class="btn btn-ghost" @click="tryCancelEdit()">Cancelar</button>
               <button type="submit" class="btn btn-primary">Guardar</button>
             </div>
           </form>
@@ -662,6 +767,17 @@ const builtinIcons = await getBuiltinIconNames();
         cardFilter: '',
         editingCard: null,
         editingIndex: -1,
+        // `true` cuando el user modificó algo en el form del modal de tarjeta.
+        // Usado por tryCancelEdit para confirmar antes de descartar. NO es
+        // lo mismo que `dirty` (que es el flag global de "cambios sin guardar
+        // en el config"): cardFormDirty es local al modal.
+        cardFormDirty: false,
+        // Para el botón "Auto-completar" del modal: bloquea el botón mientras
+        // se hace el fetch al sitio externo.
+        autofillBusy: false,
+        // Para el botón "Probar conexión" en la tab IA.
+        aiBusy: false,
+        aiTestResult: '',
         statusResults: [],
         checkingStatus: false,
         healthInfo: null,
@@ -693,6 +809,37 @@ const builtinIcons = await getBuiltinIconNames();
         },
 
         markDirty() { this.dirty = JSON.stringify(this.cfg) !== JSON.stringify(this.original); },
+
+        async testAI() {
+          if (!this.cfg.ai?.baseUrl) return;
+          this.aiBusy = true;
+          this.aiTestResult = '';
+          try {
+            // saveAll se encarga de persistir la config antes del test,
+            // pero como esto es un test rápido, mandamos un payload mínimo
+            // con la config actual (que ya está en memoria).
+            const res = await fetch('/api/ai/format-card', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                title: 'GitHub',
+                description: 'Plataforma de código',
+                url: 'https://github.com',
+              }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              this.aiTestResult = `✓ Conectado. Respuesta: "${data.title}" / "${data.description}"`;
+            } else {
+              const err = await res.json().catch(() => ({}));
+              this.aiTestResult = `✗ ${res.status}: ${err.error || res.statusText}`;
+            }
+          } catch (err) {
+            this.aiTestResult = `✗ ${err.message}`;
+          } finally {
+            this.aiBusy = false;
+          }
+        },
 
         initSortable() {
           const el = document.getElementById('cards-sortable');
@@ -739,6 +886,7 @@ const builtinIcons = await getBuiltinIconNames();
           this.editingCard = {
             id: 'card-' + Date.now().toString(36),
             title: 'Nueva tarjeta',
+            kind: 'link',
             description: '',
             url: 'https://',
             icon: this.builtinIcons[0] || 'globe',
@@ -766,7 +914,105 @@ const builtinIcons = await getBuiltinIconNames();
           this.cancelEdit();
           this.markDirty();
         },
-        cancelEdit() { this.editingCard = null; this.editingIndex = -1; },
+        cancelEdit() { this.editingCard = null; this.editingIndex = -1; this.cardFormDirty = false; },
+        // Cierra el modal con confirmación si hay cambios sin guardar. Se usa
+        // para ESC, click fuera, y botón Cancelar. Para "Guardar" no aplica
+        // porque ahí los cambios van al cfg local.
+        tryCancelEdit() {
+          if (this.cardFormDirty) {
+            const ok = window.confirm('Tenés cambios sin guardar en esta tarjeta. ¿Descartarlos?');
+            if (!ok) return;
+          }
+          this.cancelEdit();
+        },
+        // Auto-completar el form desde la URL. Pide a /api/fetch-card-info
+        // que scrapea el <head> del sitio (title, og:description, og:image).
+        // Sólo sobreescribe campos VACÍOS — no pisa lo que el user ya escribió.
+        async autofillFromUrl() {
+          if (!this.editingCard?.url) return;
+          const url = this.editingCard.url;
+          if (!/^https?:\/\//.test(url)) return; // sólo URLs externas
+          this.autofillBusy = true;
+          try {
+            const res = await fetch(`/api/fetch-card-info?url=${encodeURIComponent(url)}`);
+            if (!res.ok) {
+              const e = await res.json().catch(() => ({}));
+              window.umbralAdmin.toast(e.error || `Error HTTP ${res.status}`, 'error');
+              return;
+            }
+            const data = await res.json();
+            let filled = 0;
+            if (data.title && (!this.editingCard.title || this.editingCard.title === 'Nueva tarjeta' || this.editingCard.title.trim() === '')) {
+              this.editingCard.title = data.title; filled++;
+            }
+            if (data.description && !this.editingCard.description) {
+              this.editingCard.description = data.description; filled++;
+            }
+            // La imagen: si vino una, la subimos como asset. Si no, no tocamos el ícono.
+            if (data.image) {
+              try {
+                const imgRes = await fetch(data.image);
+                if (imgRes.ok) {
+                  const blob = await imgRes.blob();
+                  const ext = (blob.type.split('/')[1] || 'png').toLowerCase();
+                  const safeName = `favicon-${Date.now().toString(36)}.${ext}`;
+                  const fd = new FormData();
+                  fd.append('file', blob, safeName);
+                  fd.append('kind', 'icon');
+                  const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
+                  if (upRes.ok) {
+                    const up = await upRes.json();
+                    this.editingCard.icon = up.url; filled++;
+                  }
+                }
+              } catch { /* favicon no se pudo subir — el ícono se queda como está */ }
+            }
+            window.umbralAdmin.toast(filled > 0 ? `Autocompletado: ${filled} campo(s)` : 'No se encontró info útil', filled > 0 ? 'success' : 'info');
+            this.markDirty();
+          } catch (err) {
+            window.umbralAdmin.toast(`Error: ${err.message}`, 'error');
+          } finally {
+            this.autofillBusy = false;
+          }
+        },
+        // Disparado en blur del input URL. Sólo auto-completar si el form
+        // está prácticamente vacío (no pisar lo que el user ya tipeó).
+        maybeAutofillFromUrl() {
+          if (!this.editingCard?.url) return;
+          const ec = this.editingCard;
+          const isEmpty = (!ec.title || ec.title === 'Nueva tarjeta' || !ec.title.trim())
+            && !ec.description
+            && (!ec.icon || ec.icon === this.builtinIcons[0]);
+          if (isEmpty) this.autofillFromUrl();
+        },
+        async improveWithAI() {
+          if (!this.editingCard?.title) return;
+          this.aiBusy = true;
+          try {
+            const res = await fetch('/api/ai/format-card', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                title: this.editingCard.title,
+                description: this.editingCard.description,
+                url: this.editingCard.url,
+              }),
+            });
+            if (!res.ok) {
+              const e = await res.json().catch(() => ({}));
+              window.umbralAdmin.toast(e.error || `Error HTTP ${res.status}`, 'error');
+              return;
+            }
+            const data = await res.json();
+            if (data.title) this.editingCard.title = data.title;
+            if (data.description !== undefined) this.editingCard.description = data.description;
+            window.umbralAdmin.toast('Mejorado con IA. Revisá antes de guardar.', 'success');
+          } catch (err) {
+            window.umbralAdmin.toast(`Error: ${err.message}`, 'error');
+          } finally {
+            this.aiBusy = false;
+          }
+        },
         removeCard(idx) {
           const id = this.filteredCards()[idx].id;
           if (!confirm('¿Borrar esta tarjeta?')) return;

@@ -244,6 +244,20 @@ a:hover { text-decoration: underline; }
   overflow: hidden;
 }
 
+/* Nota informativa — no es link, no se "clica". Mismo aspecto visual pero
+   sin cursor pointer ni transform en hover. La diferencia clave es la
+   semántica: screen readers anuncian "tarjeta" en vez de "enlace", y
+   tabindex/foco no se aplica a un <div>. */
+.card-note {
+  cursor: default;
+}
+.card-note:hover {
+  transform: none;
+}
+.card-note:focus-visible {
+  outline: none;
+}
+
 /* ─────────────────────────────────────────────────────────────────────
    Header & sections
    ───────────────────────────────────────────────────────────────────── */

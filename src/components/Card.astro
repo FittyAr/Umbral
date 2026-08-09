@@ -9,31 +9,58 @@ interface Props {
 }
 const { card, layout } = Astro.props;
 const iconUrl = resolveIconUrl(card.icon);
-const target = card.openInNewTab ? '_blank' : '_self';
-const rel = card.openInNewTab ? 'noopener noreferrer' : undefined;
+const isNote = card.kind === 'note';
+
+// Para notas: no target/rel (no es link), no href. Se renderiza como un div.
+// Para links: target/rel según openInNewTab, href = card.url.
 const styleOverride = card.color
   ? `--accent:${card.color};`
   : '';
+const baseClass = isNote ? 'card card-note' : 'card';
 ---
-<a
-  class="card"
-  data-style={layout.cardSize}
-  data-size={layout.cardSize}
-  data-card-id={card.id}
-  data-health-check={card.healthCheck ? 'true' : 'false'}
-  href={card.url}
-  target={target}
-  rel={rel}
-  title={card.title}
-  style={styleOverride}
->
-  {iconUrl && (
-    <div class="card-icon">
-      <img src={iconUrl} alt="" loading="lazy" />
-    </div>
-  )}
-  <h3 class="card-title">{card.title}</h3>
-  {layout.showDescriptions && card.description && (
-    <p class="card-desc">{card.description}</p>
-  )}
-</a>
+{isNote ? (
+  <div
+    class={baseClass}
+    data-style={layout.cardSize}
+    data-size={layout.cardSize}
+    data-card-id={card.id}
+    data-card-kind="note"
+    data-health-check="false"
+    title={card.title}
+    style={styleOverride}
+  >
+    {iconUrl && (
+      <div class="card-icon">
+        <img src={iconUrl} alt="" loading="lazy" />
+      </div>
+    )}
+    <h3 class="card-title">{card.title}</h3>
+    {layout.showDescriptions && card.description && (
+      <p class="card-desc">{card.description}</p>
+    )}
+  </div>
+) : (
+  <a
+    class={baseClass}
+    data-style={layout.cardSize}
+    data-size={layout.cardSize}
+    data-card-id={card.id}
+    data-card-kind="link"
+    data-health-check={card.healthCheck ? 'true' : 'false'}
+    href={card.url}
+    target={card.openInNewTab ? '_blank' : '_self'}
+    rel={card.openInNewTab ? 'noopener noreferrer' : undefined}
+    title={card.title}
+    style={styleOverride}
+  >
+    {iconUrl && (
+      <div class="card-icon">
+        <img src={iconUrl} alt="" loading="lazy" />
+      </div>
+    )}
+    <h3 class="card-title">{card.title}</h3>
+    {layout.showDescriptions && card.description && (
+      <p class="card-desc">{card.description}</p>
+    )}
+  </a>
+)}

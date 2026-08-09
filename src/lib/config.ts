@@ -72,6 +72,7 @@ function defaultConfig(): Config {
         trustForwardedFor: false,
         trustedProxies: [],
         cookieDomain: null,
+        allowInternalHosts: true,
       },
       headers: {
         csp:
@@ -84,6 +85,14 @@ function defaultConfig(): Config {
         hstsIncludeSubDomains: false,
         hstsPreload: false,
       },
+    },
+    ai: {
+      enabled: false,
+      provider: 'openai-compatible',
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: '',
+      model: 'gpt-4o-mini',
+      systemPrompt: '',
     },
     categories: [
       { id: 'com', name: 'Comunicación', icon: 'message-circle' },
@@ -249,6 +258,11 @@ async function loadFresh(): Promise<Config> {
         network: { ...defaults.security.network, ...(partialSec.network ?? {}) },
         headers: { ...defaults.security.headers, ...(partialSec.headers ?? {}) },
       },
+      // AI: si el partial no incluye `ai`, usar el default (no activado).
+      // Si lo incluye pero está parcial, mergear.
+      ai: partial.data.ai
+        ? { ...defaults.ai, ...(partial.data.ai as object) }
+        : defaults.ai,
       auth: partial.data.auth,  // puede ser undefined; lo regeneramos abajo
       _meta: { ...defaults._meta, ...(partial.data._meta ?? {}), updatedAt: new Date().toISOString() },
     };
@@ -330,6 +344,9 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
       network: { ...current.security.network, ...(cleanUpdate.security?.network ?? {}) },
       headers: { ...current.security.headers, ...(cleanUpdate.security?.headers ?? {}) },
     },
+    ai: cleanUpdate.ai
+      ? { ...(current.ai ?? defaults.ai), ...cleanUpdate.ai }
+      : (current.ai ?? defaults.ai),
     categories: cleanUpdate.categories ?? current.categories,
     cards: cleanUpdate.cards ?? current.cards,
     _meta: { ...current._meta, updatedAt: new Date().toISOString() },
