@@ -295,6 +295,23 @@ export const AISchema = z.object({
   systemPrompt: z.string().max(2000).default(''),
 });
 
+// ──────────────────────────────────────────────────────────────────────────
+// External search (Brave / Tavily) — opcional, off by default
+//
+// Usado por /api/fetch-card-info cuando el fetch directo a la URL falla o
+// no devuelve info útil. Orden de búsqueda: Brave (si key) → Tavily (si
+// key) → Wikipedia REST → DuckDuckGo Instant Answer. Las dos últimas no
+// requieren key así que andan out-of-the-box.
+//
+// Para SearXNG self-hosted: el user puede usar el preset "Custom / Otro"
+// en el form de externalSearch y apuntar a su instance. No hay un campo
+// dedicado porque SearXNG no requiere key.
+// ──────────────────────────────────────────────────────────────────────────
+export const ExternalSearchSchema = z.object({
+  braveApiKey: z.string().max(200).default(''),
+  tavilyApiKey: z.string().max(200).default(''),
+});
+
 export const HeadersSecuritySchema = z.object({
   // Content-Security-Policy. null = no se envía el header (permisivo).
   // Endurecer: dejar el default sugerido.
