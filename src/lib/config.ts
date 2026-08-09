@@ -359,6 +359,60 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
     cards: cleanUpdate.cards ?? current.cards,
     _meta: { ...current._meta, updatedAt: new Date().toISOString() },
   };
+  // BUGFIX / BUG-PROTECTION: la tarjeta default de docs (id='docs', url='/docs')
+  // es del sistema. La UI no expone Editar/Borrar para esa card, pero el server
+  // es la última línea de defensa: si un request (legítimo del UI roto, o
+  // malicioso que encontró el endpoint) intenta borrarla o modificarla,
+  // rechazamos con 400 claro. Si la card de docs no existe en la config
+  // actual (caso muy raro: alguien la borró por edit manual del JSON antes
+  // de tener esta protección), la restauramos silenciosamente desde el
+  // default — perder el link a la documentación del propio sistema es un
+  // bug peor que restaurarla.
+  //
+  // Reglas de protección (el user pidió "se puede ocultar pero NO eliminar
+  // ni editar"):
+  // - Se puede modificar `enabled` (eso la oculta de la portada sin tocarla)
+  // - NO se puede modificar nada más: title, description, url, icon, color,
+  //   category, order, openInNewTab, healthCheck, kind
+  // - NO se puede borrar (si el user la manda fuera del array, restauramos)
+  // - NO se puede cambiar la url (debe seguir siendo '/docs')
+  // - NO se puede cambiar el id (debe seguir siendo 'docs')
+  // - NO se puede cambiar el kind (debe seguir siendo 'link', no 'note')
+  const mergedCards = merged.cards as Array<{ id: string; title?: string; url?: string; [k: string]: unknown }>;
+  const systemCardDefault = (defaultConfig().cards as Array<{ id: string }>).find((c) => c.id === 'docs');
+  if (systemCardDefault) {
+    const existingSystem = mergedCards.find((c) => c.id === 'docs');
+    if (!existingSystem) {
+      // Restauramos silenciosamente.
+      mergedCards.push({ ...systemCardDefault } as typeof mergedCards[number]);
+      merged.cards = mergedCards;
+    } else {
+      // Comparar contra el original de la config actual (NO contra el default)
+      // para distinguir "cambió respecto al server" de "siempre estuvo así".
+      const originalSystem = (current.cards as Array<{ id: string }>).find((c) => c.id === 'docs');
+      if (originalSystem) {
+        // Campos que NO se pueden tocar. Comparamos contra el original: si
+        // difieren, rechazamos. El unico cambio permitido es `enabled`.
+        const protectedFields: Array<keyof typeof existingSystem> = [
+          'title', 'description', 'url', 'icon', 'color', 'category',
+          'order', 'openInNewTab', 'healthCheck', 'kind', 'id',
+        ];
+        const changed: string[] = [];
+        for (const f of protectedFields) {
+          const a = (existingSystem as Record<string, unknown>)[f];
+          const b = (originalSystem as Record<string, unknown>)[f];
+          if (JSON.stringify(a) !== JSON.stringify(b)) changed.push(f);
+        }
+        if (changed.length > 0) {
+          throw new Error(
+            'La tarjeta "Documentación" es del sistema y no se puede editar. ' +
+            'Sólo podés ocultarla activando/desactivando el switch "Activa". ' +
+            `Campos protegidos que intentaste cambiar: ${changed.join(', ')}.`,
+          );
+        }
+      }
+    }
+  }
   // Re-validate the merged result.
   const result = ConfigSchema.parse(merged);
 

@@ -259,7 +259,7 @@ const builtinIcons = await getBuiltinIconNames();
       </div>
       <div class="card-list" id="cards-sortable">
         <template x-for="(card, idx) in filteredCards()" :key="card.id">
-          <div class="card-item" :data-id="card.id">
+          <div class="card-item" :data-id="card.id" :class="isSystemCard(card) && 'card-system'">
             <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
             <div class="icon-preview">
               <template x-if="card.icon && (card.icon.includes('/') || card.icon.includes('.'))">
@@ -278,8 +278,15 @@ const builtinIcons = await getBuiltinIconNames();
               <input type="checkbox" x-model="card.enabled" @change="markDirty()" /> Activa
             </label>
             <div class="actions">
-              <button class="btn btn-sm btn-ghost" @click="editCard(idx)">Editar</button>
-              <button class="btn btn-sm btn-ghost" @click="removeCard(idx)">×</button>
+              <template x-if="!isSystemCard(card)">
+                <span style="display:flex;gap:0.25rem">
+                  <button class="btn btn-sm btn-ghost" @click="editCard(idx)">Editar</button>
+                  <button class="btn btn-sm btn-ghost" @click="removeCard(idx)" title="Borrar tarjeta">×</button>
+                </span>
+              </template>
+              <template x-if="isSystemCard(card)">
+                <span class="system-badge" title="Tarjeta del sistema — no se puede editar ni borrar (apunta a la documentación de Umbral en /docs). Protegida también a nivel server.">🔒 Sistema</span>
+              </template>
             </div>
           </div>
         </template>
@@ -1063,6 +1070,13 @@ const builtinIcons = await getBuiltinIconNames();
           //    con proxies de Alpine.
           // 3) forzamos `dirty=false` por las dudas, y reseteamos cardFormDirty.
           const cardId = this.filteredCards()[idx]?.id;
+          if (cardId) {
+            const target = this.cfg.cards.find((c) => c.id === cardId);
+            if (target && this.isSystemCard(target)) {
+              window.umbralAdmin.toast('Esta tarjeta es del sistema (apunta a la documentación de Umbral en /docs) y no se puede editar.', 'error');
+              return;
+            }
+          }
           if (!cardId) {
             window.umbralAdmin.toast('No se pudo encontrar la tarjeta', 'error');
             return;
@@ -1196,10 +1210,28 @@ const builtinIcons = await getBuiltinIconNames();
           }
         },
         removeCard(idx) {
-          const id = this.filteredCards()[idx].id;
+          const target = this.filteredCards()[idx];
+          if (target && this.isSystemCard(target)) {
+            window.umbralAdmin.toast('Esta tarjeta es del sistema (apunta a la documentación de Umbral en /docs) y no se puede borrar. Si no la querés ver, desactivala con el switch "Activa".', 'error');
+            return;
+          }
+          const id = target.id;
           if (!confirm('¿Borrar esta tarjeta?')) return;
           this.cfg.cards = this.cfg.cards.filter(c => c.id !== id);
           this.markDirty();
+        },
+        // ── System cards ───────────────────────────────────────────
+        // La card de docs (id='docs' o url='/docs*') la crea el sistema y la
+        // protege a nivel server. La UI tampoco expone Editar/Borrar — pero
+        // defendemos también acá por si alguien la llama por código.
+        // Heurística: cualquier card con id 'docs' o url que apunte a /docs
+        // (incluyendo /docs/algo) es system. El user puede "ocultarla"
+        // con el toggle "Activa", pero no editarla ni borrarla.
+        isSystemCard(card) {
+          if (!card) return false;
+          if (card.id === 'docs') return true;
+          const u = (card.url || '').toLowerCase();
+          return u === '/docs' || u.startsWith('/docs/') || u.startsWith('/docs?');
         },
 
         addCategory() {
@@ -1440,6 +1472,14 @@ const builtinIcons = await getBuiltinIconNames();
     /* Colores para el resultado del test de IA. */
     .help-ok { color: #10b981; }
     .help-err { color: #f87171; }
+    /* System card: la de docs (/docs) no se puede editar ni borrar. */
+    .card-item.card-system { opacity: 0.85; }
+    .system-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding: 0.2rem 0.55rem; border-radius: 999px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.72rem; font-weight: 500;
+    }
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.6);
       display: flex; align-items: center; justify-content: center; z-index: 100;
