@@ -141,6 +141,17 @@ async function scrapeUrl(target: string): Promise<{ title: string; description: 
       || '/favicon.ico';
     try { image = new URL(iconHref, target).toString(); } catch { image = ''; }
   }
+  // BUGFIX (imagen desde internet, segundo fallback): si el sitio no
+  // expone un favicon accesible (ej: devuelve 404 o está en una ruta que
+  // requiere auth), usamos el servicio público de Google que devuelve el
+  // favicon de cualquier dominio. Es gratis, sin key, sin tracking del
+  // user (sólo el server hace el request). Devuelve un PNG 64x64.
+  if (!image || image.endsWith('/favicon.ico')) {
+    try {
+      const googleFavicon = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(target).hostname)}&sz=64`;
+      image = googleFavicon;
+    } catch { /* hostname inválido, dejamos image vacío */ }
+  }
 
   // Si no tenemos NADA útil, devolvemos null para que el caller haga fallback.
   if (!title && !description && !image) return null;
@@ -167,24 +178,36 @@ async function searchAndReturn(query: string): Promise<Response> {
   const cfg = await getConfig();
   const searchCfg = cfg.externalSearch ?? { braveApiKey: '', tavilyApiKey: '' };
 
+  // Si parece un dominio, usamos Google favicon como image fallback
+  // garantizado. Si no, lo dejamos para que el form use el default.
+  const faviconFallback = isLikelyDomain(q)
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(q)}&sz=64`
+    : '';
+
   // 1) Brave (si key)
   if (searchCfg.braveApiKey) {
     const r = await searchBrave(q, searchCfg.braveApiKey);
-    if (r) return json({ ...r, source: 'brave' });
+    if (r) return json({ ...r, image: r.image || faviconFallback, source: 'brave' });
   }
   // 2) Tavily (si key)
   if (searchCfg.tavilyApiKey) {
     const r = await searchTavily(q, searchCfg.tavilyApiKey);
-    if (r) return json({ ...r, source: 'tavily' });
+    if (r) return json({ ...r, image: r.image || faviconFallback, source: 'tavily' });
   }
   // 3) Wikipedia REST (sin key, sin rate limit respetable)
   const w = await searchWikipedia(q);
-  if (w) return json({ ...w, source: 'wikipedia' });
+  if (w) return json({ ...w, image: w.image || faviconFallback, source: 'wikipedia' });
   // 4) DuckDuckGo Instant Answer (sin key, resultados inconsistentes)
   const d = await searchDuckDuckGo(q);
-  if (d) return json({ ...d, source: 'duckduckgo' });
+  if (d) return json({ ...d, image: d.image || faviconFallback, source: 'duckduckgo' });
 
-  return json({ title: '', description: '', image: '', source: 'none' });
+  return json({ title: '', description: '', image: faviconFallback, source: 'none' });
+}
+
+/** Heurística barata: si la query parece un dominio (tiene punto y no
+ *  tiene espacios), la usamos para el favicon fallback. */
+function isLikelyDomain(s: string): boolean {
+  return !s.includes(' ') && s.includes('.') && s.length < 100;
 }
 
 async function searchBrave(query: string, apiKey: string): Promise<SearchResult | null> {

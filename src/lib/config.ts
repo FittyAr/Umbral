@@ -93,6 +93,7 @@ function defaultConfig(): Config {
       apiKey: '',
       model: 'gpt-4o-mini',
       systemPrompt: '',
+      language: 'es',
     },
     // External search (Brave / Tavily / SearXNG). Sin keys por default —
     // el auto-completar usa sólo Wikipedia + DuckDuckGo (sin auth).

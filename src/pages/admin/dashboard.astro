@@ -4,6 +4,7 @@ import { getConfig } from '~/lib/config';
 import { getBuiltinIconNames } from '~/lib/icons';
 import { AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, findPresetByBaseUrl } from './ai-providers';
 import { HELP_TEXTS } from './help-texts';
+import { AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS } from '~/lib/ai-prompts';
 
 const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
 if (!isAuthed) {
@@ -611,6 +612,15 @@ const builtinIcons = await getBuiltinIconNames();
             </template>
           </datalist>
         </div>
+        <div class="form-group">
+          <label>Idioma de la IA <button type="button" class="help-icon" @click="showHelp('ai.language')" title="¿Qué hace esto?">?</button></label>
+          <select x-model="cfg.ai.language">
+            <template x-for="l in aiLanguages" :key="l.code">
+              <option :value="l.code" x-text="l.name"></option>
+            </template>
+          </select>
+          <small style="color:#94a3b8">En qué idioma escribe la IA cuando mejora una tarjeta. No afecta al contenido que ya escribiste vos.</small>
+        </div>
       </div>
       <div class="form-group" x-show="cfg.ai.enabled">
         <label>
@@ -619,9 +629,12 @@ const builtinIcons = await getBuiltinIconNames();
         </label>
         <textarea x-model="cfg.ai.systemPrompt" rows="3" placeholder="Si lo dejás vacío, uso uno default en castellano rioplatense."></textarea>
         <details style="margin-top:0.5rem">
-          <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.8rem">Ver el system prompt que proponemos por default</summary>
-          <pre style="margin-top:0.5rem;padding:0.75rem;background:var(--code-bg);color:var(--code-fg);border:1px solid var(--code-border);border-radius:6px;font-size:0.78rem;white-space:pre-wrap;line-height:1.5" x-text="defaultSystemPrompt"></pre>
-          <button type="button" class="btn btn-sm btn-ghost" style="margin-top:0.4rem" @click="useDefaultSystemPrompt()" x-show="cfg.ai.systemPrompt !== defaultSystemPrompt">Usar este prompt</button>
+          <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.8rem">
+            Ver el system prompt que proponemos por default
+            (<span x-text="aiLanguages.find(l => l.code === (cfg.ai?.language || 'es'))?.name || cfg.ai?.language"></span>)
+          </summary>
+          <pre style="margin-top:0.5rem;padding:0.75rem;background:var(--code-bg);color:var(--code-fg);border:1px solid var(--code-border);border-radius:6px;font-size:0.78rem;white-space:pre-wrap;line-height:1.5" x-text="currentDefaultSystemPrompt()"></pre>
+          <button type="button" class="btn btn-sm btn-ghost" style="margin-top:0.4rem" @click="useDefaultSystemPrompt()" x-show="cfg.ai.systemPrompt !== currentDefaultSystemPrompt()">Usar este prompt</button>
         </details>
       </div>
       <div class="form-group" x-show="cfg.ai.enabled">
@@ -701,7 +714,7 @@ const builtinIcons = await getBuiltinIconNames();
       <div class="modal-backdrop" @click.self="tryCancelEdit()">
         <div class="modal" @keydown.escape.window="tryCancelEdit()">
           <h2 style="margin-top:0">Editar tarjeta</h2>
-          <form @submit.prevent="saveCard()" @input="cardFormDirty = true">
+          <form @submit.prevent="saveCard()" @input="cardFormDirty = true" :key="editingKey">
             <div class="form-row">
               <div class="form-group">
                 <label>Título <button type="button" class="help-icon" @click="showHelp('card.title')" title="¿Qué hace esto?">?</button></label>
@@ -885,7 +898,7 @@ const builtinIcons = await getBuiltinIconNames();
   </div>
 
   <!-- Alpine.js + Sortable + dashboard logic -->
-  <script is:inline define:vars={{ initialConfig: config, builtinIcons, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS }}>
+  <script is:inline define:vars={{ initialConfig: config, builtinIcons, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS }}>
     // Mirror trustedProxies (array) into a text form so the textarea can edit it.
     initialConfig.security.network.trustedProxiesText = (initialConfig.security.network.trustedProxies || []).join('\n');
     // expose config to adminApp data
@@ -894,6 +907,8 @@ const builtinIcons = await getBuiltinIconNames();
     window.__aiProviders = AI_PROVIDERS;
     window.__defaultAiSystemPrompt = DEFAULT_AI_SYSTEM_PROMPT;
     window.__helpTexts = HELP_TEXTS;
+    window.__aiLanguages = AI_LANGUAGES;
+    window.__defaultAiSystemPrompts = DEFAULT_AI_SYSTEM_PROMPTS;
   </script>
   <script>
     import Alpine from 'alpinejs';
@@ -914,6 +929,11 @@ const builtinIcons = await getBuiltinIconNames();
         cardFilter: '',
         editingCard: null,
         editingIndex: -1,
+        // BUGFIX: se incrementa en cada editCard() para forzar re-mount del
+        // form via :key="editingKey". Sin esto, Alpine puede mantener
+        // bindings stale cuando se cambia de una tarjeta a otra rápido,
+        // y el form muestra los datos de la anterior o valores vacíos.
+        editingKey: 0,
         // `true` cuando el user modificó algo en el form del modal de tarjeta.
         // Usado por tryCancelEdit para confirmar antes de descartar. NO es
         // lo mismo que `dirty` (que es el flag global de "cambios sin guardar
@@ -939,6 +959,13 @@ const builtinIcons = await getBuiltinIconNames();
         // los valores después y la UI detecta automáticamente si matchean un preset.
         aiProviders: window.__aiProviders || [],
         aiPreset: '',
+        // Idiomas disponibles para el system prompt default de la IA.
+        // Cargados desde src/lib/ai-prompts.ts. La lista de códigos matchea
+        // exactamente con cfg.ai.language (validado por zod en el schema).
+        aiLanguages: window.__aiLanguages || [],
+        // Map de prompts default por idioma. Se usa para mostrar el preview
+        // y para "Usar este prompt" según el idioma actual.
+        defaultSystemPrompts: window.__defaultAiSystemPrompts || {},
         defaultSystemPrompt: window.__defaultAiSystemPrompt || '',
         // Help texts (cargados desde src/pages/admin/help-texts.ts).
         helpTexts: window.__helpTexts || {},
@@ -956,9 +983,12 @@ const builtinIcons = await getBuiltinIconNames();
           // cliente como red de seguridad: el server también lo hace (ver
           // loadFresh), pero esto evita la cascada de errores en lo que el
           // cache se refresca.
-          if (!this.cfg.ai) this.cfg.ai = { enabled: false, provider: 'openai-compatible', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini', systemPrompt: '' };
+          if (!this.cfg.ai) this.cfg.ai = { enabled: false, provider: 'openai-compatible', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini', systemPrompt: '', language: 'es' };
           // Mismo fallback para externalSearch.
           if (!this.cfg.externalSearch) this.cfg.externalSearch = { braveApiKey: '', tavilyApiKey: '' };
+          // Por si el cache tiene un cfg.ai sin el campo `language` (cards
+          // viejas previas a este commit), lo rellenamos con 'es' (default).
+          if (!this.cfg.ai.language) this.cfg.ai.language = 'es';
           // Mismo fallback para los widgets nuevos del theme (no deberían
           // faltar porque el schema llena defaults, pero por si el cache
           // quedó stale durante un rolling update).
@@ -1042,8 +1072,16 @@ const builtinIcons = await getBuiltinIconNames();
           return p?.models || [];
         },
         useDefaultSystemPrompt() {
-          this.cfg.ai.systemPrompt = this.defaultSystemPrompt;
+          // Carga el prompt default del idioma actual (no el español).
+          this.cfg.ai.systemPrompt = this.currentDefaultSystemPrompt();
           this.markDirty();
+        },
+        // El preview que se muestra debajo del textarea. Si el user
+        // cambió el idioma, este getter devuelve el prompt en el nuevo
+        // idioma, así el preview matchea.
+        currentDefaultSystemPrompt() {
+          const lang = (this.cfg.ai && this.cfg.ai.language) || 'es';
+          return this.defaultSystemPrompts[lang] || this.defaultSystemPrompts.es || this.defaultSystemPrompt;
         },
 
         // ── Help modal ──────────────────────────────────────────────
@@ -1144,6 +1182,9 @@ const builtinIcons = await getBuiltinIconNames();
             return;
           }
           this.editingIndex = -1;
+          // Bumpear editingKey para que el form se re-mountee con el default
+          // "Nueva tarjeta" en lugar de mostrar datos de la edición anterior.
+          this.editingKey = (this.editingKey || 0) + 1;
           this.editingCard = {
             id: 'card-' + Date.now().toString(36),
             title: 'Nueva tarjeta',
@@ -1159,16 +1200,7 @@ const builtinIcons = await getBuiltinIconNames();
             healthCheck: false,
           };
         },
-        editCard(idx) {
-          // BUGFIX: el user reportó que el botón "Editar" no abría el modal.
-          // Posible causa: `idx` capturado en el closure de x-for quedaba stale
-          // (bug conocido en algunas versiones de Alpine), o `structuredClone`
-          // sobre un proxy de Alpine 3 fallaba silenciosamente. Mitigamos:
-          // 1) usamos el `card.id` que ya viene del template (no re-buscamos por
-          //    índice, así no dependemos del orden de filteredCards()).
-          // 2) usamos JSON deep-clone en vez de structuredClone — más compatible
-          //    con proxies de Alpine.
-          // 3) forzamos `dirty=false` por las dudas, y reseteamos cardFormDirty.
+        async editCard(idx) {
           const cardId = this.filteredCards()[idx]?.id;
           if (cardId) {
             const target = this.cfg.cards.find((c) => c.id === cardId);
@@ -1187,10 +1219,25 @@ const builtinIcons = await getBuiltinIconNames();
             return;
           }
           try {
+            // Re-validar contra el schema. Si la card en memoria tiene
+            // campos faltantes (cards viejas sin kind/healthCheck), zod
+            // los rellena con los defaults.
+            const { CardSchema } = await import('~/lib/schema');
+            const parsed = CardSchema.safeParse(this.cfg.cards[realIdx]);
+            if (!parsed.success) {
+              window.umbralAdmin.toast('La tarjeta en disco está corrupta: ' + parsed.error.issues.map(i => i.message).join('; '), 'error');
+              return;
+            }
             this.editingIndex = realIdx;
-            this.editingCard = JSON.parse(JSON.stringify(this.cfg.cards[realIdx]));
+            // Spread shallow + parsed (que ya tiene defaults aplicados).
+            // structuredClone o JSON.parse(JSON.stringify) sobre un proxy
+            // de Alpine 3 puede perder tipos o referencias. Spread es
+            // suficiente porque CardSchema es flat (sin objetos anidados).
+            this.editingCard = { ...parsed.data };
             this.cardFormDirty = false;
-            // Forzar scroll-to-top por si quedó fuera de vista
+            // Incrementar el key fuerza re-mount del form, eliminando
+            // cualquier binding stale de la edición anterior.
+            this.editingKey = (this.editingKey || 0) + 1;
             this.$nextTick(() => {
               const modal = document.querySelector('.modal');
               if (modal) modal.scrollTop = 0;

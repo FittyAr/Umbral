@@ -291,8 +291,12 @@ export const AISchema = z.object({
   apiKey: z.string().max(500).default(''),
   model: z.string().max(80).default('gpt-4o-mini'),
   // systemPrompt opcional: el admin puede customizar la personalidad del
-  // asistente. Si está vacío, usamos uno default.
+  // asistente. Si está vacío, usamos uno default en el idioma `language`.
   systemPrompt: z.string().max(2000).default(''),
+  // Idioma en que la IA escribe las tarjetas. Default 'es' (castellano
+  // rioplatense, el tono que ven los users en la UI). Cambialo si tus
+  // servicios/usuarios son en otro idioma.
+  language: z.enum(['es', 'en', 'pt', 'fr', 'de', 'it']).default('es'),
 });
 
 // ──────────────────────────────────────────────────────────────────────────

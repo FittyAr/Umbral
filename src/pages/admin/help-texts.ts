@@ -325,6 +325,19 @@ Algunos providers (OpenAI, Google) aceptan aliases que siempre resuelven a la ú
 
 **Para Ollama / LM Studio local**: el modelo es el que descargaste con \`ollama pull\` o cargaste en la GUI. Pegá el nombre exacto.`,
   },
+  'ai.language': {
+    title: 'Idioma de la IA',
+    short: 'En qué idioma escribe la IA cuando mejora una tarjeta.',
+    body: `Default **Castellano (rioplatense)** — el tono que ven los users en la UI de Umbral. Si tus servicios y usuarios son en otro idioma, cambialo acá.
+
+**Idiomas soportados**: Castellano, English, Português (brasileiro), Français, Deutsch, Italiano.
+
+**Cómo se usa**: cuando hacés click en "Mejorar con IA" y \`systemPrompt\` está vacío, el server inyecta el template del idioma elegido como system prompt. La IA recibe la instrucción de escribir el title/description en ese idioma.
+
+**No afecta** al contenido que ya escribiste vos. Si tu tarjeta ya tiene texto y la IA sólo lo pule, lo deja en el idioma original — el \`language\` sólo aplica cuando la IA genera desde cero.
+
+**Override manual**: si querés un tono o idioma custom, llená \`System prompt\` a mano y el template se ignora.`,
+  },
 
   // ── Branding ─────────────────────────────────────────────────────
   'branding.companyName': {

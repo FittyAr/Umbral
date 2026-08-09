@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { json, error } from '~/lib/http';
 import { getConfig } from '~/lib/config';
+import { getDefaultSystemPrompt } from '~/lib/ai-prompts';
 
 export const prerender = false;
 
@@ -38,13 +39,7 @@ export const POST: APIRoute = async ({ request }) => {
     return error('Necesito al menos un campo (título, descripción o URL) para mejorar', 400);
   }
 
-  const systemPrompt = ai.systemPrompt || `Sos un asistente que ayuda a redactar tarjetas para un portal interno tipo "homepage" (un dashboard con links a servicios internos del equipo: 1Panel, Excalidraw, Grafana, etc.). Mejorás títulos y descripciones para que sean concisos, claros, en castellano rioplatense.
-
-Reglas:
-- Título: máximo 60 caracteres, sin emoji, sin el nombre del sitio al final (eso lo agrega el portal).
-- Descripción: máximo 150 caracteres, una sola oración, sin jerga innecesaria.
-- Devolvés SOLO un JSON con el formato {"title": "...", "description": "..."}, sin markdown, sin explicaciones.
-- Si el título/descripción ya están bien, los devolvés casi iguales (sólo arreglás ortografía/claridad obvia).`;
+  const systemPrompt = ai.systemPrompt || getDefaultSystemPrompt(ai.language || 'es');
 
   const userPrompt = `Mejorá esta tarjeta de portal interno:
 ${url ? `URL: ${url}\n` : ''}Título actual: ${title || '(vacío)'}
