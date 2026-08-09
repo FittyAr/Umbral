@@ -2,6 +2,8 @@
 import AdminLayout from '~/layouts/AdminLayout.astro';
 import { getConfig } from '~/lib/config';
 import { getBuiltinIconNames } from '~/lib/icons';
+import { AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, findPresetByBaseUrl } from './ai-providers';
+import { HELP_TEXTS } from './help-texts';
 
 const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
 if (!isAuthed) {
@@ -146,7 +148,7 @@ const builtinIcons = await getBuiltinIconNames();
           </select>
         </div>
         <div class="form-group">
-          <label>Disposición de grupos</label>
+          <label>Disposición de grupos <button type="button" class="help-icon" @click="showHelp('theme.groupLayout')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.theme.groupLayout">
             <option value="vertical">Vertical (apilados)</option>
             <option value="horizontal">Horizontal (en columnas)</option>
@@ -160,13 +162,13 @@ const builtinIcons = await getBuiltinIconNames();
       </p>
       <div class="form-row">
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.theme.showClock" /> Mostrar reloj</label>
+          <label><input type="checkbox" x-model="cfg.theme.showClock" /> Mostrar reloj <button type="button" class="help-icon" @click="showHelp('theme.showClock')" title="¿Qué hace esto?">?</button></label>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.theme.showRefresh" /> Mostrar botón de refresh</label>
+          <label><input type="checkbox" x-model="cfg.theme.showRefresh" /> Mostrar botón de refresh <button type="button" class="help-icon" @click="showHelp('theme.showRefresh')" title="¿Qué hace esto?">?</button></label>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.theme.showStatusBar" /> Mostrar status bar (versión + última actualización)</label>
+          <label><input type="checkbox" x-model="cfg.theme.showStatusBar" /> Mostrar status bar (versión + última actualización) <button type="button" class="help-icon" @click="showHelp('theme.showStatusBar')" title="¿Qué hace esto?">?</button></label>
         </div>
       </div>
 
@@ -214,7 +216,7 @@ const builtinIcons = await getBuiltinIconNames();
         <label><input type="checkbox" x-model="cfg.layout.showDescriptions" /> Mostrar descripciones</label>
       </div>
       <div class="form-group">
-        <label>Intervalo health check (segundos)
+        <label>Intervalo health check (segundos) <button type="button" class="help-icon" @click="showHelp('layout.healthCheckInterval')" title="¿Qué hace esto?">?</button>
           <span style="color:var(--text-faint);font-size:0.8rem" x-text="'— ' + (cfg.layout.healthCheckInterval || 60) + 's'"></span>
         </label>
         <input type="number" min="10" max="3600" x-model.number="cfg.layout.healthCheckInterval" />
@@ -355,11 +357,11 @@ const builtinIcons = await getBuiltinIconNames();
       <h3 style="margin-top:1.5rem">Sesión y cookies</h3>
       <div class="form-row">
         <div class="form-group">
-          <label>Duración (horas)</label>
+          <label>Duración (horas) <button type="button" class="help-icon" @click="showHelp('session.ttlHours')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="1" max="720" x-model.number="cfg.security.session.ttlHours" />
         </div>
         <div class="form-group">
-          <label>SameSite</label>
+          <label>SameSite <button type="button" class="help-icon" @click="showHelp('session.cookieSameSite')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.security.session.cookieSameSite">
             <option value="Lax">Lax (permisivo, default)</option>
             <option value="Strict">Strict (más seguro)</option>
@@ -367,7 +369,7 @@ const builtinIcons = await getBuiltinIconNames();
           </select>
         </div>
         <div class="form-group">
-          <label>Secure flag</label>
+          <label>Secure flag <button type="button" class="help-icon" @click="showHelp('session.cookieSecure')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.security.session.cookieSecure">
             <option value="auto">Auto (recomendado)</option>
             <option value="always">Siempre</option>
@@ -375,27 +377,27 @@ const builtinIcons = await getBuiltinIconNames();
           </select>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.session.rotateCsrfOnLogin" /> Rotar CSRF en cada login</label>
+          <label><input type="checkbox" x-model="cfg.security.session.rotateCsrfOnLogin" /> Rotar CSRF en cada login <button type="button" class="help-icon" @click="showHelp('session.rotateCsrfOnLogin')" title="¿Qué hace esto?">?</button></label>
         </div>
       </div>
 
       <h3 style="margin-top:1.5rem">Login y CSRF</h3>
       <div class="form-row">
         <div class="form-group">
-          <label>Largo mínimo del password</label>
+          <label>Largo mínimo del password <button type="button" class="help-icon" @click="showHelp('auth.minPasswordLength')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="0" max="128" x-model.number="cfg.security.auth.minPasswordLength" />
           <small style="color:#94a3b8">0 = sin mínimo (permite passwords cortos legados)</small>
         </div>
         <div class="form-group">
-          <label>Rate limit (intentos)</label>
+          <label>Rate limit (intentos) <button type="button" class="help-icon" @click="showHelp('auth.rateLimitMax')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="1" max="10000" x-model.number="cfg.security.auth.rateLimitMax" />
         </div>
         <div class="form-group">
-          <label>Rate limit (ventana, seg)</label>
+          <label>Rate limit (ventana, seg) <button type="button" class="help-icon" @click="showHelp('auth.rateLimitWindowSec')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="1" max="3600" x-model.number="cfg.security.auth.rateLimitWindowSec" />
         </div>
         <div class="form-group">
-          <label>Política CSRF</label>
+          <label>Política CSRF <button type="button" class="help-icon" @click="showHelp('auth.csrfPolicy')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.security.auth.csrfPolicy">
             <option value="mutations">Mutations (default, recomendado)</option>
             <option value="all">Todos los requests</option>
@@ -407,62 +409,62 @@ const builtinIcons = await getBuiltinIconNames();
       <h3 style="margin-top:1.5rem">Uploads</h3>
       <div class="form-row">
         <div class="form-group">
-          <label>Máx logo (KB)</label>
+          <label>Máx logo (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesLogo')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesLogo / 1024)" @change="cfg.security.uploads.maxBytesLogo = $event.target.value * 1024" />
         </div>
         <div class="form-group">
-          <label>Máx favicon (KB)</label>
+          <label>Máx favicon (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesFavicon')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesFavicon / 1024)" @change="cfg.security.uploads.maxBytesFavicon = $event.target.value * 1024" />
         </div>
         <div class="form-group">
-          <label>Máx ícono (KB)</label>
+          <label>Máx ícono (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesIcon')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesIcon / 1024)" @change="cfg.security.uploads.maxBytesIcon = $event.target.value * 1024" />
         </div>
         <div class="form-group">
-          <label>Máx fondo (KB)</label>
+          <label>Máx fondo (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesBackground')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesBackground / 1024)" @change="cfg.security.uploads.maxBytesBackground = $event.target.value * 1024" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>MIME permitidos (coma-separado)</label>
+          <label>MIME permitidos (coma-separado) <button type="button" class="help-icon" @click="showHelp('uploads.allowedMimeTypes')" title="¿Qué hace esto?">?</button></label>
           <input type="text" :value="cfg.security.uploads.allowedMimeTypes.join(', ')" @change="cfg.security.uploads.allowedMimeTypes = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.uploads.allowSvg" /> Permitir SVG</label>
+          <label><input type="checkbox" x-model="cfg.security.uploads.allowSvg" /> Permitir SVG <button type="button" class="help-icon" @click="showHelp('uploads.allowSvg')" title="¿Qué hace esto?">?</button></label>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.uploads.sanitizeSvg" /> Sanitizar SVG con DOMPurify</label>
+          <label><input type="checkbox" x-model="cfg.security.uploads.sanitizeSvg" /> Sanitizar SVG con DOMPurify <button type="button" class="help-icon" @click="showHelp('uploads.sanitizeSvg')" title="¿Qué hace esto?">?</button></label>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.uploads.processImages" /> Procesar imágenes con sharp</label>
+          <label><input type="checkbox" x-model="cfg.security.uploads.processImages" /> Procesar imágenes con sharp <button type="button" class="help-icon" @click="showHelp('uploads.processImages')" title="¿Qué hace esto?">?</button></label>
         </div>
       </div>
 
       <h3 style="margin-top:1.5rem">Red</h3>
       <div class="form-row">
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.network.trustForwardedFor" /> Confiar en X-Forwarded-For (sólo con reverse proxy)</label>
+          <label><input type="checkbox" x-model="cfg.security.network.trustForwardedFor" /> Confiar en X-Forwarded-For (sólo con reverse proxy) <button type="button" class="help-icon" @click="showHelp('network.trustForwardedFor')" title="¿Qué hace esto?">?</button></label>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.network.allowInternalHosts" /> Permitir health checks a hosts internos (10/8, 172.16/12, 192.168/16)</label>
+          <label><input type="checkbox" x-model="cfg.security.network.allowInternalHosts" /> Permitir health checks a hosts internos (10/8, 172.16/12, 192.168/16) <button type="button" class="help-icon" @click="showHelp('network.allowInternalHosts')" title="¿Qué hace esto?">?</button></label>
         </div>
         <div class="form-group">
-          <label>Cookie domain (ej: .example.com)</label>
+          <label>Cookie domain (ej: .example.com) <button type="button" class="help-icon" @click="showHelp('network.cookieDomain')" title="¿Qué hace esto?">?</button></label>
           <input type="text" x-model="cfg.security.network.cookieDomain" placeholder="(vacío = sin domain)" />
         </div>
       </div>
       <div class="form-group">
-        <label>Proxies confiables (uno por línea, informativo)</label>
+        <label>Proxies confiables (uno por línea, informativo) <button type="button" class="help-icon" @click="showHelp('network.trustedProxies')" title="¿Qué hace esto?">?</button></label>
         <textarea x-model="cfg.security.network.trustedProxiesText" rows="3" placeholder="10.0.0.1&#10;192.168.1.0/24"></textarea>
       </div>
 
       <h3 style="margin-top:1.5rem">Headers de seguridad</h3>
       <div class="form-row">
         <div class="form-group">
-          <label>X-Frame-Options</label>
+          <label>X-Frame-Options <button type="button" class="help-icon" @click="showHelp('headers.xFrameOptions')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.security.headers.xFrameOptions">
             <option value="DENY">DENY (recomendado)</option>
             <option value="SAMEORIGIN">SAMEORIGIN</option>
@@ -470,7 +472,7 @@ const builtinIcons = await getBuiltinIconNames();
           </select>
         </div>
         <div class="form-group">
-          <label>Referrer-Policy</label>
+          <label>Referrer-Policy <button type="button" class="help-icon" @click="showHelp('headers.referrerPolicy')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.security.headers.referrerPolicy">
             <option value="no-referrer">no-referrer</option>
             <option value="same-origin">same-origin</option>
@@ -480,11 +482,11 @@ const builtinIcons = await getBuiltinIconNames();
         </div>
       </div>
       <div class="form-group">
-        <label>Content-Security-Policy (vacío = no se envía header)</label>
+        <label>Content-Security-Policy (vacío = no se envía header) <button type="button" class="help-icon" @click="showHelp('headers.csp')" title="¿Qué hace esto?">?</button></label>
         <textarea x-model="cfg.security.headers.csp" rows="4"></textarea>
       </div>
       <div class="form-group">
-        <label>Permissions-Policy</label>
+        <label>Permissions-Policy <button type="button" class="help-icon" @click="showHelp('headers.permissionsPolicy')" title="¿Qué hace esto?">?</button></label>
         <input type="text" x-model="cfg.security.headers.permissionsPolicy" />
       </div>
       <h3 style="margin-top:1.5rem">HSTS (Strict-Transport-Security)</h3>
@@ -495,7 +497,7 @@ const builtinIcons = await getBuiltinIconNames();
       </p>
       <div class="form-row">
         <div class="form-group">
-          <label>Modo</label>
+          <label>Modo <button type="button" class="help-icon" @click="showHelp('headers.hsts')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.security.headers.hsts">
             <option value="auto">Auto (default, recomendado)</option>
             <option value="always">Siempre forzar</option>
@@ -503,18 +505,18 @@ const builtinIcons = await getBuiltinIconNames();
           </select>
         </div>
         <div class="form-group">
-          <label>Max-Age (segundos)</label>
+          <label>Max-Age (segundos) <button type="button" class="help-icon" @click="showHelp('headers.hstsMaxAge')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="0" max="63072000" x-model.number="cfg.security.headers.hstsMaxAge" />
           <small style="color:#94a3b8">Default 31536000 (1 año). 0 desactiva.</small>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.headers.hstsIncludeSubDomains" /> includeSubDomains</label>
+          <label><input type="checkbox" x-model="cfg.security.headers.hstsIncludeSubDomains" /> includeSubDomains <button type="button" class="help-icon" @click="showHelp('headers.hstsIncludeSubDomains')" title="¿Qué hace esto?">?</button></label>
           <small style="color:#94a3b8">Activar SÓLO si todos los subdominios son HTTPS.</small>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.headers.hstsPreload" /> preload</label>
+          <label><input type="checkbox" x-model="cfg.security.headers.hstsPreload" /> preload <button type="button" class="help-icon" @click="showHelp('headers.hstsPreload')" title="¿Qué hace esto?">?</button></label>
           <small style="color:#94a3b8">Para enviar a hstspreload.org. Requiere includeSubDomains y max-age ≥ 1 año.</small>
         </div>
       </div>
@@ -550,7 +552,6 @@ const builtinIcons = await getBuiltinIconNames();
       <h2 style="margin-top:0">Asistente IA</h2>
       <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem">
         Conectá un provider OpenAI-compatible para mejorar las tarjetas (título + descripción).
-        Soporta OpenAI, Ollama local, LM Studio, OpenRouter, o cualquier proxy con la misma API.
         <strong>Apagado por default</strong>: la apiKey no se manda a ningún lado hasta que actives esto.
       </p>
       <div class="form-group">
@@ -558,38 +559,58 @@ const builtinIcons = await getBuiltinIconNames();
       </div>
       <div class="form-row" x-show="cfg.ai.enabled">
         <div class="form-group">
-          <label>Provider</label>
-          <select x-model="cfg.ai.provider">
-            <option value="openai-compatible">OpenAI-compatible (cualquier /v1/chat/completions)</option>
+          <label>Preset</label>
+          <select x-model="aiPreset" @change="applyAiPreset(aiPreset)">
+            <option value="">— Custom / Otro —</option>
+            <template x-for="p in aiProviders" :key="p.id">
+              <option :value="p.id" x-text="p.name"></option>
+            </template>
           </select>
+          <small style="color:#94a3b8" x-text="presetDescription()"></small>
         </div>
         <div class="form-group" style="flex:1">
           <label>Base URL</label>
           <input type="text" x-model="cfg.ai.baseUrl" placeholder="https://api.openai.com/v1" />
-          <small style="color:#94a3b8">Ollama local: <code>http://localhost:11434/v1</code> · LM Studio: <code>http://localhost:1234/v1</code> · OpenRouter: <code>https://openrouter.ai/api/v1</code></small>
+          <small style="color:#94a3b8" x-show="presetRegion()" x-text="presetRegion()" x-cloak></small>
         </div>
       </div>
       <div class="form-row" x-show="cfg.ai.enabled">
         <div class="form-group" style="flex:1">
-          <label>API Key</label>
+          <label>
+            <span x-text="presetApiKeyLabel()">API Key</span>
+            <button type="button" class="help-icon" @click="showHelp('ai.apiKey')" title="¿Por qué en texto plano?">?</button>
+          </label>
           <input type="password" x-model="cfg.ai.apiKey" placeholder="sk-..." autocomplete="off" />
-          <small style="color:#94a3b8">Dejá vacío para providers sin auth (algunos Ollama). Se guarda en <code>data/config.json</code> en texto plano — no es ideal pero es lo que hay sin un vault.</small>
+          <small style="color:#94a3b8" x-text="presetApiKeyHelp()"></small>
         </div>
         <div class="form-group">
           <label>Modelo</label>
-          <input type="text" x-model="cfg.ai.model" placeholder="gpt-4o-mini" />
+          <input type="text" x-model="cfg.ai.model" placeholder="gpt-4o-mini" list="ai-model-suggestions" />
+          <datalist id="ai-model-suggestions">
+            <template x-for="m in presetModels()" :key="m">
+              <option :value="m"></option>
+            </template>
+          </datalist>
         </div>
       </div>
       <div class="form-group" x-show="cfg.ai.enabled">
-        <label>System prompt (opcional)</label>
+        <label>
+          System prompt
+          <button type="button" class="help-icon" @click="showHelp('ai.systemPrompt')" title="¿Qué es el system prompt?">?</button>
+        </label>
         <textarea x-model="cfg.ai.systemPrompt" rows="3" placeholder="Si lo dejás vacío, uso uno default en castellano rioplatense."></textarea>
+        <details style="margin-top:0.5rem">
+          <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.8rem">Ver el system prompt que proponemos por default</summary>
+          <pre style="margin-top:0.5rem;padding:0.75rem;background:var(--code-bg);color:var(--code-fg);border:1px solid var(--code-border);border-radius:6px;font-size:0.78rem;white-space:pre-wrap;line-height:1.5" x-text="defaultSystemPrompt"></pre>
+          <button type="button" class="btn btn-sm btn-ghost" style="margin-top:0.4rem" @click="useDefaultSystemPrompt()" x-show="cfg.ai.systemPrompt !== defaultSystemPrompt">Usar este prompt</button>
+        </details>
       </div>
       <div class="form-group" x-show="cfg.ai.enabled">
-        <button type="button" class="btn btn-ghost btn-sm" @click="testAI()" :disabled="aiBusy || !cfg.ai.baseUrl">
+        <button type="button" class="btn btn-ghost btn-sm" @click="testAI()" :disabled="aiBusy">
           <span x-show="!aiBusy">Probar conexión</span>
           <span x-show="aiBusy" x-cloak>Probando…</span>
         </button>
-        <span x-show="aiTestResult" x-text="aiTestResult" style="margin-left:0.75rem;font-size:0.85rem" x-cloak></span>
+        <span x-show="aiTestResult" x-text="aiTestResult" style="margin-left:0.75rem;font-size:0.85rem" :class="aiTestOk ? 'help-ok' : 'help-err'" x-cloak></span>
       </div>
     </div>
 
@@ -738,15 +759,36 @@ const builtinIcons = await getBuiltinIconNames();
         </div>
       </div>
     </template>
+
+    <!-- Help modal — se abre al clickear un ícono "?" del admin.
+         Lee el texto de window.__helpTexts[currentKey]. -->
+    <template x-if="helpModalKey !== null && currentHelp()">
+      <div class="modal-backdrop" @click.self="closeHelp()" @keydown.escape.window="closeHelp()">
+        <div class="modal help-modal">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:0.5rem">
+            <h2 style="margin:0" x-text="currentHelp().title"></h2>
+            <button type="button" class="btn btn-ghost btn-sm" @click="closeHelp()" aria-label="Cerrar">✕</button>
+          </div>
+          <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem" x-text="currentHelp().short"></p>
+          <div class="help-body" x-text="currentHelp().body" style="white-space:pre-wrap;font-size:0.9rem;line-height:1.6"></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:1rem">
+            <button type="button" class="btn btn-primary btn-sm" @click="closeHelp()">Entendido</button>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 
   <!-- Alpine.js + Sortable + dashboard logic -->
-  <script is:inline define:vars={{ initialConfig: config, builtinIcons }}>
+  <script is:inline define:vars={{ initialConfig: config, builtinIcons, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS }}>
     // Mirror trustedProxies (array) into a text form so the textarea can edit it.
     initialConfig.security.network.trustedProxiesText = (initialConfig.security.network.trustedProxies || []).join('\n');
     // expose config to adminApp data
     window.__initialConfig = initialConfig;
     window.__builtinIcons = builtinIcons;
+    window.__aiProviders = AI_PROVIDERS;
+    window.__defaultAiSystemPrompt = DEFAULT_AI_SYSTEM_PROMPT;
+    window.__helpTexts = HELP_TEXTS;
   </script>
   <script>
     import Alpine from 'alpinejs';
@@ -778,6 +820,7 @@ const builtinIcons = await getBuiltinIconNames();
         // Para el botón "Probar conexión" en la tab IA.
         aiBusy: false,
         aiTestResult: '',
+        aiTestOk: false,
         statusResults: [],
         checkingStatus: false,
         healthInfo: null,
@@ -785,6 +828,17 @@ const builtinIcons = await getBuiltinIconNames();
         builtinIcons: window.__builtinIcons || [],
         csrfToken: (document.body.dataset.csrf || ''),
         pwForm: { current: '', next: '', confirm: '' },
+        // AI provider presets (cargados desde src/pages/admin/ai-providers.ts).
+        // Sirven para auto-rellenar baseUrl y model cuando elegís un provider
+        // popular (OpenAI, Anthropic, Gemini, etc.). No bloquean — podés editar
+        // los valores después y la UI detecta automáticamente si matchean un preset.
+        aiProviders: window.__aiProviders || [],
+        aiPreset: '',
+        defaultSystemPrompt: window.__defaultAiSystemPrompt || '',
+        // Help texts (cargados desde src/pages/admin/help-texts.ts).
+        helpTexts: window.__helpTexts || {},
+        // Modal de ayuda actualmente abierto (key del HELP_TEXTS).
+        helpModalKey: null,
 
         async init() {
           this.cfg = structuredClone(window.__initialConfig);
@@ -823,18 +877,97 @@ const builtinIcons = await getBuiltinIconNames();
           // so we deep-watch cfg and re-check after each mutation. Cheap because
           // we only stringify when something actually changes.
           this.$watch('cfg', () => this.markDirty());
+          // Auto-detectar el preset de IA según el baseUrl actual. Si el user
+          // tenía OpenAI y eligió OpenAI en el preset, o si su config actual
+          // matchea un preset, lo dejamos pre-seleccionado.
+          this.aiPreset = this.currentPresetId();
+          // Si el user cambia baseUrl a mano, sincronizamos el dropdown.
+          this.$watch('cfg.ai.baseUrl', () => {
+            const matched = this.currentPresetId();
+            if (matched !== this.aiPreset) this.aiPreset = matched;
+          });
         },
 
         markDirty() { this.dirty = JSON.stringify(this.cfg) !== JSON.stringify(this.original); },
 
+        // ── AI provider presets ──────────────────────────────────────
+        // Cuando el user elige un preset, rellenamos baseUrl y model con los
+        // valores oficiales. Si después edita baseUrl a mano, el preset se
+        // "deselecciona" automáticamente (presetId() devuelve '' porque ya
+        // no matchea). Así el preset es sugerencia, no lock.
+        applyAiPreset(presetId) {
+          const p = this.aiProviders.find((x) => x.id === presetId);
+          if (!p) return;
+          this.cfg.ai.baseUrl = p.baseUrl;
+          this.cfg.ai.model = p.defaultModel;
+          this.markDirty();
+        },
+        // Devuelve el ID del preset que matchea el baseUrl actual, o '' si es custom.
+        currentPresetId() {
+          const bu = (this.cfg.ai?.baseUrl || '').replace(/\/+$/, '').toLowerCase();
+          if (!bu) return '';
+          const p = this.aiProviders.find((x) => x.baseUrl.replace(/\/+$/, '').toLowerCase() === bu);
+          return p?.id || '';
+        },
+        presetDescription() {
+          const id = this.aiPreset || this.currentPresetId();
+          const p = this.aiProviders.find((x) => x.id === id);
+          return p?.description || 'Custom: cualquier endpoint /v1/chat/completions';
+        },
+        presetRegion() {
+          const id = this.aiPreset || this.currentPresetId();
+          const p = this.aiProviders.find((x) => x.id === id);
+          return p?.region || '';
+        },
+        presetApiKeyLabel() {
+          const id = this.aiPreset || this.currentPresetId();
+          const p = this.aiProviders.find((x) => x.id === id);
+          return p?.apiKeyLabel || 'API Key';
+        },
+        presetApiKeyHelp() {
+          const id = this.aiPreset || this.currentPresetId();
+          const p = this.aiProviders.find((x) => x.id === id);
+          return p?.apiKeyHelp || 'Tu clave del provider. Se guarda en data/config.json en texto plano (ver ayuda en el ícono ?).';
+        },
+        presetModels() {
+          const id = this.aiPreset || this.currentPresetId();
+          const p = this.aiProviders.find((x) => x.id === id);
+          return p?.models || [];
+        },
+        useDefaultSystemPrompt() {
+          this.cfg.ai.systemPrompt = this.defaultSystemPrompt;
+          this.markDirty();
+        },
+
+        // ── Help modal ──────────────────────────────────────────────
+        showHelp(key) { this.helpModalKey = key; },
+        closeHelp() { this.helpModalKey = null; },
+        currentHelp() {
+          if (!this.helpModalKey) return null;
+          return this.helpTexts[this.helpModalKey] || null;
+        },
+
         async testAI() {
-          if (!this.cfg.ai?.baseUrl) return;
-          this.aiBusy = true;
           this.aiTestResult = '';
+          this.aiTestOk = false;
+          if (!this.cfg.ai?.enabled) {
+            this.aiTestResult = '✗ Activá el switch "Habilitar asistente IA" arriba primero.';
+            return;
+          }
+          if (!this.cfg.ai?.baseUrl) {
+            this.aiTestResult = '✗ Falta Base URL. Elegí un preset o tipeá la URL del provider.';
+            return;
+          }
+          if (!this.cfg.ai?.model) {
+            this.aiTestResult = '✗ Falta Modelo. Elegí un preset (que autocompleta) o tipeá el nombre del modelo.';
+            return;
+          }
+          this.aiBusy = true;
           try {
-            // saveAll se encarga de persistir la config antes del test,
-            // pero como esto es un test rápido, mandamos un payload mínimo
-            // con la config actual (que ya está en memoria).
+            // El server lee su propia config (la persistida). Si el user cambió
+            // algo y no guardó todavía, el test va a usar la config vieja. Para
+            // evitar eso: primero guardamos silenciosamente y después testeamos.
+            await window.umbralAdmin.api('PUT', '/api/config', this.cfg).catch(() => null);
             const res = await fetch('/api/ai/format-card', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
@@ -846,7 +979,11 @@ const builtinIcons = await getBuiltinIconNames();
             });
             if (res.ok) {
               const data = await res.json();
+              this.aiTestOk = true;
               this.aiTestResult = `✓ Conectado. Respuesta: "${data.title}" / "${data.description}"`;
+              // refrescamos la config en memoria (PUT exitoso la devuelve)
+              const updated = await window.umbralAdmin.api('GET', '/api/config').catch(() => null);
+              if (updated) { this.cfg = structuredClone(updated); this.original = structuredClone(updated); this.dirty = false; }
             } else {
               const err = await res.json().catch(() => ({}));
               this.aiTestResult = `✗ ${res.status}: ${err.error || res.statusText}`;
@@ -916,10 +1053,38 @@ const builtinIcons = await getBuiltinIconNames();
           };
         },
         editCard(idx) {
-          const realIdx = this.cfg.cards.findIndex(c => c.id === this.filteredCards()[idx].id);
-          if (realIdx < 0) return;
-          this.editingIndex = realIdx;
-          this.editingCard = structuredClone(this.cfg.cards[realIdx]);
+          // BUGFIX: el user reportó que el botón "Editar" no abría el modal.
+          // Posible causa: `idx` capturado en el closure de x-for quedaba stale
+          // (bug conocido en algunas versiones de Alpine), o `structuredClone`
+          // sobre un proxy de Alpine 3 fallaba silenciosamente. Mitigamos:
+          // 1) usamos el `card.id` que ya viene del template (no re-buscamos por
+          //    índice, así no dependemos del orden de filteredCards()).
+          // 2) usamos JSON deep-clone en vez de structuredClone — más compatible
+          //    con proxies de Alpine.
+          // 3) forzamos `dirty=false` por las dudas, y reseteamos cardFormDirty.
+          const cardId = this.filteredCards()[idx]?.id;
+          if (!cardId) {
+            window.umbralAdmin.toast('No se pudo encontrar la tarjeta', 'error');
+            return;
+          }
+          const realIdx = this.cfg.cards.findIndex((c) => c.id === cardId);
+          if (realIdx < 0) {
+            window.umbralAdmin.toast('No se pudo encontrar la tarjeta en la config', 'error');
+            return;
+          }
+          try {
+            this.editingIndex = realIdx;
+            this.editingCard = JSON.parse(JSON.stringify(this.cfg.cards[realIdx]));
+            this.cardFormDirty = false;
+            // Forzar scroll-to-top por si quedó fuera de vista
+            this.$nextTick(() => {
+              const modal = document.querySelector('.modal');
+              if (modal) modal.scrollTop = 0;
+            });
+          } catch (err) {
+            console.error('[umbral] editCard failed:', err);
+            window.umbralAdmin.toast('Error abriendo la tarjeta: ' + err.message, 'error');
+          }
         },
         saveCard() {
           if (!this.editingCard) return;
@@ -1256,6 +1421,25 @@ const builtinIcons = await getBuiltinIconNames();
     [x-cloak] { display: none !important; }
     .dirty-badge { color: #fbbf24; font-size: 0.85rem; }
     .muted { color: #94a3b8; font-size: 0.85rem; }
+    /* Help icon "?" al lado de cada label avanzado. Inline-block, no afecta
+       el flow del label. Hover lo agranda un toque para feedback. */
+    .help-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; margin-left: 0.35rem; padding: 0;
+      border-radius: 50%; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text-muted);
+      font-size: 0.7rem; font-weight: 600; line-height: 1;
+      cursor: pointer; vertical-align: middle;
+      transition: background 0.12s, color 0.12s, transform 0.12s;
+    }
+    .help-icon:hover { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); transform: scale(1.1); }
+    /* Modal de help: ancho cómodo para leer bloques de texto largos. */
+    .help-modal { max-width: 640px; max-height: 80vh; overflow-y: auto; }
+    .help-body code { background: var(--code-bg); padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+    .help-body strong { color: var(--text); }
+    /* Colores para el resultado del test de IA. */
+    .help-ok { color: #10b981; }
+    .help-err { color: #f87171; }
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.6);
       display: flex; align-items: center; justify-content: center; z-index: 100;
