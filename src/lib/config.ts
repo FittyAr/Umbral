@@ -209,19 +209,27 @@ async function loadFresh(): Promise<Config> {
   // 1) Strict validation pass — if clean, return.
   const result = ConfigSchema.safeParse(parsed);
   if (result.success) {
+    let data = result.data;
     // auth puede faltar en configs viejos. Si falta, regenerar uno nuevo
     // (con el password de INITIAL_PASSWORD o el default "admin") para no
     // dejar la app inaccesible.
-    if (!result.data.auth) {
+    if (!data.auth) {
       const password = process.env.INITIAL_PASSWORD || 'admin';
-      const fixed = { ...result.data, auth: { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0 } };
+      data = { ...data, auth: { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0 } };
       console.warn('[umbral] config sin auth — regenerando. Cambiá la password desde /admin ASAP.');
-      const tmp = CONFIG_PATH + '.tmp';
-      await fs.writeFile(tmp, JSON.stringify(fixed, null, 2), 'utf8');
-      await fs.rename(tmp, CONFIG_PATH);
-      return fixed as Config;
     }
-    return result.data;
+    // ai es .optional() en el schema (para no romper configs viejos en el
+    // path strict), pero el admin asume que existe. Lo mergeamos con
+    // defaults si falta, y re-persistimos para que el siguiente load no
+    // tenga que hacerlo.
+    if (!data.ai) {
+      data = { ...data, ai: defaultConfig().ai };
+      const tmp = CONFIG_PATH + '.tmp';
+      await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
+      await fs.rename(tmp, CONFIG_PATH);
+      console.log('[umbral] config sin sección ai — agregada con defaults.');
+    }
+    return data;
   }
 
   // 2) Migration: if the file is a *partial* config (missing newer sections
