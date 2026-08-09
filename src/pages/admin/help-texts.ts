@@ -687,4 +687,51 @@ Si activás \`Rotar CSRF en cada login\` (Hardening), también rota cada vez que
 
 **No lo copies a otros browsers/dispositivos** — está atado a tu sesión. Si lo perdés, hacé logout/login.`,
   },
+
+  // ── External search ──────────────────────────────────────────────
+  'externalSearch.intro': {
+    title: 'Búsqueda externa para auto-completar',
+    short: 'Fallback cuando el scrape del sitio falla. Default: Wikipedia + DuckDuckGo (sin key).',
+    body: `El botón "Auto-completar" del form de tarjeta intenta primero **scrapear el sitio** (GET a la URL + parseo de meta tags). Cuando eso falla — porque el servicio es interno y no tiene HTML público, porque la URL es una IP:puerto sin DNS, porque el sitio devuelve un login vacío, etc. — hace **fallback a búsqueda externa** por el nombre del servicio.
+
+**Orden de búsqueda**:
+1. **Brave Search** (si tenés key cargada) — mejor calidad, 2000 req/mes gratis
+2. **Tavily** (si tenés key) — optimizado para AI, 1000 req/mes
+3. **Wikipedia REST** — sin key, cubre la mayoría de productos conocidos
+4. **DuckDuckGo Instant Answer** — sin key, resultados inconsistentes
+
+Si ninguna encuentra algo, el toast te avisa y queda el form como está.`,
+  },
+  'externalSearch.brave': {
+    title: 'Brave Search API key',
+    short: 'Tier gratis: 2000 req/mes. Mejor calidad que Wikipedia/DDG.',
+    body: `**Setup**:
+1. Andá a https://brave.com/search/api/
+2. Creá una cuenta, generá una API key (empieza con \`BSA...\`)
+3. Pegala acá
+
+**Tier gratis**:
+- 2000 requests / mes
+- 1 req/segundo de rate limit (suficiente para el auto-completar humano)
+- Resultados de calidad Google, con snippet y a veces imagen del profile
+
+**Privacidad**: la query que mandás a Brave es el nombre del servicio. No incluye la URL.`,
+  },
+  'externalSearch.tavily': {
+    title: 'Tavily API key',
+    short: 'Tier gratis: 1000 req/mes. Optimizado para AI agents.',
+    body: `**Setup**:
+1. Andá a https://tavily.com
+2. Sign up, generá API key (empieza con \`tvly-...\`)
+3. Pegala acá
+
+**Tier gratis**:
+- 1000 requests / mes
+- Rate limit generoso
+- Devuelve resultados limpios, optimizados para que un LLM los consuma
+
+**Cuándo preferir Tavily sobre Brave**: si vas a usar también el provider IA para mejorar tarjetas, Tavily devuelve contenido más "AI-friendly" (menos HTML, más texto limpio). Brave es mejor si querés resultados más web-estilo.
+
+**Privacidad**: la query es el nombre del servicio.`,
+  },
 };

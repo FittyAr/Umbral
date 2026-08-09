@@ -631,6 +631,42 @@ const builtinIcons = await getBuiltinIconNames();
         </button>
         <span x-show="aiTestResult" x-text="aiTestResult" style="margin-left:0.75rem;font-size:0.85rem" :class="aiTestOk ? 'help-ok' : 'help-err'" x-cloak></span>
       </div>
+
+      <h3 style="margin-top:1.5rem">
+        Búsqueda externa (auto-completar)
+        <button type="button" class="help-icon" @click="showHelp('externalSearch.intro')" title="¿Qué hace esto?">?</button>
+      </h3>
+      <p style="color:var(--text-subtle);font-size:0.82rem;margin:0 0 0.5rem">
+        Cuando el botón "Auto-completar" del form de tarjeta no puede scrapear el sitio
+        (servicios internos sin HTML público, IP:puerto sin DNS, etc.), hace fallback a
+        búsqueda externa. Default sin keys: <strong>Wikipedia + DuckDuckGo</strong>.
+        Si cargás una key de Brave o Tavily, se usan primero (mejor calidad).
+      </p>
+      <div class="form-group">
+        <label>
+          Brave Search API key <button type="button" class="help-icon" @click="showHelp('externalSearch.brave')" title="¿Qué hace esto?">?</button>
+        </label>
+        <input type="password" x-model="cfg.externalSearch.braveApiKey" placeholder="BSA..." autocomplete="off" />
+        <small style="color:#94a3b8">2000 req/mes gratis. Conseguila en <a href="https://brave.com/search/api/" target="_blank" rel="noopener">brave.com/search/api</a>.</small>
+      </div>
+      <div class="form-group">
+        <label>
+          Tavily API key <button type="button" class="help-icon" @click="showHelp('externalSearch.tavily')" title="¿Qué hace esto?">?</button>
+        </label>
+        <input type="password" x-model="cfg.externalSearch.tavilyApiKey" placeholder="tvly-..." autocomplete="off" />
+        <small style="color:#94a3b8">1000 req/mes gratis. Optimizado para AI. Conseguila en <a href="https://tavily.com" target="_blank" rel="noopener">tavily.com</a>.</small>
+      </div>
+      <details style="margin-top:0.4rem">
+        <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.78rem">SearXNG self-hosted (avanzado)</summary>
+        <p style="margin-top:0.5rem;font-size:0.82rem;color:var(--text-subtle);line-height:1.5">
+          Si querés búsqueda sin límites, sin keys y sin tracking, deployá SearXNG
+          (instrucciones en <a href="https://docs.searxng.org/admin/installation.html" target="_blank" rel="noopener">docs.searxng.org</a>).
+          Umbral no tiene un campo dedicado para SearXNG, pero podés usar
+          <strong>Custom / Otro</strong> en el preset del provider IA y apuntarlo a tu
+          instance (después deshabilitás el bloque "Proveedor IA" y dejás sólo el
+          endpoint). Para setups más limpios abrí un issue y agregamos un campo.
+        </p>
+      </details>
     </div>
 
     <!-- ADVANCED -->
@@ -696,8 +732,8 @@ const builtinIcons = await getBuiltinIconNames();
                     type="button"
                     class="btn btn-sm btn-ghost"
                     @click="autofillFromUrl()"
-                    :disabled="autofillBusy || !editingCard.url"
-                    title="Traer título, descripción e imagen del sitio"
+                    :disabled="autofillBusy || (!editingCard.url && !editingCard.title)"
+                    title="Traer título/desc/imagen del sitio (URL) o de la búsqueda externa (título)"
                     x-show="editingCard.kind==='link'"
                   >
                     <span x-show="!autofillBusy">Auto-completar</span>
@@ -921,6 +957,8 @@ const builtinIcons = await getBuiltinIconNames();
           // loadFresh), pero esto evita la cascada de errores en lo que el
           // cache se refresca.
           if (!this.cfg.ai) this.cfg.ai = { enabled: false, provider: 'openai-compatible', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini', systemPrompt: '' };
+          // Mismo fallback para externalSearch.
+          if (!this.cfg.externalSearch) this.cfg.externalSearch = { braveApiKey: '', tavilyApiKey: '' };
           // Mismo fallback para los widgets nuevos del theme (no deberían
           // faltar porque el schema llena defaults, pero por si el cache
           // quedó stale durante un rolling update).
@@ -1183,16 +1221,24 @@ const builtinIcons = await getBuiltinIconNames();
           }
           this.cancelEdit();
         },
-        // Auto-completar el form desde la URL. Pide a /api/fetch-card-info
-        // que scrapea el <head> del sitio (title, og:description, og:image).
+        // Auto-completar el form desde la URL o el nombre. Pide a
+        // /api/fetch-card-info que scrapea el <head> del sitio y, si no
+        // encuentra nada útil, hace fallback a búsqueda externa
+        // (Brave/Tavily si hay key, Wikipedia + DuckDuckGo siempre).
         // Sólo sobreescribe campos VACÍOS — no pisa lo que el user ya escribió.
         async autofillFromUrl() {
-          if (!this.editingCard?.url) return;
+          if (!this.editingCard?.url && !this.editingCard?.title) return;
           const url = this.editingCard.url;
-          if (!/^https?:\/\//.test(url)) return; // sólo URLs externas
+          const name = this.editingCard.title;
+          // Si hay URL, sólo la mandamos si parece http(s) o path interno.
+          // Si no, mandamos sólo el name.
+          const params = new URLSearchParams();
+          if (url && /^https?:\/\//.test(url)) params.set('url', url);
+          if (name && name.trim()) params.set('name', name.trim());
+          if (!params.toString()) return;
           this.autofillBusy = true;
           try {
-            const res = await fetch(`/api/fetch-card-info?url=${encodeURIComponent(url)}`);
+            const res = await fetch(`/api/fetch-card-info?${params.toString()}`);
             if (!res.ok) {
               const e = await res.json().catch(() => ({}));
               window.umbralAdmin.toast(e.error || `Error HTTP ${res.status}`, 'error');
@@ -1225,7 +1271,12 @@ const builtinIcons = await getBuiltinIconNames();
                 }
               } catch { /* favicon no se pudo subir — el ícono se queda como está */ }
             }
-            window.umbralAdmin.toast(filled > 0 ? `Autocompletado: ${filled} campo(s)` : 'No se encontró info útil', filled > 0 ? 'success' : 'info');
+            const sourceLabel = ({ scrape: 'scrape del sitio', brave: 'Brave', tavily: 'Tavily', wikipedia: 'Wikipedia', duckduckgo: 'DuckDuckGo', none: 'ninguna fuente' } as Record<string, string>)[data.source] || data.source;
+            if (filled > 0) {
+              window.umbralAdmin.toast(`Autocompletado: ${filled} campo(s) desde ${sourceLabel}`, 'success');
+            } else {
+              window.umbralAdmin.toast(`No se encontró info útil (${sourceLabel}). Cargá título/desc a mano.`, 'info');
+            }
             this.markDirty();
           } catch (err) {
             window.umbralAdmin.toast(`Error: ${err.message}`, 'error');

@@ -349,6 +349,7 @@ export type UploadSecurity = z.infer<typeof UploadSecuritySchema>;
 export type NetworkSecurity = z.infer<typeof NetworkSecuritySchema>;
 export type HeadersSecurity = z.infer<typeof HeadersSecuritySchema>;
 export type AI = z.infer<typeof AISchema>;
+export type ExternalSearch = z.infer<typeof ExternalSearchSchema>;
 
 // ──────────────────────────────────────────────────────────────────────────
 // Top-level Config
@@ -362,6 +363,9 @@ export const ConfigSchema = z.object({
   // `ai` es opt-in: el admin lo activa desde el panel cuando quiera.
   // Default vacío → todos los endpoints /api/ai devuelven 503.
   ai: AISchema.optional(),
+  // External search (Brave / Tavily / etc) — opcional, también.
+  // Default vacío → auto-completar usa sólo Wikipedia + DuckDuckGo (sin key).
+  externalSearch: ExternalSearchSchema.optional(),
   categories: z.array(CategorySchema).default([]),
   cards: z.array(CardSchema).default([]),
   auth: AuthSchema.optional(),

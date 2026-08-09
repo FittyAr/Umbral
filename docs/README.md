@@ -33,6 +33,7 @@ Self-hosted portal para herramientas internas. Single container, sin base de dat
 | [Backup y restore](./usage/backup.md) | Cómo respaldar `data/` (lo único persistente) |
 | [Troubleshooting](./usage/troubleshooting.md) | Errores comunes y soluciones |
 | [API (avanzado)](./usage/api.md) | Endpoints REST para integraciones |
+| [Auto-completar tarjetas](./usage/auto-completar.md) | Cómo funciona el scrape + fallback a búsqueda externa (Brave/Tavily/Wikipedia/SearXNG) |
 
 ### Desarrollo
 

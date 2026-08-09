@@ -94,6 +94,13 @@ function defaultConfig(): Config {
       model: 'gpt-4o-mini',
       systemPrompt: '',
     },
+    // External search (Brave / Tavily / SearXNG). Sin keys por default —
+    // el auto-completar usa sólo Wikipedia + DuckDuckGo (sin auth).
+    // Si el user carga keys acá, /api/fetch-card-info los usa primero.
+    externalSearch: {
+      braveApiKey: '',
+      tavilyApiKey: '',
+    },
     categories: [
       { id: 'com', name: 'Comunicación', icon: 'message-circle' },
       { id: 'prod', name: 'Productividad', icon: 'briefcase' },
@@ -229,6 +236,15 @@ async function loadFresh(): Promise<Config> {
       await fs.rename(tmp, CONFIG_PATH);
       console.log('[umbral] config sin sección ai — agregada con defaults.');
     }
+    // externalSearch es .optional() por la misma razón que ai: configs viejos
+    // no la tienen. Mismo patrón de auto-migración.
+    if (!data.externalSearch) {
+      data = { ...data, externalSearch: defaultConfig().externalSearch };
+      const tmp = CONFIG_PATH + '.tmp';
+      await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
+      await fs.rename(tmp, CONFIG_PATH);
+      console.log('[umbral] config sin sección externalSearch — agregada con defaults.');
+    }
     return data;
   }
 
@@ -271,6 +287,10 @@ async function loadFresh(): Promise<Config> {
       ai: partial.data.ai
         ? { ...defaults.ai, ...(partial.data.ai as object) }
         : defaults.ai,
+      // externalSearch: mismo patrón que ai.
+      externalSearch: partial.data.externalSearch
+        ? { ...defaults.externalSearch, ...(partial.data.externalSearch as object) }
+        : defaults.externalSearch,
       auth: partial.data.auth,  // puede ser undefined; lo regeneramos abajo
       _meta: { ...defaults._meta, ...(partial.data._meta ?? {}), updatedAt: new Date().toISOString() },
     };
@@ -355,6 +375,9 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
     ai: cleanUpdate.ai
       ? { ...(current.ai ?? defaults.ai), ...cleanUpdate.ai }
       : (current.ai ?? defaults.ai),
+    externalSearch: cleanUpdate.externalSearch
+      ? { ...(current.externalSearch ?? defaults.externalSearch), ...cleanUpdate.externalSearch }
+      : (current.externalSearch ?? defaults.externalSearch),
     categories: cleanUpdate.categories ?? current.categories,
     cards: cleanUpdate.cards ?? current.cards,
     _meta: { ...current._meta, updatedAt: new Date().toISOString() },
