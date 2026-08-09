@@ -102,9 +102,13 @@ Devolvé únicamente el JSON con el title y description mejorados.`;
   if (!parsed || typeof parsed !== 'object') {
     return error('IA no devolvió JSON parseable', 502);
   }
+  // BUGFIX: clampear contra los límites del schema. La IA no respeta
+  // consistentemente los "max 60 chars" del system prompt y devuelve
+  // strings más largas. Si no clampeamos acá, el admin save falla con
+  // "String must contain at most 200 character(s)".
   const improved = {
-    title: String(parsed.title || title).slice(0, 200),
-    description: String(parsed.description || description).slice(0, 500),
+    title: String(parsed.title || title).slice(0, 80),
+    description: String(parsed.description || description).slice(0, 200),
   };
   return json(improved);
 };

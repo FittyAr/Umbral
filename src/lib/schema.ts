@@ -426,6 +426,7 @@ export const ConfigUpdateSchema = z
     layout: LayoutSchema.partial().optional(),
     security: SecuritySchema.partial().optional(),
     ai: AISchema.partial().optional(),
+    externalSearch: ExternalSearchSchema.partial().optional(),
     categories: z.array(CategorySchema).optional(),
     cards: z.array(CardSchema).optional(),
     // auth y _meta son sólo del server — el client los manda sin querer al

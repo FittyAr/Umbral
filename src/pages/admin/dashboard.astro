@@ -1299,24 +1299,27 @@ const builtinIcons = await getBuiltinIconNames();
             if (data.description && !this.editingCard.description) {
               this.editingCard.description = data.description; filled++;
             }
-            // La imagen: si vino una, la subimos como asset. Si no, no tocamos el ícono.
+            // La imagen: si vino una, la subimos como asset vía el endpoint
+            // /api/upload-from-url (que hace el download server-side, evitando
+            // el CSP `connect-src 'self'` del browser). Si falla, no tocamos
+            // el ícono — la card queda sin imagen pero con title/description.
             if (data.image) {
               try {
-                const imgRes = await fetch(data.image);
-                if (imgRes.ok) {
-                  const blob = await imgRes.blob();
-                  const ext = (blob.type.split('/')[1] || 'png').toLowerCase();
-                  const safeName = `favicon-${Date.now().toString(36)}.${ext}`;
-                  const fd = new FormData();
-                  fd.append('file', blob, safeName);
-                  fd.append('kind', 'icon');
-                  const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-                  if (upRes.ok) {
-                    const up = await upRes.json();
-                    this.editingCard.icon = up.url; filled++;
-                  }
+                const upRes = await fetch('/api/upload-from-url', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json', 'x-csrf-token': window.umbralAdmin.csrf },
+                  body: JSON.stringify({ url: data.image, kind: 'icon' }),
+                });
+                if (upRes.ok) {
+                  const up = await upRes.json();
+                  this.editingCard.icon = up.url; filled++;
+                } else {
+                  const err = await upRes.json().catch(() => ({}));
+                  console.warn('[umbral] upload-from-url failed:', err.error || upRes.status);
                 }
-              } catch { /* favicon no se pudo subir — el ícono se queda como está */ }
+              } catch (err) {
+                console.warn('[umbral] upload-from-url error:', err);
+              }
             }
             const sourceLabel = ({ scrape: 'scrape del sitio', brave: 'Brave', tavily: 'Tavily', wikipedia: 'Wikipedia', duckduckgo: 'DuckDuckGo', none: 'ninguna fuente' } as Record<string, string>)[data.source] || data.source;
             if (filled > 0) {
