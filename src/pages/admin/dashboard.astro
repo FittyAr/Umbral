@@ -734,18 +734,54 @@ const builtinIcons = await getBuiltinIconNames();
             </div>
             <div class="form-group">
               <label>Ícono</label>
-              <div style="display:flex;gap:0.5rem;align-items:center">
-                <input type="text" x-model="editingCard.icon" placeholder="nombre-iconexto o /api/assets/..." style="flex:1" />
-                <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
-              </div>
-              <small style="color:#94a3b8">Íconos predefinidos: chat, briefcase, code, etc. o un asset subido (/api/assets/...)</small>
-              <div class="icon-picker" style="margin-top:0.4rem">
+              <!-- Picker visual: cada fila es un ícono + nombre, click selecciona.
+                   El user pidió "listbox que muestre los íconos junto al nombre de
+                   cada uno" — esto es exactamente eso. El input de texto de abajo
+                   queda sólo para custom paths (assets subidos, lucide icons que
+                   no estén en el set, etc.). -->
+              <div class="icon-picker">
+                <button
+                  type="button"
+                  class="icon-picker-item"
+                  :class="!editingCard.icon && 'selected'"
+                  @click="editingCard.icon=''; markDirty()"
+                >
+                  <span class="icon-picker-img" aria-hidden="true">🚫</span>
+                  <span class="icon-picker-name">Sin ícono</span>
+                </button>
                 <template x-for="i in builtinIcons" :key="i">
-                  <button type="button" :class="editingCard.icon===i && 'selected'" @click="editingCard.icon=i; markDirty()" :title="i">
-                    <img :src="'/icons/' + i + '.svg'" :alt="i" />
+                  <button
+                    type="button"
+                    class="icon-picker-item"
+                    :class="editingCard.icon===i && 'selected'"
+                    @click="editingCard.icon=i; markDirty()"
+                    :title="i"
+                  >
+                    <span class="icon-picker-img">
+                      <img :src="'/icons/' + i + '.svg'" :alt="i" />
+                    </span>
+                    <span class="icon-picker-name" x-text="i"></span>
                   </button>
                 </template>
               </div>
+              <!-- Custom path: input secundario, sólo para assets subidos o
+                   nombres que no estén en el picker. -->
+              <details style="margin-top:0.5rem">
+                <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.78rem">¿Usar un asset subido o un nombre custom?</summary>
+                <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.4rem">
+                  <input
+                    type="text"
+                    x-model="editingCard.icon"
+                    placeholder="/api/assets/mi-logo.png o nombre-lucide"
+                    style="flex:1"
+                  />
+                  <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
+                </div>
+                <small style="color:#94a3b8">
+                  Pegá la URL de un asset que subiste (tipo <code>/api/assets/mi-logo.png</code>),
+                  o un nombre de ícono Lucide no listado (ej: <code>rocket</code>, <code>database</code>).
+                </small>
+              </details>
             </div>
             <div class="form-row">
               <div class="form-group" x-show="editingCard.kind==='link'">
