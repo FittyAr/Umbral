@@ -45,12 +45,12 @@ const builtinIcons = await getBuiltinIconNames();
     <div class="panel" :class="tab==='branding' && 'active'">
       <h2 style="margin-top:0">Branding</h2>
       <div class="form-group">
-        <label>Nombre de la empresa</label>
+        <label>Nombre de la empresa <button type="button" class="help-icon" @click="showHelp('branding.companyName')" title="¿Qué hace esto?">?</button></label>
         <input type="text" x-model="cfg.branding.companyName" maxlength="80" />
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Logo</label>
+          <label>Logo <button type="button" class="help-icon" @click="showHelp('branding.logo')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.branding.logo">
             <option value="">— Sin logo (usar inicial) —</option>
             <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg)$/i.test(a.name))" :key="a.name">
@@ -62,7 +62,7 @@ const builtinIcons = await getBuiltinIconNames();
           </div>
         </div>
         <div class="form-group">
-          <label>Favicon</label>
+          <label>Favicon <button type="button" class="help-icon" @click="showHelp('branding.favicon')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.branding.favicon">
             <option value="">— Default —</option>
             <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg|ico)$/i.test(a.name))" :key="a.name">
@@ -77,7 +77,7 @@ const builtinIcons = await getBuiltinIconNames();
     <div class="panel" :class="tab==='theme' && 'active'">
       <h2 style="margin-top:0">Tema</h2>
       <div class="form-group">
-        <label>Tipo de fondo</label>
+        <label>Tipo de fondo <button type="button" class="help-icon" @click="showHelp('theme.background.type')" title="¿Qué hace esto?">?</button></label>
         <select x-model="cfg.theme.background.type">
           <option value="gradient">Gradiente / Color CSS</option>
           <option value="color">Color sólido</option>
@@ -85,7 +85,7 @@ const builtinIcons = await getBuiltinIconNames();
         </select>
       </div>
       <div class="form-group" x-show="cfg.theme.background.type==='image'">
-        <label>Imagen de fondo</label>
+        <label>Imagen de fondo <button type="button" class="help-icon" @click="showHelp('theme.background.value')" title="¿Qué hace esto?">?</button></label>
         <select x-model="cfg.theme.background.value">
           <option value="">— Seleccionar imagen —</option>
           <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp)$/i.test(a.name))" :key="a.name">
@@ -94,34 +94,37 @@ const builtinIcons = await getBuiltinIconNames();
         </select>
       </div>
       <div class="form-group" x-show="cfg.theme.background.type!=='image'">
-        <label x-text="cfg.theme.background.type==='color' ? 'Color' : 'CSS (gradient/color)'"></label>
+        <label>
+          <span x-text="cfg.theme.background.type==='color' ? 'Color' : 'CSS (gradient/color)'"></span>
+          <button type="button" class="help-icon" @click="showHelp('theme.background.value')" title="¿Qué hace esto?">?</button>
+        </label>
         <input type="text" x-model="cfg.theme.background.value" :placeholder="cfg.theme.background.type==='color' ? '#0f172a' : 'linear-gradient(135deg, #0f172a, #1e3a8a)'" />
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Blur (<span x-text="cfg.theme.background.blur"></span>px)</label>
+          <label>Blur (<span x-text="cfg.theme.background.blur"></span>px) <button type="button" class="help-icon" @click="showHelp('theme.background.blur')" title="¿Qué hace esto?">?</button></label>
           <input type="range" min="0" max="40" x-model.number="cfg.theme.background.blur" />
         </div>
         <div class="form-group">
-          <label>Overlay opacity (<span x-text="cfg.theme.background.overlay"></span>)</label>
+          <label>Overlay opacity (<span x-text="cfg.theme.background.overlay"></span>) <button type="button" class="help-icon" @click="showHelp('theme.background.overlay')" title="¿Qué hace esto?">?</button></label>
           <input type="range" min="0" max="1" step="0.05" x-model.number="cfg.theme.background.overlay" />
         </div>
         <div class="form-group">
-          <label>Color overlay</label>
+          <label>Color overlay <button type="button" class="help-icon" @click="showHelp('theme.background.overlayColor')" title="¿Qué hace esto?">?</button></label>
           <input type="color" x-model="cfg.theme.background.overlayColor" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Color de acento</label>
+          <label>Color de acento <button type="button" class="help-icon" @click="showHelp('theme.accentColor')" title="¿Qué hace esto?">?</button></label>
           <input type="color" x-model="cfg.theme.accentColor" />
         </div>
         <div class="form-group">
-          <label>Color de texto</label>
+          <label>Color de texto <button type="button" class="help-icon" @click="showHelp('theme.textColor')" title="¿Qué hace esto?">?</button></label>
           <input type="color" x-model="cfg.theme.textColor" />
         </div>
         <div class="form-group">
-          <label>Estilo de tarjeta</label>
+          <label>Estilo de tarjeta <button type="button" class="help-icon" @click="showHelp('theme.cardStyle')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.theme.cardStyle">
             <option value="glass">Glass (blur)</option>
             <option value="flat">Flat</option>
@@ -131,7 +134,7 @@ const builtinIcons = await getBuiltinIconNames();
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Tipografía</label>
+          <label>Tipografía <button type="button" class="help-icon" @click="showHelp('theme.fontFamily')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.theme.fontFamily" @change="updateFontUrl()">
             <option>Inter</option><option>Roboto</option><option>Open Sans</option>
             <option>Lato</option><option>Poppins</option><option>Montserrat</option>
@@ -140,7 +143,7 @@ const builtinIcons = await getBuiltinIconNames();
           </select>
         </div>
         <div class="form-group">
-          <label>Modo de color</label>
+          <label>Modo de color <button type="button" class="help-icon" @click="showHelp('theme.colorMode')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.theme.colorMode">
             <option value="auto">Auto (según hora)</option>
             <option value="dark">Oscuro</option>
@@ -192,19 +195,19 @@ const builtinIcons = await getBuiltinIconNames();
       <h2 style="margin-top:0">Layout</h2>
       <div class="form-row">
         <div class="form-group">
-          <label>Columnas desktop</label>
+          <label>Columnas desktop <button type="button" class="help-icon" @click="showHelp('layout.columnsDesktop')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="2" max="8" x-model.number="cfg.layout.columnsDesktop" />
         </div>
         <div class="form-group">
-          <label>Columnas tablet</label>
+          <label>Columnas tablet <button type="button" class="help-icon" @click="showHelp('layout.columnsTablet')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="2" max="6" x-model.number="cfg.layout.columnsTablet" />
         </div>
         <div class="form-group">
-          <label>Columnas mobile</label>
+          <label>Columnas mobile <button type="button" class="help-icon" @click="showHelp('layout.columnsMobile')" title="¿Qué hace esto?">?</button></label>
           <input type="number" min="1" max="3" x-model.number="cfg.layout.columnsMobile" />
         </div>
         <div class="form-group">
-          <label>Tamaño de tarjeta</label>
+          <label>Tamaño de tarjeta <button type="button" class="help-icon" @click="showHelp('layout.cardSize')" title="¿Qué hace esto?">?</button></label>
           <select x-model="cfg.layout.cardSize">
             <option value="small">Chico</option>
             <option value="medium">Mediano</option>
@@ -213,7 +216,7 @@ const builtinIcons = await getBuiltinIconNames();
         </div>
       </div>
       <div class="form-group">
-        <label><input type="checkbox" x-model="cfg.layout.showDescriptions" /> Mostrar descripciones</label>
+        <label><input type="checkbox" x-model="cfg.layout.showDescriptions" /> Mostrar descripciones <button type="button" class="help-icon" @click="showHelp('layout.showDescriptions')" title="¿Qué hace esto?">?</button></label>
       </div>
       <div class="form-group">
         <label>Intervalo health check (segundos) <button type="button" class="help-icon" @click="showHelp('layout.healthCheckInterval')" title="¿Qué hace esto?">?</button>
@@ -228,7 +231,10 @@ const builtinIcons = await getBuiltinIconNames();
 
     <!-- CATEGORIES -->
     <div class="panel" :class="tab==='categories' && 'active'">
-      <h2 style="margin-top:0">Categorías</h2>
+      <h2 style="margin-top:0">
+        Categorías
+        <button type="button" class="help-icon" @click="showHelp('category.name')" title="¿Qué hace esto?">?</button>
+      </h2>
       <p class="muted" style="color:#94a3b8;font-size:0.85rem">Las tarjetas se agrupan por categoría. El id es la clave interna (kebab-case).</p>
       <div class="card-list">
         <template x-for="(cat, idx) in cfg.categories" :key="cat.id">
@@ -236,7 +242,7 @@ const builtinIcons = await getBuiltinIconNames();
             <div class="info" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;align-items:center">
               <input type="text" x-model="cat.id" placeholder="id (kebab-case)" @input="markDirty()" />
               <input type="text" x-model="cat.name" placeholder="Nombre" @input="markDirty()" />
-              <select x-model="cat.icon" @change="markDirty()">
+              <select x-model="cat.icon" @change="markDirty()" :title="cat.icon || 'ícono'">
                 <option value="">— ícono —</option>
                 <template x-for="i in builtinIcons" :key="i">
                   <option :value="i" x-text="i"></option>
@@ -296,7 +302,10 @@ const builtinIcons = await getBuiltinIconNames();
 
     <!-- ASSETS -->
     <div class="panel" :class="tab==='assets' && 'active'">
-      <h2 style="margin-top:0">Assets</h2>
+      <h2 style="margin-top:0">
+        Assets
+        <button type="button" class="help-icon" @click="showHelp('assets.upload')" title="¿Qué hace esto?">?</button>
+      </h2>
       <div class="uploader" :class="uploaderDragover && 'dragover'"
            @click="$refs.fileInput.click()"
            @dragover.prevent="uploaderDragover=true"
@@ -307,7 +316,7 @@ const builtinIcons = await getBuiltinIconNames();
         <input type="file" x-ref="fileInput" accept="image/*" multiple @change="handleFileSelect($event)" hidden />
       </div>
       <div class="form-group" style="max-width:240px">
-        <label>Tipo al subir</label>
+        <label>Tipo al subir <button type="button" class="help-icon" @click="showHelp('assets.upload')" title="¿Qué hace esto?">?</button></label>
         <select x-model="uploadKind">
           <option value="icon">Icono (128px, ≤512KB)</option>
           <option value="logo">Logo (512px, ≤1MB)</option>
@@ -335,7 +344,10 @@ const builtinIcons = await getBuiltinIconNames();
 
     <!-- STATUS -->
     <div class="panel" :class="tab==='status' && 'active'">
-      <h2 style="margin-top:0">Status de las tarjetas</h2>
+      <h2 style="margin-top:0">
+        Status de las tarjetas
+        <button type="button" class="help-icon" @click="showHelp('status.check')" title="¿Qué hace esto?">?</button>
+      </h2>
       <p class="muted" style="color:#94a3b8;font-size:0.85rem">Ping HEAD a cada URL. Útil para detectar servicios caídos.</p>
       <button class="btn btn-primary" @click="checkAllStatus()" :disabled="checkingStatus">
         <span x-show="!checkingStatus">Probar todas</span>
@@ -532,7 +544,7 @@ const builtinIcons = await getBuiltinIconNames();
     <!-- PASSWORD -->
     <div class="panel" :class="tab==='security' && 'active'">
       <h2 style="margin-top:0">Seguridad</h2>
-      <h3>Cambiar contraseña</h3>
+      <h3>Cambiar contraseña <button type="button" class="help-icon" @click="showHelp('security.password')" title="¿Qué hace esto?">?</button></h3>
       <form @submit.prevent="changePassword()" style="max-width:400px">
         <div class="form-group">
           <label>Contraseña actual</label>
@@ -549,7 +561,7 @@ const builtinIcons = await getBuiltinIconNames();
         <button type="submit" class="btn btn-primary">Cambiar</button>
       </form>
 
-      <h3 style="margin-top:2rem">CSRF Token</h3>
+      <h3 style="margin-top:2rem">CSRF Token <button type="button" class="help-icon" @click="showHelp('security.csrf')" title="¿Qué hace esto?">?</button></h3>
       <p style="color:#94a3b8;font-size:0.85rem">Este token se rota automáticamente al cambiar la contraseña.</p>
       <code style="display:inline-block;padding:0.4rem 0.7rem;background:#0f172a;border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '—'"></code>
     </div>
@@ -566,7 +578,7 @@ const builtinIcons = await getBuiltinIconNames();
       </div>
       <div class="form-row" x-show="cfg.ai.enabled">
         <div class="form-group">
-          <label>Preset</label>
+          <label>Preset <button type="button" class="help-icon" @click="showHelp('ai.preset')" title="¿Qué hace esto?">?</button></label>
           <select x-model="aiPreset" @change="applyAiPreset(aiPreset)">
             <option value="">— Custom / Otro —</option>
             <template x-for="p in aiProviders" :key="p.id">
@@ -591,7 +603,7 @@ const builtinIcons = await getBuiltinIconNames();
           <small style="color:#94a3b8" x-text="presetApiKeyHelp()"></small>
         </div>
         <div class="form-group">
-          <label>Modelo</label>
+          <label>Modelo <button type="button" class="help-icon" @click="showHelp('ai.model')" title="¿Qué hace esto?">?</button></label>
           <input type="text" x-model="cfg.ai.model" placeholder="gpt-4o-mini" list="ai-model-suggestions" />
           <datalist id="ai-model-suggestions">
             <template x-for="m in presetModels()" :key="m">
@@ -625,20 +637,25 @@ const builtinIcons = await getBuiltinIconNames();
     <div class="panel" :class="tab==='advanced' && 'active'">
       <h2 style="margin-top:0">Avanzado</h2>
 
-      <h3>Export / Import</h3>
-      <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
+      <h3>Export / Import <button type="button" class="help-icon" @click="showHelp('advanced.export')" title="¿Qué hace esto?">?</button></h3>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
         <button class="btn btn-ghost" @click="exportConfig()">Descargar config.json</button>
+        <span style="color:#94a3b8;font-size:0.85rem">backup / migración / versionar</span>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
         <label class="btn btn-ghost" style="cursor:pointer">
           Importar config.json
           <input type="file" accept="application/json" @change="importConfig($event)" hidden />
         </label>
+        <button type="button" class="help-icon" @click="showHelp('advanced.import')" title="¿Qué hace esto?">?</button>
+        <span style="color:#94a3b8;font-size:0.85rem">reemplaza la config actual (no es merge)</span>
       </div>
 
-      <h3>Healthcheck</h3>
+      <h3>Healthcheck <button type="button" class="help-icon" @click="showHelp('advanced.healthcheck')" title="¿Qué hace esto?">?</button></h3>
       <button class="btn btn-ghost" @click="checkHealth()">Probar /api/health</button>
       <pre x-show="healthInfo" x-text="JSON.stringify(healthInfo, null, 2)" style="background:#0f172a;padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
 
-      <h3 style="margin-top:2rem">Reset</h3>
+      <h3 style="margin-top:2rem">Reset <button type="button" class="help-icon" @click="showHelp('advanced.reset')" title="¿Qué hace esto?">?</button></h3>
       <p style="color:#94a3b8;font-size:0.85rem">Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).</p>
       <button class="btn btn-danger" @click="resetConfig()">Reset a defaults</button>
     </div>
@@ -651,11 +668,11 @@ const builtinIcons = await getBuiltinIconNames();
           <form @submit.prevent="saveCard()" @input="cardFormDirty = true">
             <div class="form-row">
               <div class="form-group">
-                <label>Título</label>
+                <label>Título <button type="button" class="help-icon" @click="showHelp('card.title')" title="¿Qué hace esto?">?</button></label>
                 <input type="text" x-model="editingCard.title" required maxlength="80" />
               </div>
               <div class="form-group">
-                <label>Tipo</label>
+                <label>Tipo <button type="button" class="help-icon" @click="showHelp('card.kind')" title="¿Qué hace esto?">?</button></label>
                 <select x-model="editingCard.kind">
                   <option value="link">Link (clickeable)</option>
                   <option value="note">Nota (informativa, sin link)</option>
@@ -665,7 +682,7 @@ const builtinIcons = await getBuiltinIconNames();
             </div>
             <div class="form-row">
               <div class="form-group" style="flex:1">
-                <label>URL <span x-show="editingCard.kind==='link'" style="color:#dc2626">*</span></label>
+                <label>URL <button type="button" class="help-icon" @click="showHelp('card.url')" title="¿Qué hace esto?">?</button> <span x-show="editingCard.kind==='link'" style="color:#dc2626">*</span></label>
                 <div style="display:flex;gap:0.4rem;align-items:flex-start">
                   <input
                     type="text"
@@ -714,12 +731,12 @@ const builtinIcons = await getBuiltinIconNames();
               </span>
             </div>
             <div class="form-group">
-              <label>Descripción</label>
+              <label>Descripción <button type="button" class="help-icon" @click="showHelp('card.description')" title="¿Qué hace esto?">?</button></label>
               <textarea x-model="editingCard.description" maxlength="200"></textarea>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Categoría</label>
+                <label>Categoría <button type="button" class="help-icon" @click="showHelp('card.category')" title="¿Qué hace esto?">?</button></label>
                 <select x-model="editingCard.category" required>
                     <option value="">— seleccionar —</option>
                     <template x-for="c in cfg.categories" :key="c.id">
@@ -728,12 +745,12 @@ const builtinIcons = await getBuiltinIconNames();
                 </select>
               </div>
               <div class="form-group">
-                <label>Color</label>
+                <label>Color <button type="button" class="help-icon" @click="showHelp('card.color')" title="¿Qué hace esto?">?</button></label>
                 <input type="color" x-model="editingCard.color" />
               </div>
             </div>
             <div class="form-group">
-              <label>Ícono</label>
+              <label>Ícono <button type="button" class="help-icon" @click="showHelp('card.icon')" title="¿Qué hace esto?">?</button></label>
               <!-- Picker visual: cada fila es un ícono + nombre, click selecciona.
                    El user pidió "listbox que muestre los íconos junto al nombre de
                    cada uno" — esto es exactamente eso. El input de texto de abajo
@@ -785,13 +802,22 @@ const builtinIcons = await getBuiltinIconNames();
             </div>
             <div class="form-row">
               <div class="form-group" x-show="editingCard.kind==='link'">
-                <label><input type="checkbox" x-model="editingCard.openInNewTab" /> Abrir en nueva pestaña</label>
+                <label>
+                  <input type="checkbox" x-model="editingCard.openInNewTab" /> Abrir en nueva pestaña
+                  <button type="button" class="help-icon" @click="showHelp('card.openInNewTab')" title="¿Qué hace esto?">?</button>
+                </label>
               </div>
               <div class="form-group">
-                <label><input type="checkbox" x-model="editingCard.enabled" /> Activa</label>
+                <label>
+                  <input type="checkbox" x-model="editingCard.enabled" /> Activa
+                  <button type="button" class="help-icon" @click="showHelp('card.enabled')" title="¿Qué hace esto?">?</button>
+                </label>
               </div>
-              <div class="form-group" x-show="editingCard.kind==='link'" title="Ping periódico a la URL; muestra un dot verde/rojo en la card">
-                <label><input type="checkbox" x-model="editingCard.healthCheck" /> Health check (dot en vivo)</label>
+              <div class="form-group" x-show="editingCard.kind==='link'">
+                <label>
+                  <input type="checkbox" x-model="editingCard.healthCheck" /> Health check (dot en vivo)
+                  <button type="button" class="help-icon" @click="showHelp('card.healthCheck')" title="¿Qué hace esto?">?</button>
+                </label>
               </div>
             </div>
             <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
