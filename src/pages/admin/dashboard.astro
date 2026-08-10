@@ -234,12 +234,13 @@ const builtinIcons = await getBuiltinIconNames();
     <div class="panel" :class="tab==='categories' && 'active'">
       <h2 style="margin-top:0">
         Categorías
-        <button type="button" class="help-icon" @click="showHelp('category.name')" title="¿Qué hace esto?">?</button>
+        <button type="button" class="help-icon" @click="showHelp('category.order')" title="¿Qué hace esto?">?</button>
       </h2>
-      <p class="muted" style="color:#94a3b8;font-size:0.85rem">Las tarjetas se agrupan por categoría. El id es la clave interna (kebab-case).</p>
-      <div class="card-list">
+      <p class="muted" style="color:#94a3b8;font-size:0.85rem">Las tarjetas se agrupan por categoría. El id es la clave interna (kebab-case). Arrastrá las filas con <code>⋮⋮</code> para reordenar — el orden de las categorías en la portada sigue el orden acá.</p>
+      <div class="card-list" id="categories-sortable">
         <template x-for="(cat, idx) in cfg.categories" :key="cat.id">
           <div class="card-item">
+            <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
             <div class="info" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;align-items:center">
               <input type="text" x-model="cat.id" placeholder="id (kebab-case)" @input="markDirty()" />
               <input type="text" x-model="cat.name" placeholder="Nombre" @input="markDirty()" />
@@ -1164,19 +1165,39 @@ const builtinIcons = await getBuiltinIconNames();
         },
 
         initSortable() {
-          const el = document.getElementById('cards-sortable');
-          if (!el) return;
-          Sortable.create(el, {
-            handle: '.drag-handle',
-            animation: 150,
-            onEnd: (evt) => {
-              const arr = this.cfg.cards;
-              const [moved] = arr.splice(evt.oldIndex, 1);
-              arr.splice(evt.newIndex, 0, moved);
-              arr.forEach((c, i) => c.order = i);
-              this.markDirty();
-            },
-          });
+          // Tarjetas: drag-and-drop reordena `cfg.cards` y renumera `order`.
+          // (El `order` se persiste para que el home ordene por valor, no por
+          // posición del array — más robusto frente a migraciones.)
+          const cardsEl = document.getElementById('cards-sortable');
+          if (cardsEl) {
+            Sortable.create(cardsEl, {
+              handle: '.drag-handle',
+              animation: 150,
+              onEnd: (evt) => {
+                const arr = this.cfg.cards;
+                const [moved] = arr.splice(evt.oldIndex, 1);
+                arr.splice(evt.newIndex, 0, moved);
+                arr.forEach((c, i) => c.order = i);
+                this.markDirty();
+              },
+            });
+          }
+          // Categorías: drag-and-drop reordena el array `cfg.categories`.
+          // No hay campo `order` en CategorySchema — el home ahora respeta
+          // la posición del array (ver src/pages/index.astro: sortByCatOrder).
+          const catsEl = document.getElementById('categories-sortable');
+          if (catsEl) {
+            Sortable.create(catsEl, {
+              handle: '.drag-handle',
+              animation: 150,
+              onEnd: (evt) => {
+                const arr = this.cfg.categories;
+                const [moved] = arr.splice(evt.oldIndex, 1);
+                arr.splice(evt.newIndex, 0, moved);
+                this.markDirty();
+              },
+            });
+          }
         },
 
         async refreshAssets() {

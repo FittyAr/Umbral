@@ -22,7 +22,18 @@ for (const c of enabledCards) {
   arr.push(c);
   grouped.set(c.category, arr);
 }
-const groupEntries = Array.from(grouped.entries());
+// BUGFIX (sortable de categorías pedido por el user): antes el orden de
+// los grupos en la portada dependía del orden de inserción del Map, que
+// a su vez dependía de cuál era la PRIMER card con esa categoría — no
+// del orden de las categorías en el array. Si el user tenía "com" en
+// la posición 1 de categories pero la primera card era de "prod", el
+// grupo "com" aparecía después de "prod" en la portada. Ahora ordenamos
+// los grupos según la posición de catId en config.categories. Categorías
+// huérfanas (cards con un category que ya no existe) van al final.
+const catOrder = new Map(config.categories.map((c, i) => [c.id, i]));
+const groupEntries = Array.from(grouped.entries()).sort(
+  ([a], [b]) => (catOrder.get(a) ?? Infinity) - (catOrder.get(b) ?? Infinity),
+);
 const isHorizontal = t.groupLayout === 'horizontal';
 ---
 <PublicLayout config={config}>

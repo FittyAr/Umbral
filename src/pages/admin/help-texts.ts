@@ -598,6 +598,17 @@ Si tenés sólo una o dos categorías con muchas cards cada una, poné nombres m
 
 Si el nombre no existe, el sistema usa un placeholder genérico. No rompe nada.`,
   },
+  'category.order': {
+    title: 'Ordenar categorías',
+    short: 'Arrastrá las filas para definir el orden en la portada.',
+    body: `Cada fila tiene un handle \`⋮⋮\` a la izquierda. Mantené apretado y arrastrá para reordenar. El orden que definas acá es el orden en que aparecen las secciones/columnas en la portada (lo ven los users).
+
+**Tips:**
+- El id (kebab-case) NO cambia al reordenar — sólo la posición en la lista.
+- Las cards adentro de cada categoría mantienen su propio orden independiente (lo definís en la pestaña Tarjetas).
+- El cambio se persiste al apretar "Guardar cambios" arriba a la derecha.
+- Si una categoría queda vacía (sin cards activas), no aparece en la portada — pero sigue contando en el orden para cuando le agregues cards.`,
+  },
 
   // ── Assets ───────────────────────────────────────────────────────
   'assets.upload': {
