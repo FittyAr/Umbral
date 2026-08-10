@@ -786,7 +786,30 @@ const builtinIcons = await getBuiltinIconNames();
             <div class="form-row">
               <div class="form-group">
                 <label>Categoría <button type="button" class="help-icon" @click="showHelp('card.category')" title="¿Qué hace esto?">?</button></label>
-                <select x-model="editingCard.category" required>
+                <!-- BUGFIX (categoría no se cargaba al editar reportado por
+                     el user): Alpine 3 procesa directivas en orden de aparición
+                     en el DOM. Cuando el form se monta, el <select x-model=
+                     "editingCard.category"> se inicializa ANTES de que el
+                     <template x-for="c in cfg.categories"> haya renderizado
+                     los <option>. En ese momento editingCard.category tiene
+                     un valor (ej: "com") pero no hay ningún <option value=
+                     "com"> en el DOM todavía, así que el select cae al
+                     fallback "— seleccionar —" y se queda ahí aunque las
+                     options se rendericen un instante después. El x-model
+                     NO re-evalúa cuando se agregan options nuevas — sólo
+                     cuando cambia el valor bindeado.
+                     
+                     El fix canónico de Alpine 3 para este caso es x-init +
+                     $nextTick: setear el value explícitamente después de que
+                     el próximo tick renderizó las options. Por qué $nextTick
+                     y no setTimeout: $nextTick se ejecuta justo después del
+                     próximo batch de render, así que las options ya están en
+                     el DOM y el .value = 'com' encuentra su match. -->
+                <select
+                  x-model="editingCard.category"
+                  x-init="$nextTick(() => $el.value = editingCard.category || '')"
+                  required
+                >
                     <option value="">— seleccionar —</option>
                     <template x-for="c in cfg.categories" :key="c.id">
                       <option :value="c.id" x-text="c.name"></option>
@@ -1310,9 +1333,18 @@ const builtinIcons = await getBuiltinIconNames();
                   headers: { 'content-type': 'application/json', 'x-csrf-token': window.umbralAdmin.csrf },
                   body: JSON.stringify({ url: data.image, kind: 'icon' }),
                 });
+                // BUGFIX (4xx limpio, no más 502 en consola): /api/upload-from-url
+                // ahora devuelve 200 con {ok:false, reason:'not_found'} cuando el
+                // origen responde 4xx (ej: 404 por favicon inexistente, 403 por
+                // hotlink protection). Eso evita que la consola se llene de
+                // "502 Bad Gateway" cada vez que un sitio no expone og:image.
                 if (upRes.ok) {
                   const up = await upRes.json();
-                  this.editingCard.icon = up.url; filled++;
+                  if (up.ok && up.url) {
+                    this.editingCard.icon = up.url; filled++;
+                  } else {
+                    console.warn('[umbral] upload-from-url skipped:', up.reason || 'unknown');
+                  }
                 } else {
                   const err = await upRes.json().catch(() => ({}));
                   console.warn('[umbral] upload-from-url failed:', err.error || upRes.status);
@@ -1424,11 +1456,32 @@ const builtinIcons = await getBuiltinIconNames();
             // Sync textarea → array before sending.
             this.cfg.security.network.trustedProxies = (this.cfg.security.network.trustedProxiesText || '')
               .split('\n').map((s) => s.trim()).filter(Boolean);
+            // BUGFIX (PUT 400 reportado por el user): defense-in-depth para
+            // descripciones de tarjetas largas. El server ya clampea en el
+            // schema, pero hacerlo acá también evita que un save "limpio" del
+            // cliente termine con la descripción truncada a 200 silenciosa-
+            // mente. Mostramos un toast informativo si truncamos algo, así
+            // el user sabe que el server le acortó la descripción y puede
+            // revisarla.
+            let clampedCount = 0;
+            for (const card of this.cfg.cards) {
+              if (typeof card.description === 'string' && card.description.length > 200) {
+                card.description = card.description.slice(0, 200);
+                clampedCount++;
+              }
+            }
             const updated = await window.umbralAdmin.api('PUT', '/api/config', this.cfg);
             this.cfg = structuredClone(updated);
             this.original = structuredClone(updated);
             this.dirty = false;
-            window.umbralAdmin.toast('Configuración guardada', 'success');
+            if (clampedCount > 0) {
+              window.umbralAdmin.toast(
+                `Configuración guardada (${clampedCount} descripción${clampedCount > 1 ? 'es' : ''} truncada${clampedCount > 1 ? 's' : ''} a 200 chars)`,
+                'info',
+              );
+            } else {
+              window.umbralAdmin.toast('Configuración guardada', 'success');
+            }
             await this.refreshAssets();
           } catch (e) {
             window.umbralAdmin.toast('Error: ' + e.message, 'error');

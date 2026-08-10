@@ -88,7 +88,25 @@ export const POST: APIRoute = async ({ request }) => {
         'Accept': 'image/*,*/*;q=0.8',
       },
     });
-    if (!res.ok) return error(`El origen respondió HTTP ${res.status}`, 502);
+    // BUGFIX (console flooded with 502 reportado por el user): cuando el
+    // scraper del /api/fetch-card-info encuentra una og:image o favicon que
+    // apunta a un recurso que NO existe (ej: Wikipedia thumbnail con .svg
+    // renombrado a .png, favicon de IP interna que no tiene /favicon, etc.),
+    // el origen devuelve 4xx. Antes respondíamos 502 Bad Gateway acá, que
+    // técnicamente es correcto pero ensucia la consola del admin con
+    // errores que en realidad significan "el ícono no está, seguí sin él".
+    //
+    // Diferenciamos 4xx (recurso no existe → soft fail, no es culpa del
+    // proxy) de 5xx (el origen está roto → sí es culpa del proxy). 4xx
+    // devuelve 200 con {ok:false, reason:'not_found'}; el cliente
+    // simplemente no setea el ícono y sigue con el resto del autofill
+    // (title/description). 5xx y errores de red siguen siendo 502/504.
+    if (!res.ok) {
+      if (res.status >= 400 && res.status < 500) {
+        return json({ ok: false, reason: 'not_found', status: res.status });
+      }
+      return error(`El origen respondió HTTP ${res.status}`, 502);
+    }
     contentType = res.headers.get('content-type') || '';
     if (!contentType.startsWith('image/')) {
       return error(`El origen devolvió content-type "${contentType}", se esperaba image/*`, 415);

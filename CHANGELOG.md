@@ -5,6 +5,11 @@ versionado con [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **PUT /api/config 400 por descripciones largas**: cards con `description` >200 chars (pegados de Wikipedia, devueltos por la IA, etc.) rompían el save. `CardSchema.description` ahora clampea silenciosamente con `.transform((v) => v.slice(0, 200))` en vez de rechazar con `String must contain at most 200 character(s)`. Defense-in-depth en el cliente (`saveAll()` trunca antes de enviar y avisa con un toast si truncó algo).
+- **Edit card no carga la categoría**: bug de timing de Alpine 3 — el `<select x-model="editingCard.category">` se inicializaba antes de que el `<template x-for="c in cfg.categories">` hubiera renderizado los `<option>`, así que el select caía al fallback "— seleccionar —" aunque el value en memoria fuera válido. Fix canónico: `x-init="$nextTick(() => $el.value = editingCard.category || '')"`.
+- **Console flooded con 502 al auto-completar**: cuando el scraper encontraba una `og:image` o favicon que el origen respondía con 4xx (404, 403, etc.), `/api/upload-from-url` devolvía 502 Bad Gateway y ensuciaba la consola. Ahora 4xx devuelve 200 con `{ok: false, reason: 'not_found'}` (soft fail — el ícono simplemente no se setea, el resto del autofill sigue); 5xx y errores de red siguen siendo 502/504.
+
 ## [1.1.3] - 2026-08-06
 
 ### Changed

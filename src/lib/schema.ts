@@ -121,7 +121,20 @@ export const CardSchema = z.object({
   // informativa, sin link — el `url` es opcional y la card no es clickeable.
   // Útil para tips, anuncios, info fija del equipo, etc.
   kind: z.enum(['link', 'note']).default('link'),
-  description: z.string().max(200).default(''),
+  // BUGFIX (PUT /api/config 400 reportado por el user): el .max(200) +
+  // .default('') original rechazaba cualquier descripción de más de 200
+  // chars con "String must contain at most 200 character(s)". El user tenía
+  // cards con descripciones largas pre-existentes (pegar descripciones de
+  // Wikipedia, IA devolvió más de lo pedido, etc.) y no podía guardar la
+  // config. Ahora clampeamos en vez de rechazar: el texto largo se trunca
+  // silenciosamente a 200 chars al guardar. Si el user quiere algo más
+  // corto, lo edita a mano.
+  //
+  // Para hacer esto sin romper la validación, sacamos .max(200) y dejamos
+  // solo el .transform() que SIEMPRE corre (no necesita pasar validación
+  // previa). El tipo resultante sigue siendo string, así que el resto del
+  // código no cambia.
+  description: z.string().default('').transform((v) => v.slice(0, 200)),
   // URL: para 'link' es obligatoria; para 'note' es opcional. Aceptamos
   // string vacío como caso válido (no falla el regex). El check de "es
   // obligatoria para link" está en el superRefine de abajo.
