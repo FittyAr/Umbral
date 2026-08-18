@@ -102,6 +102,7 @@ export const CategorySchema = z.object({
   icon: z.string().default('folder'),
   isLocked: z.boolean().default(false),
   password: z.string().default(''),
+  isSubpage: z.boolean().default(false),
 });
 
 // ──────────────────────────────────────────────────────────────────────────

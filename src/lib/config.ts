@@ -103,9 +103,9 @@ function defaultConfig(): Config {
       tavilyApiKey: '',
     },
     categories: [
-      { id: 'com', name: 'Comunicación', icon: 'message-circle', isLocked: false, password: '' },
-      { id: 'prod', name: 'Productividad', icon: 'briefcase', isLocked: false, password: '' },
-      { id: 'dev', name: 'Desarrollo', icon: 'code', isLocked: false, password: '' },
+      { id: 'com', name: 'Comunicación', icon: 'message-circle', isLocked: false, password: '', isSubpage: false },
+      { id: 'prod', name: 'Productividad', icon: 'briefcase', isLocked: false, password: '', isSubpage: false },
+      { id: 'dev', name: 'Desarrollo', icon: 'code', isLocked: false, password: '', isSubpage: false },
     ],
     cards: [
       // Tarjeta default que apunta a la documentación del sistema. El admin

@@ -613,10 +613,19 @@ Si el nombre no existe, el sistema usa un placeholder genérico. No rompe nada.`
     title: 'Bloqueo con contraseña de categoría',
     short: 'Oculta las tarjetas de la categoría hasta que el usuario ingrese la contraseña.',
     body: `Cuando activás el bloqueo con contraseña en una categoría:
-- En la portada (homepage) se muestra el título de la categoría, pero sus tarjetas/enlaces quedan ocultos.
+- En la portada (homepage) o en su subpágina se muestra el título de la categoría, pero sus tarjetas/enlaces quedan ocultos.
 - Se muestra una caja solicitando la contraseña para desbloquear el contenido.
 - Al ingresar la contraseña correcta, las tarjetas se revelan inmediatamente y el desbloqueo se conserva durante la sesión del navegador.
-- Las tarjetas protegidas no son accesibles a través del buscador rápido de la portada hasta que la categoría se desbloquee.`,
+- Las tarjetas protegidas no son accesibles a través del buscador rápido hasta que la categoría se desbloquee.`,
+  },
+  'category.subpage': {
+    title: 'Subpágina independiente',
+    short: 'Convierte la categoría en una página dedicada accesible solo por su URL.',
+    body: `Al marcar una categoría como **Subpágina independiente**:
+- **NO aparecerá en la portada principal (\`/\`)**.
+- Los usuarios podrán acceder a ella únicamente ingresando a su URL directa: \`/{id_categoria}\` (ejemplo: \`/prueba\`).
+- Si además tiene activado el bloqueo por contraseña, solicitará la clave en su subpágina antes de mostrar los enlaces.
+- Es ideal para secciones privadas, departamentos internos, links secundarios o portales de acceso restringido.`,
   },
 
   // ── Assets ───────────────────────────────────────────────────────

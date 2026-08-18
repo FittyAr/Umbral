@@ -264,6 +264,19 @@ const builtinIcons = await getBuiltinIconNames();
                 <input type="text" x-model="cat.password" placeholder="Contraseña de la categoría…" @input="markDirty()" style="padding:0.3rem 0.55rem;font-size:0.85rem" />
               </div>
             </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;padding-left:1.75rem;padding-top:0.35rem;border-top:1px dashed var(--border);font-size:0.85rem">
+              <label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;user-select:none;color:var(--text-subtle);margin:0">
+                <input type="checkbox" x-model="cat.isSubpage" @change="markDirty()" style="width:auto;cursor:pointer" />
+                <span>📄 Subpágina independiente (oculta de la portada)</span>
+              </label>
+              <button type="button" class="help-icon" @click="showHelp('category.subpage')" title="¿Cómo funciona la subpágina?">?</button>
+              <template x-if="cat.isSubpage">
+                <a :href="'/' + cat.id" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:0.25rem;color:var(--accent);text-decoration:none;font-size:0.8rem;background:var(--surface);padding:0.15rem 0.5rem;border-radius:4px;border:1px solid var(--border)">
+                  <span>Abrir: /<span x-text="cat.id"></span></span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </template>
+            </div>
           </div>
         </template>
       </div>
@@ -1463,7 +1476,7 @@ const builtinIcons = await getBuiltinIconNames();
         },
 
         addCategory() {
-          this.cfg.categories.push({ id: 'cat-' + Date.now().toString(36), name: 'Nueva', icon: 'folder', isLocked: false, password: '' });
+          this.cfg.categories.push({ id: 'cat-' + Date.now().toString(36), name: 'Nueva', icon: 'folder', isLocked: false, password: '', isSubpage: false });
           this.markDirty();
         },
         removeCategory(idx) {

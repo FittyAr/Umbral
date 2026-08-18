@@ -749,3 +749,42 @@ html[data-mode="light"] .header-title {
   20%, 60% { transform: translateX(-6px); }
   40%, 80% { transform: translateX(6px); }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Subpage navigation
+   ───────────────────────────────────────────────────────────────────── */
+.subpage-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-subtle);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.subpage-back-link:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+.subpage-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: var(--text-subtle);
+  margin-bottom: 1.25rem;
+}
+.subpage-breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.subpage-breadcrumb a:hover {
+  text-decoration: underline;
+}
