@@ -146,13 +146,6 @@ async function scrapeUrl(target: string): Promise<{ title: string; description: 
   // requiere auth), usamos el servicio público de Google que devuelve el
   // favicon de cualquier dominio. Es gratis, sin key, sin tracking del
   // user (sólo el server hace el request). Devuelve un PNG 64x64.
-  if (!image || image.endsWith('/favicon.ico')) {
-    try {
-      const googleFavicon = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(target).hostname)}&sz=64`;
-      image = googleFavicon;
-    } catch { /* hostname inválido, dejamos image vacío */ }
-  }
-
   // Si no tenemos NADA útil, devolvemos null para que el caller haga fallback.
   if (!title && !description && !image) return null;
   // Si sólo tenemos imagen (favicon) sin title/description, no es útil.
@@ -178,11 +171,7 @@ async function searchAndReturn(query: string): Promise<Response> {
   const cfg = await getConfig();
   const searchCfg = cfg.externalSearch ?? { braveApiKey: '', tavilyApiKey: '' };
 
-  // Si parece un dominio, usamos Google favicon como image fallback
-  // garantizado. Si no, lo dejamos para que el form use el default.
-  const faviconFallback = isLikelyDomain(q)
-    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(q)}&sz=64`
-    : '';
+  const faviconFallback = '';
 
   // 1) Brave (si key)
   if (searchCfg.braveApiKey) {

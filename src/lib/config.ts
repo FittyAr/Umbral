@@ -29,8 +29,7 @@ function defaultConfig(): Config {
       accentColor: '#60a5fa',
       textColor: '#f1f5f9',
       fontFamily: 'Inter',
-      fontUrl:
-        'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+      fontUrl: '',
       colorMode: 'auto',
       groupLayout: 'vertical',
       showClock: false,
@@ -76,7 +75,7 @@ function defaultConfig(): Config {
       },
       headers: {
         csp:
-          "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
+          "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
         xFrameOptions: 'DENY',
         referrerPolicy: 'no-referrer',
         permissionsPolicy: 'camera=(), microphone=(), geolocation=()',
@@ -245,6 +244,15 @@ async function loadFresh(): Promise<Config> {
       await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
       await fs.rename(tmp, CONFIG_PATH);
       console.log('[umbral] config sin sección externalSearch — agregada con defaults.');
+    }
+    // Si fontUrl quedó apuntando al Google Fonts default de versiones anteriores,
+    // limpiarlo a '' para que el render sea 100% local y no bloquee en redes aisladas.
+    if (data.theme?.fontUrl?.includes('fonts.googleapis.com')) {
+      data = { ...data, theme: { ...data.theme, fontUrl: '' } };
+      const tmp = CONFIG_PATH + '.tmp';
+      await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
+      await fs.rename(tmp, CONFIG_PATH);
+      console.log('[umbral] fontUrl de Google Fonts migrado a fuente local (offline-safe).');
     }
     return data;
   }
