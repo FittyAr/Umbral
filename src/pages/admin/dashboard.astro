@@ -239,19 +239,31 @@ const builtinIcons = await getBuiltinIconNames();
       <p class="muted" style="color:#94a3b8;font-size:0.85rem">Las tarjetas se agrupan por categoría. El id es la clave interna (kebab-case). Arrastrá las filas con <code>⋮⋮</code> para reordenar — el orden de las categorías en la portada sigue el orden acá.</p>
       <div class="card-list" id="categories-sortable">
         <template x-for="(cat, idx) in cfg.categories" :key="cat.id">
-          <div class="card-item">
-            <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
-            <div class="info" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;align-items:center">
-              <input type="text" x-model="cat.id" placeholder="id (kebab-case)" @input="markDirty()" />
-              <input type="text" x-model="cat.name" placeholder="Nombre" @input="markDirty()" />
-              <select x-model="cat.icon" @change="markDirty()" :title="cat.icon || 'ícono'">
-                <option value="">— ícono —</option>
-                <template x-for="i in builtinIcons" :key="i">
-                  <option :value="i" x-text="i"></option>
-                </template>
-              </select>
+          <div class="card-item" style="flex-direction:column;align-items:stretch;gap:0.5rem">
+            <div style="display:flex;align-items:center;gap:0.75rem">
+              <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
+              <div class="info" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;align-items:center">
+                <input type="text" x-model="cat.id" placeholder="id (kebab-case)" @input="markDirty()" />
+                <input type="text" x-model="cat.name" placeholder="Nombre" @input="markDirty()" />
+                <select x-model="cat.icon" @change="markDirty()" :title="cat.icon || 'ícono'">
+                  <option value="">— ícono —</option>
+                  <template x-for="i in builtinIcons" :key="i">
+                    <option :value="i" x-text="i"></option>
+                  </template>
+                </select>
+              </div>
+              <button class="btn btn-sm btn-ghost" @click="removeCategory(idx)" title="Eliminar categoría">×</button>
             </div>
-            <button class="btn btn-sm btn-ghost" @click="removeCategory(idx)">×</button>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;padding-left:1.75rem;padding-top:0.35rem;border-top:1px dashed var(--border);font-size:0.85rem">
+              <label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;user-select:none;color:var(--text-subtle);margin:0">
+                <input type="checkbox" x-model="cat.isLocked" @change="markDirty()" style="width:auto;cursor:pointer" />
+                <span>🔒 Bloquear con contraseña</span>
+              </label>
+              <button type="button" class="help-icon" @click="showHelp('category.lock')" title="¿Cómo funciona el bloqueo?">?</button>
+              <div x-show="cat.isLocked" style="display:flex;align-items:center;gap:0.5rem;flex:1;min-width:220px;max-width:340px">
+                <input type="text" x-model="cat.password" placeholder="Contraseña de la categoría…" @input="markDirty()" style="padding:0.3rem 0.55rem;font-size:0.85rem" />
+              </div>
+            </div>
           </div>
         </template>
       </div>
@@ -1451,7 +1463,7 @@ const builtinIcons = await getBuiltinIconNames();
         },
 
         addCategory() {
-          this.cfg.categories.push({ id: 'cat-' + Date.now().toString(36), name: 'Nueva', icon: 'folder' });
+          this.cfg.categories.push({ id: 'cat-' + Date.now().toString(36), name: 'Nueva', icon: 'folder', isLocked: false, password: '' });
           this.markDirty();
         },
         removeCategory(idx) {

@@ -609,6 +609,15 @@ Si el nombre no existe, el sistema usa un placeholder genérico. No rompe nada.`
 - El cambio se persiste al apretar "Guardar cambios" arriba a la derecha.
 - Si una categoría queda vacía (sin cards activas), no aparece en la portada — pero sigue contando en el orden para cuando le agregues cards.`,
   },
+  'category.lock': {
+    title: 'Bloqueo con contraseña de categoría',
+    short: 'Oculta las tarjetas de la categoría hasta que el usuario ingrese la contraseña.',
+    body: `Cuando activás el bloqueo con contraseña en una categoría:
+- En la portada (homepage) se muestra el título de la categoría, pero sus tarjetas/enlaces quedan ocultos.
+- Se muestra una caja solicitando la contraseña para desbloquear el contenido.
+- Al ingresar la contraseña correcta, las tarjetas se revelan inmediatamente y el desbloqueo se conserva durante la sesión del navegador.
+- Las tarjetas protegidas no son accesibles a través del buscador rápido de la portada hasta que la categoría se desbloquee.`,
+  },
 
   // ── Assets ───────────────────────────────────────────────────────
   'assets.upload': {

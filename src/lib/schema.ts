@@ -100,6 +100,8 @@ export const CategorySchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'ID debe ser kebab-case'),
   name: z.string().min(1).max(60),
   icon: z.string().default('folder'),
+  isLocked: z.boolean().default(false),
+  password: z.string().default(''),
 });
 
 // ──────────────────────────────────────────────────────────────────────────

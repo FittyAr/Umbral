@@ -26,6 +26,11 @@ const { theme } = Astro.props;
       search.addEventListener('input', function () {
         const q = (search.value || '').toLowerCase().trim();
         cards.forEach(function (c) {
+          const lockedSec = c.closest('.category-section[data-is-locked="true"]:not([data-unlocked="true"])');
+          if (lockedSec) {
+            c.classList.add('hidden-by-filter');
+            return;
+          }
           const text = c.textContent.toLowerCase();
           c.classList.toggle('hidden-by-filter', q.length > 0 && text.indexOf(q) === -1);
         });

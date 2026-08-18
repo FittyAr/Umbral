@@ -1,4 +1,5 @@
 ---
+import crypto from 'node:crypto';
 import PublicLayout from '~/layouts/PublicLayout.astro';
 import Card from '~/components/Card.astro';
 import Search from '~/components/Search.astro';
@@ -65,11 +66,65 @@ const isHorizontal = t.groupLayout === 'horizontal';
       <div class="groups-horizontal" style={`--groups-cols-mobile:${l.columnsMobile};--groups-cols-tablet:${l.columnsTablet};--groups-cols-desktop:${l.columnsDesktop};`}>
         {groupEntries.map(([catId, cards]) => {
           const cat = config.categories.find((c) => c.id === catId);
+          const isLocked = Boolean(cat?.isLocked && cat?.password);
+          const catHash = isLocked ? crypto.createHash('sha256').update(cat.password).digest('hex') : '';
           return (
-            <section class="group-col">
-              {cat && <h2 class="section-title">{cat.name}</h2>}
-              <div class="grid">
-                {cards.map((c) => <Card card={c} layout={l} />)}
+            <section
+              class="group-col category-section"
+              data-cat-id={catId}
+              data-is-locked={isLocked ? 'true' : 'false'}
+              data-cat-hash={catHash}
+            >
+              {cat && (
+                <div class="category-header">
+                  <h2 class="section-title">{cat.name}</h2>
+                  {isLocked && (
+                    <div class="cat-lock-status">
+                      <span class="cat-lock-badge badge-locked" title="Categoría protegida con contraseña">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span>Protegida</span>
+                      </span>
+                      <button type="button" class="cat-relock-btn" style="display: none;" title="Volver a bloquear categoría">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span>Bloquear</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isLocked && (
+                <div class="category-lock-box">
+                  <div class="lock-icon-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  </div>
+                  <p class="lock-title">Categoría bloqueada</p>
+                  <p class="lock-subtitle">Ingresá la contraseña para ver los enlaces</p>
+                  <form class="lock-form" onsubmit="return false;">
+                    <div class="lock-input-group">
+                      <input
+                        type="password"
+                        class="lock-input"
+                        placeholder="Contraseña…"
+                        autocomplete="current-password"
+                        required
+                      />
+                      <button type="submit" class="lock-submit-btn">
+                        Desbloquear
+                      </button>
+                    </div>
+                    <p class="lock-error" style="display: none;">Contraseña incorrecta</p>
+                  </form>
+                </div>
+              )}
+
+              <div class="category-cards-wrap" style={isLocked ? 'display: none;' : undefined}>
+                <div class="grid">
+                  {cards.map((c) => <Card card={c} layout={l} />)}
+                </div>
               </div>
             </section>
           );
@@ -79,11 +134,65 @@ const isHorizontal = t.groupLayout === 'horizontal';
       <div class="groups-vertical">
         {groupEntries.map(([catId, cards]) => {
           const cat = config.categories.find((c) => c.id === catId);
+          const isLocked = Boolean(cat?.isLocked && cat?.password);
+          const catHash = isLocked ? crypto.createHash('sha256').update(cat.password).digest('hex') : '';
           return (
-            <section>
-              {cat && <h2 class="section-title">{cat.name}</h2>}
-              <div class="grid">
-                {cards.map((c) => <Card card={c} layout={l} />)}
+            <section
+              class="category-section"
+              data-cat-id={catId}
+              data-is-locked={isLocked ? 'true' : 'false'}
+              data-cat-hash={catHash}
+            >
+              {cat && (
+                <div class="category-header">
+                  <h2 class="section-title">{cat.name}</h2>
+                  {isLocked && (
+                    <div class="cat-lock-status">
+                      <span class="cat-lock-badge badge-locked" title="Categoría protegida con contraseña">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span>Protegida</span>
+                      </span>
+                      <button type="button" class="cat-relock-btn" style="display: none;" title="Volver a bloquear categoría">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span>Bloquear</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isLocked && (
+                <div class="category-lock-box">
+                  <div class="lock-icon-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  </div>
+                  <p class="lock-title">Categoría bloqueada</p>
+                  <p class="lock-subtitle">Ingresá la contraseña para ver los enlaces</p>
+                  <form class="lock-form" onsubmit="return false;">
+                    <div class="lock-input-group">
+                      <input
+                        type="password"
+                        class="lock-input"
+                        placeholder="Contraseña…"
+                        autocomplete="current-password"
+                        required
+                      />
+                      <button type="submit" class="lock-submit-btn">
+                        Desbloquear
+                      </button>
+                    </div>
+                    <p class="lock-error" style="display: none;">Contraseña incorrecta</p>
+                  </form>
+                </div>
+              )}
+
+              <div class="category-cards-wrap" style={isLocked ? 'display: none;' : undefined}>
+                <div class="grid">
+                  {cards.map((c) => <Card card={c} layout={l} />)}
+                </div>
               </div>
             </section>
           );
@@ -96,6 +205,111 @@ const isHorizontal = t.groupLayout === 'horizontal';
 </PublicLayout>
 
 <script define:vars={{ healthCheckInterval: l.healthCheckInterval }}>
+  // ── Desbloqueo de categorías protegidas ──
+  (function () {
+    const lockedSections = document.querySelectorAll('.category-section[data-is-locked="true"]');
+    if (lockedSections.length === 0) return;
+
+    async function sha256Hex(text) {
+      const buffer = new TextEncoder().encode(text);
+      const digest = await crypto.subtle.digest('SHA-256', buffer);
+      return Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    function unlockSection(section, saveSession = true) {
+      const catId = section.getAttribute('data-cat-id');
+      const lockBox = section.querySelector('.category-lock-box');
+      const cardsWrap = section.querySelector('.category-cards-wrap');
+      const lockBadge = section.querySelector('.badge-locked');
+      const relockBtn = section.querySelector('.cat-relock-btn');
+
+      section.setAttribute('data-unlocked', 'true');
+      if (lockBox) lockBox.style.display = 'none';
+      if (cardsWrap) cardsWrap.style.display = 'block';
+      if (lockBadge) lockBadge.style.display = 'none';
+      if (relockBtn) relockBtn.style.display = 'inline-flex';
+
+      if (saveSession && catId) {
+        try {
+          sessionStorage.setItem('umbral_unlocked_' + catId, '1');
+        } catch { /* ignore */ }
+      }
+    }
+
+    function relockSection(section) {
+      const catId = section.getAttribute('data-cat-id');
+      const lockBox = section.querySelector('.category-lock-box');
+      const cardsWrap = section.querySelector('.category-cards-wrap');
+      const lockBadge = section.querySelector('.badge-locked');
+      const relockBtn = section.querySelector('.cat-relock-btn');
+      const input = section.querySelector('.lock-input');
+      const err = section.querySelector('.lock-error');
+
+      section.removeAttribute('data-unlocked');
+      if (lockBox) lockBox.style.display = 'flex';
+      if (cardsWrap) cardsWrap.style.display = 'none';
+      if (lockBadge) lockBadge.style.display = 'inline-flex';
+      if (relockBtn) relockBtn.style.display = 'none';
+      if (input) input.value = '';
+      if (err) err.style.display = 'none';
+
+      if (catId) {
+        try {
+          sessionStorage.removeItem('umbral_unlocked_' + catId);
+        } catch { /* ignore */ }
+      }
+    }
+
+    lockedSections.forEach((section) => {
+      const catId = section.getAttribute('data-cat-id');
+      const expectedHash = section.getAttribute('data-cat-hash');
+      const form = section.querySelector('.lock-form');
+      const input = section.querySelector('.lock-input');
+      const err = section.querySelector('.lock-error');
+      const relockBtn = section.querySelector('.cat-relock-btn');
+
+      // Check session storage
+      try {
+        if (sessionStorage.getItem('umbral_unlocked_' + catId) === '1') {
+          unlockSection(section, false);
+        }
+      } catch { /* ignore */ }
+
+      if (relockBtn) {
+        relockBtn.addEventListener('click', () => {
+          relockSection(section);
+        });
+      }
+
+      if (form && input) {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const val = input.value.trim();
+          if (!val) return;
+
+          try {
+            const hash = await sha256Hex(val);
+            if (hash === expectedHash) {
+              if (err) err.style.display = 'none';
+              unlockSection(section, true);
+            } else {
+              if (err) err.style.display = 'block';
+              input.classList.remove('shake');
+              void input.offsetWidth; // trigger reflow
+              input.classList.add('shake');
+              input.focus();
+              input.select();
+            }
+          } catch (error) {
+            console.error('[umbral] Error verifying category password:', error);
+          }
+        });
+      }
+    });
+  })();
+
   // ── Health check en vivo ──
   // Pedimos al server (/api/status) que pingue las URLs. Esto evita
   // exponer la CSP a dominios arbitrarios y mantiene el SSRF protection
