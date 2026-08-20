@@ -5,10 +5,6 @@
  * Solo se renderiza si `features.i18n.enabled === true`. El admin eligió
  * el default en /admin → Avanzado → Features. El visitante puede override
  * via este dropdown, que setea la cookie `umbral_locale` por 30 días.
- *
- * Renderiza como un <select> nativo (cero JS de framework, accesible
- * por teclado y screen reader out-of-the-box). El handler inline hace
- * fetch a /api/locale y recarga la página — simple, predecible.
  */
 import type { Config } from '~/lib/schema';
 import { isFeatureEnabled } from '~/lib/features';
@@ -25,14 +21,9 @@ if (!isFeatureEnabled(config, 'i18n')) return null;
 
 const labels: Record<Locale, string> = LOCALE_NAMES;
 ---
-<form
-  class="lang-switcher"
-  method="post"
-  action="/api/locale"
-  data-action="locale-switcher"
->
-  <label class="lang-label" for="lang-select">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<div class="lang-switcher" data-action="locale-switcher">
+  <label class="lang-label" for="lang-select" title="Seleccionar idioma / Select language">
+    <svg class="lang-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="10"/>
       <path d="M2 12h20"/>
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
@@ -49,17 +40,37 @@ const labels: Record<Locale, string> = LOCALE_NAMES;
         </option>
       ))}
     </select>
+    <svg class="lang-chevron" xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m6 9 6 6 6-6"/>
+    </svg>
   </label>
-</form>
+</div>
 
 <script is:inline>
-  // Submit on change. Recargamos la página para que el server lea la
-  // cookie nueva y renderice con el locale elegido.
-  const sel = document.getElementById('lang-select');
-  if (sel) {
-    sel.addEventListener('change', () => {
-      const form = sel.closest('form');
-      if (form) form.submit();
+  (function () {
+    const sel = document.getElementById('lang-select');
+    if (!sel) return;
+    sel.addEventListener('change', async (e) => {
+      e.preventDefault();
+      const loc = sel.value;
+      // 1. Guardar cookie para SSR / backend
+      document.cookie = `umbral_locale=${loc};path=/;max-age=2592000;SameSite=Lax`;
+      
+      // 2. Enviar via fetch en vez de form submit nativo
+      try {
+        const base = window.__BASE_URL__ || '/';
+        const endpoint = base.endsWith('/') ? `${base}api/locale` : `${base}/api/locale`;
+        await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ locale: loc }),
+        });
+      } catch (err) {
+        console.warn('Locale fetch error:', err);
+      }
+      
+      // 3. Recargar
+      window.location.reload();
     });
-  }
+  })();
 </script>
