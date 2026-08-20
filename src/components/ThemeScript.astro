@@ -1,0 +1,87 @@
+---
+import type { Theme } from '~/lib/schema';
+import type { Config } from '~/lib/schema';
+import { isFeatureEnabled } from '~/lib/features';
+import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
+
+interface Props {
+  theme: Theme;
+  config?: Config;
+  request?: Request;
+}
+const { theme, config, request } = Astro.props;
+
+// Strings para el aria-label del toggle. Se resuelven acá si el config
+// está disponible; si no, defaults en español (compat con usos legacy
+// donde ThemeScript se llama sin config — ej: AdminLayout).
+const useI18n = config ? isFeatureEnabled(config, 'i18n') : false;
+const locale: Locale = (useI18n && request)
+  ? resolveLocale(request, config, readLocaleCookie(request))
+  : 'es';
+const trf = t(locale);
+const labelToLight = useI18n ? trf('home.modeToggleToLight') : 'Cambiar a modo claro';
+const labelToDark = useI18n ? trf('home.modeToggleToDark') : 'Cambiar a modo oscuro';
+---
+<script is:inline define:vars={{ theme, labelToLight, labelToDark }}>
+  // Color mode: apply on first paint, before body renders, to avoid flash.
+  (function () {
+    const stored = localStorage.getItem('umbral-color-mode');
+    const mode = stored || theme.colorMode || 'auto';
+    let actual = mode;
+    if (mode === 'auto') {
+      const h = new Date().getHours();
+      actual = (h >= 7 && h < 19) ? 'light' : 'dark';
+    }
+    document.documentElement.setAttribute('data-mode', actual);
+  })();
+
+  // Wire up search + color toggle + keyboard shortcuts (after DOM ready)
+  document.addEventListener('DOMContentLoaded', function () {
+    const search = document.getElementById('search-input');
+    if (search) {
+      const cards = document.querySelectorAll('.card');
+      search.addEventListener('input', function () {
+        const q = (search.value || '').toLowerCase().trim();
+        cards.forEach(function (c) {
+          const lockedSec = c.closest('.category-section[data-is-locked="true"]:not([data-unlocked="true"])');
+          if (lockedSec) {
+            c.classList.add('hidden-by-filter');
+            return;
+          }
+          // Tags (opt-in: features.tags): las tags se exponen como data-tags
+          // (separadas por espacio) en el card. Las incluimos en la búsqueda
+          // junto con el textContent. Si la feature está apagada, data-tags
+          // es "" y no aporta nada.
+          const tags = (c.getAttribute('data-tags') || '').toLowerCase();
+          const text = (c.textContent + ' ' + tags).toLowerCase();
+          c.classList.toggle('hidden-by-filter', q.length > 0 && text.indexOf(q) === -1);
+        });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === '/' && document.activeElement !== search) {
+          e.preventDefault();
+          search.focus();
+        }
+        if (e.key === 'Escape' && document.activeElement === search) {
+          search.value = '';
+          search.dispatchEvent(new Event('input'));
+          search.blur();
+        }
+      });
+    }
+
+    // Color mode toggle (button with data-action="toggle-mode")
+    const toggle = document.querySelector('[data-action="toggle-mode"]');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        const current = document.documentElement.getAttribute('data-mode') || 'dark';
+        const next = current === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('umbral-color-mode', next);
+        document.documentElement.setAttribute('data-mode', next);
+        // aria-label cambia según el modo actual. Strings del server (i18n)
+        // o defaults históricos si i18n está apagada.
+        toggle.setAttribute('aria-label', next === 'dark' ? labelToLight : labelToDark);
+      });
+    }
+  });
+</script>

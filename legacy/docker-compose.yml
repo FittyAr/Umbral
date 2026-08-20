@@ -1,0 +1,13 @@
+# ⚠️  DEPRECATED — Este archivo ya no se usa.
+#
+# El compose legacy fue movido a la raíz del proyecto como
+# `docker-compose.legacy.yml` para que `env_file: legacy/.env` se resuelva
+# correctamente al correr desde la raíz (Docker Compose resuelve las rutas
+# de `env_file` y `build.context` relativas al working directory, no al
+# archivo compose).
+#
+# Si estás viendo este archivo en `git status`, podés borrarlo:
+#   rm legacy/docker-compose.yml
+#
+# El compose activo está en: /docker-compose.legacy.yml
+# Documentación:           /legacy/README.md

@@ -1,0 +1,26 @@
+# Build artifacts
+dist/
+.astro/
+node_modules/
+
+# Data (mounted as volume at runtime)
+data/uploads/
+data/audit.log
+data/config.json
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# Docs (already in git)
+README.md
+PLAN.md

@@ -1,0 +1,15 @@
+---
+import PublicLayout from '~/layouts/PublicLayout.astro';
+import { getConfig } from '~/lib/config';
+const config = await getConfig();
+---
+<PublicLayout config={config} title="Error">
+  <main class="page-wrap">
+    <div class="empty">
+      <h1 style="font-size:3rem;margin:0">500</h1>
+      <h2>Error del servidor</h2>
+      <p>Algo salió mal. Intentá de nuevo o contactá al administrador.</p>
+      <p><a href="/" style="color:var(--accent)">Volver al inicio</a></p>
+    </div>
+  </main>
+</PublicLayout>

@@ -1,0 +1,57 @@
+services:
+  umbral:
+    build: .
+    image: umbral:latest
+    container_name: umbral
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:4321"
+    environment:
+      - NODE_ENV=production
+      - PORT=4321
+      - HOST=0.0.0.0
+      - DATA_DIR=/app/data
+      # 32+ chars recommended. Override in production!
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-please-this-is-32-chars-or-more}
+      # Initial password on first boot (hashed and stored in config.json).
+      # Leave empty to use the default "admin" (with a warning in the logs).
+      - INITIAL_PASSWORD=${INITIAL_PASSWORD:-}
+      # Optional: full base URL (used for cookies on https setups).
+      - BASE_URL=${BASE_URL:-}
+    volumes:
+      - umbral-data:/app/data
+    # read_only would break /tmp for sharp; we drop it for portability.
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "-O-", "http://127.0.0.1:4321/api/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  # Optional reverse proxy with automatic HTTPS via Caddy.
+  # Uncomment and configure DOMAIN to enable.
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: umbral-caddy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   environment:
+  #     - DOMAIN=${DOMAIN:-home.example.internal}
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy-data:/data
+  #     - caddy-config:/config
+  #   depends_on:
+  #     - umbral
+
+volumes:
+  umbral-data:
+    # caddy-data:
+    # caddy-config:

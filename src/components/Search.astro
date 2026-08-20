@@ -1,0 +1,37 @@
+---
+// Simple client-side search input. Filtering happens in ThemeScript.
+import type { Config } from '~/lib/schema';
+import { isFeatureEnabled } from '~/lib/features';
+import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
+
+interface Props {
+  config: Config;
+  request?: Request;
+}
+const { config, request } = Astro.props as Props & { request?: Request };
+
+// Feature gate: si i18n está apagada, dejamos el placeholder en español
+// (comportamiento histórico). Si está activa, traducimos al locale
+// resuelto.
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(request, config, request ? readLocaleCookie(request) : undefined)
+  : 'es';
+const tr = t(locale);
+
+const placeholder = useI18n ? tr('home.searchPlaceholder') : 'Buscar… (presioná /)';
+const ariaLabel = useI18n ? tr('home.searchAria') : 'Buscar aplicación';
+---
+<div class="search-bar">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="11" cy="11" r="8"></circle>
+    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+  </svg>
+  <input
+    id="search-input"
+    type="search"
+    placeholder={placeholder}
+    aria-label={ariaLabel}
+    autocomplete="off"
+  />
+</div>

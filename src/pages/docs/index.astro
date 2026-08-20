@@ -1,0 +1,276 @@
+---
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import PublicLayout from '~/layouts/PublicLayout.astro';
+import Logo from '~/components/Logo.astro';
+import LanguageSwitcher from '~/components/LanguageSwitcher.astro';
+import { getConfig } from '~/lib/config';
+import { resolveIconUrl } from '~/lib/icons';
+import { isFeatureEnabled } from '~/lib/features';
+import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
+
+const DOCS_DIR = path.join(process.cwd(), 'docs');
+
+interface DocFile {
+  /** Slug for the URL: e.g. "install/quickstart". Same as filename without .md. */
+  slug: string;
+  /** Title parsed from the first H1 in the file, or fallback. */
+  title: string;
+  /** First paragraph (used as description in the index). */
+  description: string;
+  /** Top-level section: "install" | "config" | "usage" | "dev" | "" (root). */
+  section: string;
+}
+
+async function listDocs(): Promise<DocFile[]> {
+  const out: DocFile[] = [];
+
+  async function walk(dir: string, prefix: string) {
+    let entries: import('node:fs').Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(full, prefix ? `${prefix}/${entry.name}` : entry.name);
+      } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name.toLowerCase() !== 'readme.md') {
+        const slug = prefix ? `${prefix}/${entry.name.replace(/\.md$/, '')}` : entry.name.replace(/\.md$/, '');
+        try {
+          let raw = await fs.readFile(full, 'utf8');
+          // Strip UTF-8 BOM if present. See [...slug].astro for the rationale.
+          if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
+          const { title, description } = parseFrontmatter(raw);
+          out.push({
+            slug,
+            title,
+            description,
+            section: prefix.split('/')[0] ?? '',
+          });
+        } catch {
+          // skip unreadable files
+        }
+      }
+    }
+  }
+
+  await walk(DOCS_DIR, '');
+  // Stable sort: by section then title.
+  out.sort((a, b) => {
+    if (a.section !== b.section) return a.section.localeCompare(b.section);
+    return a.title.localeCompare(b.title);
+  });
+  return out;
+}
+
+/** Extract title and description from the markdown. Looks for the first
+ *  `# ` heading for the title and the first non-empty paragraph after it
+ *  for the description. Falls back to slug-based values. */
+function parseFrontmatter(md: string): { title: string; description: string } {
+  const lines = md.split(/\r?\n/);
+  let title = '';
+  let description = '';
+  let inBlockquote = false;
+  let pastTitle = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!title && trimmed.startsWith('# ')) {
+      title = trimmed.replace(/^#\s+/, '').replace(/^Umbral\s*—\s*/i, '').replace(/^Documentación\s*—\s*/i, '').trim();
+      // If the title is just "Umbral" (e.g. from `## Umbral`), use the section
+      // or file name later. For now we keep what we got.
+      pastTitle = true;
+      continue;
+    }
+    if (pastTitle && !description) {
+      if (trimmed === '' || trimmed.startsWith('#')) {
+        inBlockquote = false;
+        continue;
+      }
+      if (trimmed.startsWith('>')) {
+        // A blockquote at the top is usually the TL;DR — use it as description
+        // but keep grabbing until we get a non-quote line.
+        inBlockquote = true;
+        description = trimmed.replace(/^>\s*/, '').replace(/^>\s*/, '').slice(0, 200);
+        continue;
+      }
+      if (inBlockquote) {
+        if (trimmed.startsWith('>')) {
+          description += ' ' + trimmed.replace(/^>\s*/, '').slice(0, 200);
+        } else {
+          inBlockquote = false;
+        }
+      }
+      if (!inBlockquote) {
+        description = trimmed.slice(0, 200);
+        break;
+      }
+    }
+  }
+  return { title: title || '(sin título)', description };
+}
+
+const docs = await listDocs();
+const config = await getConfig();
+const logoUrl = resolveIconUrl(config.branding.logo);
+
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
+  : 'es';
+const trf = tr(locale);
+
+// Group by section
+const grouped = new Map<string, typeof docs>();
+for (const d of docs) {
+  const key = d.section || 'general';
+  const arr = grouped.get(key) ?? [];
+  arr.push(d);
+  grouped.set(key, arr);
+}
+
+const sectionLabels: Record<string, string> = {
+  install: 'Instalación',
+  config: 'Configuración',
+  usage: 'Uso',
+  dev: 'Desarrollo',
+  general: 'General',
+};
+---
+<PublicLayout config={config} title="Documentación — Umbral">
+  <main class="page-wrap docs-page">
+    <header class="header">
+      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+        <a href="/" class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Portada principal'}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span>{useI18n ? trf('home.subpage.back') : 'Portada principal'}</span>
+        </a>
+        <span style="color:var(--border-strong);user-select:none">|</span>
+        <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
+        <h1 class="header-title">{config.branding.companyName}</h1>
+      </div>
+
+      <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem">
+        <a href="/admin" class="subpage-back-link" title="Panel de administración">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Admin</span>
+        </a>
+        {useI18n && <LanguageSwitcher config={config} current={locale} />}
+        <button
+          data-action="toggle-mode"
+          class="mode-toggle"
+          aria-label={useI18n ? trf('home.modeToggle') : 'Cambiar modo claro/oscuro'}
+          title={useI18n ? trf('home.modeToggleTitle') : 'Cambiar modo claro/oscuro'}
+        >
+          <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="docs-hero" style="margin: 1.5rem 0 2rem;">
+      <h1 style="font-size: 1.8rem; margin: 0 0 0.3rem; font-weight: 700;">Documentación</h1>
+      <p class="docs-page-subtitle">
+        Guías de instalación, configuración, uso y desarrollo.
+      </p>
+    </div>
+
+    {docs.length === 0 ? (
+      <div class="empty">
+        <h2>No hay documentación</h2>
+        <p>La carpeta <code>docs/</code> está vacía o no se encuentra.</p>
+      </div>
+    ) : (
+      Array.from(grouped.entries()).map(([section, items]) => (
+        <section class="docs-section" id={section}>
+          <h2 class="section-title">{sectionLabels[section] ?? section}</h2>
+          <div class="grid docs-grid">
+            {items.map((doc) => (
+              <a class="card docs-card" data-style="medium" data-card-id={`doc-${doc.slug}`} href={`/docs/${doc.slug}`} style="--accent:#10b981">
+                <div class="docs-card-row">
+                  <img src="/icons/file-text.svg" alt="" width="20" height="20" class="docs-card-icon" />
+                  <div class="docs-card-info">
+                    <h3 class="card-title docs-card-title">{doc.title}</h3>
+                  </div>
+                </div>
+                {doc.description && (
+                  <p class="card-desc docs-card-desc">{doc.description}</p>
+                )}
+                <div class="docs-card-slug">
+                  /docs/{doc.slug}
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      ))
+    )}
+
+    <footer class="docs-footer">
+      <div style="display:flex;justify-content:center;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem">
+        <a href="/" style="color:var(--accent);text-decoration:none;font-weight:500">← Volver a la portada principal</a>
+        <span style="color:var(--text-faint)">•</span>
+        <a href="/admin" style="color:var(--accent);text-decoration:none;font-weight:500">Ir al panel de administración</a>
+      </div>
+      <div>Editá los archivos en <code>docs/</code> y reiniciá la app para ver los cambios.</div>
+    </footer>
+  </main>
+</PublicLayout>
+
+<style>
+  .docs-page-subtitle {
+    margin: 0.3rem 0 0;
+    color: var(--text-subtle);
+    font-size: 0.95rem;
+    width: 100%;
+  }
+  .docs-section { margin-bottom: 2rem; }
+  .docs-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .docs-card {
+    align-items: stretch;
+    text-align: left;
+  }
+  .docs-card-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+  .docs-card-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+    opacity: 0.7;
+  }
+  .docs-card-info { flex: 1; min-width: 0; }
+  .docs-card-title {
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+  .docs-card-desc {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin: 0.3rem 0 0;
+    -webkit-line-clamp: 3;
+  }
+  .docs-card-slug {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    margin-top: 0.6rem;
+    font-family: var(--font-mono);
+    word-break: break-all;
+  }
+  .docs-footer {
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-faint);
+  }
+</style>

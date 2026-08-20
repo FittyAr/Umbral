@@ -1,0 +1,205 @@
+---
+import type { Card } from '~/lib/schema';
+import type { Layout } from '~/lib/schema';
+import { resolveIconUrl } from '~/lib/icons';
+import { marked } from 'marked';
+import { JSDOM } from 'jsdom';
+import createDOMPurify from 'dompurify';
+import { isFeatureEnabled } from '~/lib/features';
+import { getConfig } from '~/lib/config';
+
+interface Props {
+  card: Card;
+  layout: Layout;
+  /** Si la card está en una maintenance window activa, razón para el badge.
+   *  String vacío = no está en mantenimiento. */
+  maintenanceReason?: string;
+  /** Si la feature features.qr está activa y la card es de tipo link. */
+  qrEnabled?: boolean;
+}
+const { card, layout, maintenanceReason = '', qrEnabled = false } = Astro.props;
+const iconUrl = resolveIconUrl(card.icon);
+const isNote = card.kind === 'note';
+
+// Markdown rendering: si descriptionFormat === 'markdown' y la feature
+// está activa, parseamos con marked y sanitizamos con DOMPurify antes de
+// inyectar el HTML. Si la feature está apagada o el format es 'plain',
+// el render es plain text (escapeado por Astro).
+//
+// DOMPurify necesita un window-like. Usamos jsdom (ya en deps) para
+// crearlo en el server. Cacheamos el window por proceso para no pagar
+// el costo de JSDOM en cada render de card.
+let _purify: ReturnType<typeof createDOMPurify> | null = null;
+async function getPurifier() {
+  if (_purify) return _purify;
+  const dom = new JSDOM('');
+  _purify = createDOMPurify(dom.window as unknown as Parameters<typeof createDOMPurify>[0]);
+  return _purify;
+}
+
+/** Render seguro de la descripción. Devuelve HTML sanitizado para
+ *  markdown, o el string plano escapado para plain. */
+async function renderDescription(desc: string, format: 'plain' | 'markdown' | undefined): Promise<string> {
+  if (!desc) return '';
+  // Si la feature markdown está apagada, SIEMPRE plain (defense-in-depth
+  // — el saveConfig ya filtra, pero el render no debe confiar).
+  const cfg = await getConfig();
+  if (format === 'markdown' && isFeatureEnabled(cfg, 'markdown')) {
+    // marked.parse devuelve string. Configuramos GFM-lite: line breaks,
+    // links seguros. NO permitimos HTML raw (marked sanitize: false
+    // confiamos en DOMPurify para limpieza).
+    const raw = await marked.parse(desc, {
+      gfm: true,
+      breaks: true,
+      async: true,
+    });
+    const purifier = await getPurifier();
+    // DOMPurify por default permite tags seguros. Bloqueamos scripts
+    // y eventos inline. Los href que pasen a través deben tener
+    // protocolo seguro (http/https/mailto).
+    return purifier.sanitize(raw, {
+      ALLOWED_TAGS: [
+        'a', 'b', 'i', 'em', 'strong', 'p', 'br', 'hr', 'ul', 'ol', 'li',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre',
+        'span', 'div', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      ],
+      ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
+      ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    });
+  }
+  return desc; // plain: Astro escapa automáticamente con {desc}
+}
+
+// Para notas: no target/rel (no es link), no href. Se renderiza como un div.
+// Para links: target/rel según openInNewTab, href = card.url.
+const styleOverride = card.color
+  ? `--accent:${card.color};`
+  : '';
+const baseClass = isNote ? 'card card-note' : 'card';
+
+const descriptionHtml = await renderDescription(card.description, card.descriptionFormat);
+---
+{isNote ? (
+  <div
+    class={baseClass}
+    data-style={layout.cardSize}
+    data-size={layout.cardSize}
+    data-card-id={card.id}
+    data-card-kind="note"
+    data-health-check="false"
+    data-format={card.descriptionFormat || 'plain'}
+    data-tags={card.tags?.length ? card.tags.join(' ') : ''}
+    title={card.title}
+    style={styleOverride}
+  >
+    {iconUrl && (
+      <div class="card-icon">
+        <img src={iconUrl} alt="" loading="lazy" />
+      </div>
+    )}
+    {/* QR button (opt-in: features.qr). Sólo links (no notes). Se posiciona
+        absolute top-right para no interferir con el ícono. El user hace
+        click → abre el PNG en una nueva tab (más simple que un modal). */}
+    {qrEnabled && card.kind === 'link' ? (
+      <a
+        class="card-qr-btn"
+        href={`/api/qr/${card.id}.png?size=240`}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Ver QR de esta card"
+        aria-label="Ver QR"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7"/>
+          <rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/>
+          <line x1="14" y1="14" x2="14" y2="17"/>
+          <line x1="14" y1="20" x2="17" y2="20"/>
+          <line x1="14" y1="20" x2="17" y2="20"/>
+          <line x1="20" y1="14" x2="20" y2="17"/>
+          <line x1="20" y1="20" x2="20" y2="20"/>
+        </svg>
+      </a>
+    ) : null}
+    {/* Badge ámbar de mantenimiento (opt-in: features.maintenanceWindows).
+        Render condicional — si maintenanceReason es '' (default), no aparece. */}
+    {maintenanceReason ? (
+      <span class="card-maintenance-badge" title={maintenanceReason} aria-label={`En mantenimiento: ${maintenanceReason}`}>
+        🔧 {maintenanceReason}
+      </span>
+    ) : null}
+    <h3 class="card-title">
+      {/* Pinned indicator (opt-in: features.pinned). El server fuerza
+          pinned=false si la feature está apagada, así que sólo se renderiza
+          cuando el card REALMENTE es pinned. */}
+      {card.pinned ? <span class="card-pinned-pin" aria-label="Fijada" title="Fijada">📌</span> : null}
+      {card.title}
+    </h3>
+    {layout.showDescriptions && card.description && (
+      card.descriptionFormat === 'markdown' && descriptionHtml
+        ? <div class="card-desc card-desc-md" set:html={descriptionHtml} />
+        : <p class="card-desc">{card.description}</p>
+    )}
+  </div>
+) : (
+  <a
+    class={baseClass}
+    data-style={layout.cardSize}
+    data-size={layout.cardSize}
+    data-card-id={card.id}
+    data-card-kind="link"
+    data-health-check={card.healthCheck ? 'true' : 'false'}
+    data-format={card.descriptionFormat || 'plain'}
+    data-tags={card.tags?.length ? card.tags.join(' ') : ''}
+    href={card.url}
+    target={card.openInNewTab ? '_blank' : '_self'}
+    rel={card.openInNewTab ? 'noopener noreferrer' : undefined}
+    title={card.title}
+    style={styleOverride}
+  >
+    {iconUrl && (
+      <div class="card-icon">
+        <img src={iconUrl} alt="" loading="lazy" />
+      </div>
+    )}
+    {/* QR button (opt-in: features.qr). Sólo links (no notes). Se posiciona
+        absolute top-right para no interferir con el ícono. El user hace
+        click → abre el PNG en una nueva tab (más simple que un modal). */}
+    {qrEnabled && card.kind === 'link' ? (
+      <button
+        type="button"
+        class="card-qr-btn"
+        onclick={`event.preventDefault(); event.stopPropagation(); window.open('/api/qr/${encodeURIComponent(card.id)}.png?size=240', '_blank', 'noopener,noreferrer')`}
+        title="Ver QR de esta card"
+        aria-label="Ver QR"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7"/>
+          <rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/>
+          <line x1="14" y1="14" x2="14" y2="17"/>
+          <line x1="14" y1="20" x2="17" y2="20"/>
+          <line x1="14" y1="20" x2="17" y2="20"/>
+          <line x1="20" y1="14" x2="20" y2="17"/>
+          <line x1="20" y1="20" x2="20" y2="20"/>
+        </svg>
+      </button>
+    ) : null}
+    {/* Badge ámbar de mantenimiento (opt-in: features.maintenanceWindows).
+        Render condicional — si maintenanceReason es '' (default), no aparece. */}
+    {maintenanceReason ? (
+      <span class="card-maintenance-badge" title={maintenanceReason} aria-label={`En mantenimiento: ${maintenanceReason}`}>
+        🔧 {maintenanceReason}
+      </span>
+    ) : null}
+    <h3 class="card-title">
+      {card.pinned ? <span class="card-pinned-pin" aria-label="Fijada" title="Fijada">📌</span> : null}
+      {card.title}
+    </h3>
+    {layout.showDescriptions && card.description && (
+      card.descriptionFormat === 'markdown' && descriptionHtml
+        ? <div class="card-desc card-desc-md" set:html={descriptionHtml} />
+        : <p class="card-desc">{card.description}</p>
+    )}
+  </a>
+)}

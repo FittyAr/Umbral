@@ -1,0 +1,31 @@
+---
+interface Props {
+  src: string | null;
+  alt: string;
+  fallbackName: string;
+}
+const { src, alt, fallbackName } = Astro.props;
+---
+{src ? (
+  <img class="header-logo" src={src} alt={alt} />
+) : (
+  <div class="header-logo-placeholder" aria-hidden="true">
+    <span>{fallbackName.charAt(0).toUpperCase()}</span>
+  </div>
+)}
+
+<style>
+  .header-logo-placeholder {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+</style>

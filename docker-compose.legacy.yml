@@ -1,0 +1,51 @@
+services:
+  umbral:
+    container_name: umbral-legacy
+    # Build context apunta a la raíz del proyecto para que el Dockerfile legacy
+    # pueda hacer COPY de package.json, src/, docs/, etc. El `dockerfile` apunta
+    # a la variante que downgrades sharp a 0.33.5 (compatible con CPUs sin
+    # x86_64-v2). Ver legacy/Dockerfile y legacy/README.md.
+    build:
+      context: .
+      dockerfile: legacy/Dockerfile
+    image: umbral:legacy
+    restart: unless-stopped
+    # El puerto del HOST se interpola desde $PORT (cargado por --env-file
+    # legacy/.env vía el wrapper legacy/umbral.sh). El puerto del CONTAINER
+    # queda fijo en 4321 — la app Astro escucha ahí porque forzamos
+    # PORT=4321 más abajo, ignorando el PORT del .env.
+    ports:
+      - "${PORT:-4321}:4321"
+    environment:
+      - NODE_ENV=production
+      # Forzar el container a escuchar en 4321, sin importar qué diga el
+      # .env. Si no, la app leería PORT=80 y escucharía en 80 dentro del
+      # container, y el mapeo ${PORT}:4321 apuntaría al vacío.
+      - PORT=4321
+      - HOST=0.0.0.0
+      - DATA_DIR=/app/data
+      # Las demás variables se interpolan desde legacy/.env (cargado por
+      # el wrapper). Si falta SESSION_SECRET, fallamos explícitamente para
+      # no caer al placeholder de 32+ chars.
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET must be set in legacy/.env}
+      - INITIAL_PASSWORD=${INITIAL_PASSWORD:-}
+      - BASE_URL=${BASE_URL:-}
+    volumes:
+      # Volumen dedicado para no pisar datos de la instalación estándar.
+      - umbral-data-legacy:/app/data
+    # read_only rompería /tmp para sharp; lo dejamos para portabilidad.
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:4321/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  umbral-data-legacy:

@@ -1,0 +1,47 @@
+# .github/release-drafter.yml
+# Config para release-drafter/release-drafter@v6 (usado en release.yml).
+# Agrupa los PRs mergeados por conventional commit type y genera el
+# cuerpo del GitHub Release automáticamente.
+#
+# Conventional commits:
+#   feat:        → ✨ Features
+#   fix:         → 🐛 Bug Fixes
+#   docs:        → 📚 Documentation
+#   chore|build|refactor|style|test|ci|perf → 🔧 Maintenance
+#   con ! al final (ej: feat!:) o footer BREAKING CHANGE: → ⚠️ Breaking
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+# Si el tag actual es v1.1.3, el próximo auto-detectado es v1.1.4 (patch).
+# Si querés forzar un minor, agregá label "minor" o "feat" al PR.
+version-template: '$MAJOR.$MINOR.$PATCH'
+version-resolver:
+  major:
+    labels: ['breaking', 'major', 'semver:breaking']
+  minor:
+    labels: ['feat', 'feature', 'minor', 'enhancement', 'semver:minor']
+  patch:
+    labels: ['fix', 'bug', 'patch', 'chore', 'docs', 'style', 'refactor', 'test', 'ci', 'build', 'perf', 'semver:patch']
+  default: patch
+categories:
+  - title: '⚠️ Breaking Changes'
+    labels: ['breaking', 'major', 'semver:breaking']
+  - title: '✨ Features'
+    labels: ['feat', 'feature', 'enhancement', 'semver:minor']
+  - title: '🐛 Bug Fixes'
+    labels: ['fix', 'bug', 'semver:patch']
+  - title: '🔒 Security'
+    labels: ['security']
+  - title: '📚 Documentation'
+    labels: ['docs']
+  - title: '🔧 Maintenance'
+    labels: ['chore', 'refactor', 'style', 'test', 'ci', 'build', 'perf']
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+# No incluimos $CONTRIBUTORS porque añade ruido cuando hay forks de bots
+# de Dependabot. Los autores ya están en el $CHANGES.
+exclude-labels: ['dependencies', 'skip-changelog']
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
