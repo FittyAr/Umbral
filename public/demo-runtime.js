@@ -55,7 +55,7 @@
     const method = (init && init.method ? init.method : 'GET').toUpperCase();
 
     // 1. GET /api/config
-    if (url.endsWith('/api/config') && method === 'GET') {
+    if (url.includes('/api/config') && method === 'GET') {
       const cfg = getStoredConfig() || getInitialConfig();
       return new Response(JSON.stringify(cfg), {
         status: 200,
@@ -64,7 +64,7 @@
     }
 
     // 2. PUT /api/config
-    if (url.endsWith('/api/config') && method === 'PUT') {
+    if (url.includes('/api/config') && method === 'PUT') {
       let body;
       try {
         body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body;
@@ -81,7 +81,7 @@
     }
 
     // 3. DELETE /api/config (Reset)
-    if (url.endsWith('/api/config') && method === 'DELETE') {
+    if (url.includes('/api/config') && method === 'DELETE') {
       resetStoredConfig();
       const init = getInitialConfig();
       return new Response(JSON.stringify(init), {
@@ -91,7 +91,7 @@
     }
 
     // 4. POST /api/login
-    if (url.endsWith('/api/login') && method === 'POST') {
+    if (url.includes('/api/login') && method === 'POST') {
       return new Response(JSON.stringify({ ok: true, message: 'Autenticado en modo demo' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -99,7 +99,7 @@
     }
 
     // 5. GET /api/health
-    if (url.endsWith('/api/health') && method === 'GET') {
+    if (url.includes('/api/health') && method === 'GET') {
       return new Response(
         JSON.stringify({
           status: 'ok',
@@ -135,7 +135,7 @@
     }
 
     // 8. Icon Packs mock
-    if (url.endsWith('/api/icon-packs') && method === 'GET') {
+    if (url.includes('/api/icon-packs') && method === 'GET') {
       return new Response(
         JSON.stringify({
           packs: [

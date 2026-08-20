@@ -130,7 +130,8 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
           document.getElementById('totpCode')?.focus();
           return;
         }
-        window.location.href = '/admin/dashboard';
+        const target = (window.__BASE_URL__ || '/') + 'admin/dashboard';
+        window.location.href = target;
       } catch (e) {
         err.textContent = errorFallback;
         err.hidden = false;
@@ -155,7 +156,8 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
           err.hidden = false;
           return;
         }
-        window.location.href = '/admin/dashboard';
+        const target = (window.__BASE_URL__ || '/') + 'admin/dashboard';
+        window.location.href = target;
       } catch (e) {
         err.textContent = errorFallback;
         err.hidden = false;

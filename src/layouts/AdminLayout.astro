@@ -14,10 +14,8 @@ interface Props {
 }
 const { title, csrfToken, isAuthed, showNav = true } = Astro.props;
 
-// i18n: resolvemos el locale para este admin render. El admin también
-// se traduce — si el admin está navegando en inglés, todo el panel se
-// ve en inglés. Si la feature está apagada, queda en español.
 const config = await getConfig();
+const base = import.meta.env.BASE_URL || '/';
 const useI18n = isFeatureEnabled(config, 'i18n');
 const locale: Locale = useI18n
   ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
@@ -40,14 +38,14 @@ const theme = {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title} — Admin</title>
-    <link rel="icon" href="/favicon.svg" />
+    <link rel="icon" href={`${base}favicon.svg`} />
     <meta name="robots" content="noindex, nofollow" />
   </head>
   <body class="admin-body" data-csrf={csrfToken ?? ''} data-authed={isAuthed ? '1' : '0'}>
     {showNav && isAuthed ? (
       <div class="admin-shell" x-data="adminApp" x-init="init()">
         <nav class="admin-nav">
-          <a href="/" class="nav-home" target="_blank" rel="noopener">
+          <a href={base} class="nav-home" target="_blank" rel="noopener">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             {useI18n ? trf('admin.nav.home') : 'Ver portada'}
           </a>
@@ -60,52 +58,40 @@ const theme = {
               <span x-show="!busy" x-text="saveLabel()">Guardar cambios</span>
               <span x-show="busy" x-cloak x-text="savingLabel()">Guardando…</span>
             </button>
-            <span class="nav-divider"></span>
-            <button
-              data-action="toggle-mode"
-              class="mode-toggle-admin"
-              aria-label={useI18n ? trf('admin.nav.modeToggle') : 'Cambiar modo claro/oscuro'}
-              title={useI18n ? trf('admin.nav.modeToggle') : 'Cambiar modo claro/oscuro'}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
-              </svg>
+            <button type="button" class="btn btn-sm btn-ghost" data-action="logout" title={useI18n ? trf('admin.nav.logout') : 'Cerrar sesión'}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             </button>
-            <button data-action="logout" class="btn btn-sm btn-ghost">{useI18n ? trf('admin.nav.logout') : 'Cerrar sesión'}</button>
           </div>
         </nav>
-        <slot />
+        <main class="admin-main">
+          <slot />
+        </main>
       </div>
     ) : (
       <slot />
     )}
 
-    {/* Apply the same light/dark toggle the public pages use, so the admin
-        follows the user's preference and stays coherent across the platform.
-        Pasamos config + request para que el toggle use el locale correcto. */}
-    <ThemeScript theme={theme} config={config} request={Astro.request} />
-
-    {/* Global admin helpers (Alpine.js, fetch wrapper, toast) */}
-    <script is:inline>
-      // Define window.umbralAdmin BEFORE any module scripts run.
-      // Using is:inline so Vite doesn't bundle/move this — guarantees it executes
-      // synchronously during HTML parsing, before the page's module script imports.
+    <ThemeScript theme={theme} />
+    <script is:inline define:vars={{ csrfToken, baseUrl: base }}>
       window.umbralAdmin = {
-        csrf: document.body.dataset.csrf || '',
-        authed: document.body.dataset.authed === '1',
-        async api(method, url, body) {
-          const csrf = this.csrf;
-          const headers = { 'content-type': 'application/json', 'x-csrf-token': csrf };
-          const res = await fetch(url, {
-            method,
-            headers,
-            body: body ? JSON.stringify(body) : undefined,
-          });
-          if (res.status === 401) { window.location.href = '/admin'; return null; }
-          if (res.status === 204) return null;
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-          return data;
+        csrf: csrfToken,
+        baseUrl: baseUrl,
+        async api(method, endpoint, body) {
+          const headers = { 'x-csrf-token': this.csrf };
+          let b = undefined;
+          if (body && !(body instanceof FormData)) {
+            headers['content-type'] = 'application/json';
+            b = JSON.stringify(body);
+          } else if (body) {
+            b = body;
+          }
+          const targetUrl = endpoint.startsWith('http') ? endpoint : (this.baseUrl + (endpoint.startsWith('/') ? endpoint.slice(1) : endpoint));
+          const res = await fetch(targetUrl, { method, headers, body: b });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          return res.json().catch(() => ({}));
         },
         toast(message, type = 'info') {
           let host = document.getElementById('toast-host');
@@ -130,11 +116,11 @@ const theme = {
         const target = e.target;
         if (target && target instanceof Element && target.closest('[data-action="logout"]')) {
           await fetch('/api/logout', { method: 'POST', headers: { 'x-csrf-token': window.umbralAdmin.csrf } });
-          window.location.href = '/admin';
+          window.location.href = window.umbralAdmin.baseUrl + 'admin';
         }
       });
     </script>
-    <script is:inline set:html={`window.__INITIAL_DEMO_CONFIG__ = ${JSON.stringify(config)};`}></script>
-    <script is:inline src="/demo-runtime.js"></script>
+    <script is:inline set:html={`window.__BASE_URL__ = ${JSON.stringify(base)}; window.__INITIAL_DEMO_CONFIG__ = ${JSON.stringify(config)};`}></script>
+    <script is:inline src={`${base}demo-runtime.js`}></script>
   </body>
 </html>

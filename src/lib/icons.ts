@@ -24,21 +24,21 @@ export async function getBuiltinIconNames(): Promise<string[]> {
   return Array.from(cache.icons);
 }
 
-/** Resolve an `icon` field from the config to a public URL.
- *  - If the icon is an absolute path or starts with /, return as-is.
- *  - If the icon is a name matching a builtin, return /icons/<name>.svg
- *  - Otherwise treat it as a custom uploaded asset and return /api/assets/<name>.
- */
+const rawBase = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || '/';
+const BASE = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+
+/** Resolve an `icon` field from the config to a public URL with base support. */
 export function resolveIconUrl(icon: string | null | undefined): string | null {
   if (!icon) return null;
-  if (icon.startsWith('/')) return icon;
   if (icon.startsWith('http://') || icon.startsWith('https://') || icon.startsWith('data:')) {
     return icon;
   }
-  // If it looks like a filename with an extension, assume it's an uploaded asset
-  if (/\.[a-z0-9]+$/i.test(icon)) {
-    return `/api/assets/${icon}`;
+  if (icon.startsWith('/')) {
+    if (icon.startsWith(BASE)) return icon;
+    return `${BASE}${icon.slice(1)}`;
   }
-  // Otherwise, builtin icon
-  return `/icons/${icon}.svg`;
+  if (/\.[a-z0-9]+$/i.test(icon)) {
+    return `${BASE}api/assets/${icon}`;
+  }
+  return `${BASE}icons/${icon}.svg`;
 }

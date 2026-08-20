@@ -323,11 +323,8 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           <div class="card-item" :data-id="card.id" :class="isSystemCard(card) && 'card-system'">
             <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
             <div class="icon-preview">
-              <template x-if="card.icon && (card.icon.includes('/') || card.icon.includes('.'))">
-                <img :src="resolveIcon(card.icon)" />
-              </template>
-              <template x-if="card.icon && !card.icon.includes('/') && !card.icon.includes('.')">
-                <img :src="'/icons/' + card.icon + '.svg'" />
+              <template x-if="card.icon">
+                <img :src="resolveIcon(card.icon)" :alt="card.icon" />
               </template>
             </div>
             <div class="info">
@@ -1735,7 +1732,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                     :title="i"
                   >
                     <span class="icon-picker-img">
-                      <img :src="'/icons/' + i + '.svg'" :alt="i" />
+                      <img :src="resolveIcon(i)" :alt="i" />
                     </span>
                     <span class="icon-picker-name" x-text="i"></span>
                   </button>
@@ -1885,7 +1882,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
               >
                 <div style="display:flex;align-items:center;gap:0.5rem;width:100%;margin-bottom:0.4rem">
                   <div class="icon-preview" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">
-                    <img :src="'/icons/' + p.icon + '.svg'" style="max-width:20px;max-height:20px" />
+                    <img :src="resolveIcon(p.icon)" style="max-width:20px;max-height:20px" :alt="p.name" />
                   </div>
                   <strong style="font-size:0.9rem;flex:1" x-text="p.name"></strong>
                   <span class="color-dot" :style="`background:${p.color}`"></span>
@@ -3671,9 +3668,15 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
 
         resolveIcon(icon) {
           if (!icon) return '';
-          if (icon.startsWith('/') || icon.startsWith('http')) return icon;
-          if (icon.includes('.')) return '/api/assets/' + icon;
-          return '/icons/' + icon + '.svg';
+          if (icon.startsWith('http://') || icon.startsWith('https://') || icon.startsWith('data:')) return icon;
+          const base = window.__BASE_URL__ || '/';
+          const prefix = base.endsWith('/') ? base : base + '/';
+          if (icon.startsWith('/')) {
+            if (icon.startsWith(prefix)) return icon;
+            return prefix + icon.slice(1);
+          }
+          if (icon.includes('.')) return prefix + 'api/assets/' + icon;
+          return prefix + 'icons/' + icon + '.svg';
         },
       }));
     });
