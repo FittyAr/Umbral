@@ -150,13 +150,33 @@
       );
     }
 
+    // 9. POST /api/locale (Cambio de idioma)
+    if (url.includes('/api/locale') && method === 'POST') {
+      let body = {};
+      try {
+        body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {};
+      } catch {}
+      const loc = body.locale || 'es';
+      try {
+        localStorage.setItem('umbral_demo_locale', loc);
+        document.cookie = `umbral_locale=${loc};path=/;max-age=2592000;SameSite=Lax`;
+      } catch {}
+      return new Response(JSON.stringify({ ok: true, locale: loc }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Passthrough para assets estáticos y otros requests
     return originalFetch.apply(this, arguments);
   };
 
-  // Crear banner de demostración en la parte superior
+  // Crear banner de demostración interactivo
   window.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('umbral-demo-banner')) return;
+
+    const base = window.__BASE_URL__ || '/';
+    const adminUrl = base.endsWith('/') ? `${base}admin` : `${base}/admin`;
 
     const banner = document.createElement('div');
     banner.id = 'umbral-demo-banner';
@@ -165,36 +185,43 @@
       bottom: 1rem;
       right: 1rem;
       z-index: 99999;
-      background: rgba(15, 23, 42, 0.92);
-      border: 1px solid rgba(6, 182, 212, 0.4);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(6, 182, 212, 0.2);
-      backdrop-filter: blur(12px);
-      padding: 0.65rem 1rem;
-      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid rgba(6, 182, 212, 0.45);
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 20px rgba(6, 182, 212, 0.25);
+      backdrop-filter: blur(14px);
+      padding: 0.75rem 1.1rem;
+      border-radius: 14px;
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.9rem;
       color: #f8fafc;
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       font-family: system-ui, -apple-system, sans-serif;
+      max-width: calc(100vw - 2rem);
+      flex-wrap: wrap;
     `;
 
     banner.innerHTML = `
-      <div style="display:flex;align-items:center;gap:0.4rem">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#06b6d4;box-shadow:0 0 8px #06b6d4"></span>
-        <span style="font-weight:600;color:#06b6d4">Modo Demo</span>
-        <span style="color:#94a3b8;font-size:0.75rem">| Persistencia local (15 min)</span>
+      <div style="display:flex;align-items:center;gap:0.45rem">
+        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#06b6d4;box-shadow:0 0 10px #06b6d4;animation:pulse 2s infinite"></span>
+        <span style="font-weight:700;color:#06b6d4;letter-spacing:0.3px">MODO DEMO</span>
       </div>
-      <button id="umbral-demo-reset-btn" style="
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+      <div style="display:flex;align-items:center;gap:0.4rem;background:rgba(6, 182, 212, 0.12);border:1px solid rgba(6, 182, 212, 0.25);padding:0.25rem 0.6rem;border-radius:8px">
+        <span style="color:#e2e8f0;font-size:0.78rem">🔑 Admin:</span>
+        <a href="${adminUrl}" style="color:#38bdf8;font-weight:600;text-decoration:underline;text-underline-offset:2px">/admin</a>
+        <span style="color:#94a3b8;font-size:0.75rem">(clave: <code>admin</code>)</span>
+      </div>
+      <button id="umbral-demo-reset-btn" title="Restablecer la configuración inicial de la demo" style="
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.18);
         color: #f8fafc;
-        padding: 0.25rem 0.6rem;
-        border-radius: 6px;
+        padding: 0.3rem 0.65rem;
+        border-radius: 8px;
         cursor: pointer;
-        font-size: 0.75rem;
+        font-size: 0.76rem;
         font-weight: 500;
         transition: all 0.2s ease;
+        margin-left: auto;
       ">Restablecer Demo</button>
     `;
 
@@ -207,13 +234,13 @@
         location.reload();
       });
       resetBtn.addEventListener('mouseenter', () => {
-        resetBtn.style.background = 'rgba(239, 68, 68, 0.2)';
-        resetBtn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        resetBtn.style.background = 'rgba(239, 68, 68, 0.25)';
+        resetBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
         resetBtn.style.color = '#ef4444';
       });
       resetBtn.addEventListener('mouseleave', () => {
-        resetBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-        resetBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        resetBtn.style.background = 'rgba(255, 255, 255, 0.08)';
+        resetBtn.style.borderColor = 'rgba(255, 255, 255, 0.18)';
         resetBtn.style.color = '#f8fafc';
       });
     }
