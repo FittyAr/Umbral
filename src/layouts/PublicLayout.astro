@@ -2,6 +2,8 @@
 import type { Config } from '~/lib/schema';
 import { resolveIconUrl } from '~/lib/icons';
 import ThemeScript from '~/components/ThemeScript.astro';
+import { isFeatureEnabled } from '~/lib/features';
+import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 import '~/styles/global.css';
 
 interface Props {
@@ -14,6 +16,14 @@ const l = config.layout;
 const logoUrl = resolveIconUrl(config.branding.logo);
 const faviconUrl = resolveIconUrl(config.branding.favicon);
 
+// Feature i18n: si está activa, resolvemos el locale para este request.
+// Si está apagada, todo el UI permanece en español (locale histórico).
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
+  : 'es';
+const trf = tr(locale);
+
 // Theme variables injected as inline style
 const themeVars = [
   `--accent:${t.accentColor}`,
@@ -24,14 +34,18 @@ const themeVars = [
 const gridStyle = `--cols-mobile:${l.columnsMobile};--cols-tablet:${l.columnsTablet};--cols-desktop:${l.columnsDesktop};`;
 
 const fullTitle = title || config.branding.companyName;
+const metaDescription = useI18n
+  ? trf('home.meta.description', { companyName: config.branding.companyName })
+  : `Inicio rápido — ${config.branding.companyName}`;
+const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de accesos internos';
 ---
 <!doctype html>
-<html lang="es">
+<html lang={locale}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{fullTitle}</title>
-    <meta name="description" content={`Inicio rápido — ${config.branding.companyName}`} />
+    <meta name="description" content={metaDescription} />
     <meta name="theme-color" content={t.accentColor} />
 
     {faviconUrl && <link rel="icon" href={faviconUrl} />}
@@ -39,7 +53,7 @@ const fullTitle = title || config.branding.companyName;
 
     {/* Open Graph / Twitter */}
     <meta property="og:title" content={config.branding.companyName} />
-    <meta property="og:description" content="Panel de accesos internos" />
+    <meta property="og:description" content={ogDescription} />
     {logoUrl && <meta property="og:image" content={logoUrl} />}
     <meta name="twitter:card" content="summary" />
 
@@ -58,6 +72,6 @@ const fullTitle = title || config.branding.companyName;
     )}
 
     {/* Inline JS: color mode, search, keyboard shortcuts */}
-    <ThemeScript theme={t} />
+    <ThemeScript theme={t} config={config} request={Astro.request} />
   </body>
 </html>

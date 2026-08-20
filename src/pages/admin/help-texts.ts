@@ -530,10 +530,49 @@ Cambiar el tipo de una card existente a "Note" la oculta como link y la muestra 
   },
   'card.description': {
     title: 'Descripción de la tarjeta',
-    short: 'Texto debajo del título, máximo 200 chars.',
-    body: `Una sola línea. Aparece debajo del título en la card. Útil para aclarar qué es el servicio o agregar contexto ("Backup semanal lunes 3AM", "Pedí acceso a #infra en Slack").
+    short: 'Texto debajo del título. Plain: 200 chars. Markdown (opt-in): 1000 chars.',
+    body: `Aparece debajo del título en la card. Útil para aclarar qué es el servicio o agregar contexto ("Backup semanal lunes 3AM", "Pedí acceso a #infra en Slack").
+
+**Plain (default)**: 200 chars. Texto plano, escapado por seguridad. No se interpreta nada.
+
+**Markdown (opt-in)**: 1000 chars. Si la feature \`features.markdown\` está activa, aparece un toggle "Markdown" en el form. El preview se renderiza con la misma lib (\`marked\` + \`DOMPurify\`) que el server, así que lo que ves es lo que sale.
+
+Markdown soportado (GitHub-flavored, GFM): listas, links, **negrita**, \`código\`, \`\`\`bloques\`\`\`, tablas, blockquotes, line breaks. Tags HTML permitidos: \`a, b, i, em, strong, p, br, ul, ol, li, h1-6, blockquote, code, pre, span, div, img, table\` (cualquier otro se escapa). Atributos: \`href, title, alt, src, class\`. \`href\` con protocolo no-http (ej: \`javascript:\`) se bloquea.
+
+**Si la feature está apagada**: el toggle no aparece en el form. El server fuerza plain + límite 200 aunque alguien mande \`descriptionFormat: "markdown"\` por la API.
 
 Si la dejás vacía, la card se ve más limpia pero pierde info útil. Si vas a usar "Auto-completar" o "Mejorar con IA", la IA también la pule.`,
+  },
+  'card.pinned': {
+    title: 'Tarjeta fijada (pinned)',
+    short: 'Aparece arriba en su categoría, sin importar el orden.',
+    body: `Las tarjetas **fijadas** se renderizan primero en su categoría, sin importar el campo \`order\`. Útil para destacar servicios críticos (VPN, status page, monitor) que querés que el usuario vea primero sin reorderar manualmente.
+
+**Cómo se prioriza**:
+1. Pinned primero (entre las pinned, mantiene el orden por \`order\`).
+2. Después, el resto por \`order\` ASC.
+
+**Cuándo NO pinear**:
+- Si querés que la card esté primero SOLO para vos (admin) y no para los visitantes, no tenés flag per-user todavía — pinear afecta a todos.
+- Si querés un orden estable entre muchas cards, mejor usar \`order\` numérico.
+
+**Si la feature está apagada**: el checkbox no aparece en el form. El server fuerza \`pinned: false\` en cualquier card que mande \`pinned: true\` por la API.`,
+  },
+  'card.tags': {
+    title: 'Tags de la tarjeta',
+    short: 'Etiquetas kebab-case cross-cutting. Max 10 por tarjeta.',
+    body: `Las tags son **cross-cutting**: complementan la categoría con dimensiones alternativas (ej: "urgent", "frontend", "legacy", "migrar-pronto"). Una card puede tener tags de varias dimensiones sin necesidad de cambiar su categoría.
+
+**Formato**: kebab-case lowercase (a-z, 0-9, guiones), max 30 chars por tag, max 10 tags por tarjeta. Ejemplos válidos: \`api\`, \`backend-go\`, \`legacy-v1\`, \`urgent\`.
+
+**Cómo se usan**:
+- Búsqueda: el input de búsqueda arriba de la portada matchea contra el texto de la card Y las tags. Escribís "urgent" y te aparece toda card con esa tag.
+- Filtrado futuro: la UI podría agregar un pill-row "filtrar por tag" (no incluido en esta ola — solo búsqueda).
+- Organización visual: en la lista de cards del admin, las tags aparecen como chips chicos al lado del URL.
+
+**Cuándo NO usar tags**: si tenés una dimensión con 5+ valores que querés usar para filtrar visualmente, mejor una sub-categoría (\`isSubpage: true\`). Las tags son para info complementaria, no para agrupar navegación.
+
+**Si la feature está apagada**: el campo no aparece en el form, y el server dropea cualquier \`tags[]\` que venga en el JSON al guardar. Defense-in-depth: aunque alguien bypassee el cliente y mande tags por la API, no se persisten si la feature no está activa.`,
   },
   'card.category': {
     title: 'Categoría',
@@ -707,7 +746,174 @@ Si Umbral está detrás de un reverse proxy, el healthcheck pasa por el proxy. S
 Te pide escribir \`RESET\` para confirmar — no lo hacés por accidente.`,
   },
 
+  'advanced.features': {
+    title: 'Features (opt-in)',
+    short: 'Cada feature nueva arranca apagada. Prendé las que necesites.',
+    body: `Esta grilla lista **todas las features nuevas** de Umbral. Cada una es opt-in: default \`enabled: false\`, así que si no la activás, ni se ejecuta, ni se carga su dependencia, ni aparece en la UI.
+
+**Cómo funciona**:
+- Switch ON → la feature se habilita al guardar (botón "Guardar cambios").
+- Switch OFF → la feature se apaga. Si tenía datos, quedan guardados en config.json pero inertes; al volver a ON reaparecen tal cual.
+- Cada toggle queda logueado en audit.log (ej: \`feature_toggle: i18n: false→true\`).
+
+**¿Por qué opt-in?** El principio 7 del roadmap: "si no la usás, no la pagás". Las features pesadas (qr, oidc, totp2fa) traen dependencias npm que sólo se cargan si las activás.
+
+**¿Qué hay disponible hoy?** i18n, markdown, tags, pinned, presets, audit log viewer. El resto (webhooks, métricas, multi-user, multi-portal, etc.) entra en olas 2/3/4.
+
+Más detalle en \`/docs\` cuando cada ola se libere.`,
+  },
+
+  'advanced.metrics': {
+    title: 'Métricas de latencia',
+    short: 'Sparklines y resumen (avg, p95, max) por card con health-check.',
+    body: `**Métricas** registra la latencia de cada check de health en un ring buffer en memoria (últimas 100 muestras por card, ~1.5h con check cada 60s). El sparkline SVG se renderiza al lado del dot de health check en la portada (sólo si la feature está activa). El dashboard muestra una tabla con avg / p95 / max / último por card.
+
+**Cómo interpretar**:
+- **Avg**: latencia promedio. Si sube de repente, algo se puso lento.
+- **P95**: percentil 95. Mejor métrica para "experiencia del usuario" — refleja el peor caso realista.
+- **Max**: pico. Si es muy alto vs avg, hay outliers (cold start, network blip).
+- **Último**: estado del último check (ok/fail + tiempo relativo).
+
+**Cuándo mirar**:
+- Después de un deploy: ¿la latencia subió?
+- Cuando un servicio se siente lento: ¿p95 está bien o se va al carajo?
+- Antes de reportar "el sistema está lento": ¿los datos lo confirman o es percepción?
+
+**Limitaciones**:
+- Ring buffer en memoria: si Umbral se reinicia, se pierde. Trade-off aceptado para evitar I/O en cada check.
+- Sparkline inline (SVG, sin librería). Es una polilínea simple — si necesitás gráficos avanzados (bar charts, heatmaps), usá la data de \`/api/metrics?id=...\` en un dashboard externo (Grafana con JSON datasource, etc.).
+- Sin persistencia a disco en esta versión. La opción \`persistToDisk\` del schema queda como no-op preparada para futuro.
+
+**Si la feature está apagada**: la sección no aparece en el admin, los sparklines no se renderizan en la portada, y \`/api/metrics\` devuelve 404. Defense-in-depth: aunque alguien mande samples por la API, no se registran.`,
+  },
+
+  'advanced.maintenance': {
+    title: 'Ventanas de mantenimiento',
+    short: 'Programa ventanas donde las cards están en mantenimiento. Suprime webhooks de health_fail durante la ventana.',
+    body: `Las **ventanas de mantenimiento** son periodos donde esperás que una (o todas) las cards fallen — típicamente durante deploys, migraciones de DB, mantenimiento de infra. Durante la ventana, las cards afectadas:
+
+- Muestran un **badge ámbar "🔧 Mantenimiento"** en la portada con la razón que pusiste.
+- **NO disparan webhooks** de \`health_fail\` (reducir spam durante el deploy). El health check sigue corriendo (los dots se ponen rojos en la portada), pero el admin ya sabe que está fallando — para qué notificar.
+- Siguen disparando \`health_recover\` cuando vuelven a OK. Útil para confirmar que el deploy terminó bien.
+
+**Cuándo usar**:
+- Deploy de una versión nueva: ventana de 30min sobre todos los servicios.
+- Mantenimiento de un servicio específico: ventana de 2h sobre 1-2 cards.
+- Migración de DB: ventana sobre las cards que dependen de esa DB.
+
+**Cuándo NO usar**:
+- Para deshabilitar una card permanentemente, mejor \`enabled: false\` en la card misma.
+- Si querés pausar webhooks sin mostrar badge: bajá el \`cooldownMin\` o deshabilitá el webhook temporalmente con \`enabled: false\`.
+
+**Auto-cleanup**: las ventanas con \`endsAt\` más de 24h en el pasado se marcan como "históricas" en el admin pero NO se borran automáticamente. La idea es que el admin las vea y decida si las quiere borrar manualmente (botón ×). No queremos borrar info que pueda ser útil para debugging post-mortem.
+
+**Timezone**: las timestamps se almacenan en UTC. El UI del admin las muestra en hora local del browser. Si tu equipo está distribuido, todos ven la misma hora UTC en el config.json, pero la UI adapta a la zona del browser.
+
+**Si la feature está apagada**: la sección no aparece en el admin, y el render ignora las windows (badge no se muestra + webhooks no las respetan). Defense-in-depth: aunque alguien mande windows en el JSON, el server dropea el array al guardar si la feature no está activa.`,
+  },
+
+  'advanced.webhooks': {
+    title: 'Webhooks de notificación',
+    short: 'Notifica a Slack/Discord/ntfy/etc cuando una card con health-check cambia de estado.',
+    body: `Los webhooks convierten a Umbral en un **centro de notificaciones activas**: cuando una card con \`healthCheck: true\` cambia de healthy a failing (o viceversa), Umbral hace POST a las URLs que configures.
+
+**Eventos**:
+- \`health_fail\`: se dispara cuando la card pasa de healthy a failing (después de N checks consecutivos fallidos, configurable por webhook).
+- \`health_recover\`: se dispara cuando la card vuelve a healthy. Útil para confirmar que el problema se resolvió.
+
+**Threshold (minFailures)**: cuántos checks consecutivos deben fallar antes de disparar \`health_fail\`. Default 3. Si tus checks son cada 60s, son 3 minutos de falla sostenida antes de notificar. Útil para absorber blips transitorios.
+
+**Cooldown**: minutos entre notificaciones del mismo webhook. Default 30. Evita el spam si un servicio tiene altibajos.
+
+**Cómo se arman los payloads**: Umbral manda **siempre JSON crudo** con este shape (los services tipo Slack/Discord pueden recibirlo via un proxy o webhook adapter, o el admin puede usar un endpoint custom que parsee):
+\`\`\`json
+{
+  "event": "health_fail",
+  "card": { "id": "...", "title": "...", "url": "..." },
+  "status": { "ok": false, "code": 503, "latencyMs": 1234 },
+  "consecutiveFailures": 3,
+  "threshold": 3,
+  "timestamp": "2026-08-19T...",
+  "portal": { "name": "Mi Empresa" }
+}
+\`\`\`
+Headers: \`X-Umbral-Event\`, \`X-Umbral-Card\`, \`User-Agent: Umbral-Webhook/1.0\`.
+
+**Seguridad**:
+- SSRF guard activo: bloquea loopback (127.0.0.1), private IPs (10/8, 172.16/12, 192.168/16) y cloud metadata. Para apuntar a un servicio interno (Gotify en LAN), activá \`security.network.allowInternalHosts\` en Hardening.
+- Timeout 8s por webhook (no queremos que un endpoint lento trabe el health check).
+- \`redirect: 'manual'\`: no seguimos redirects — cierra el bypass clásico de SSRF por redirección.
+- El header \`X-Umbral-Event\` permite al receiver rutear sin parsear el body.
+
+**Estado en memoria**: los contadores de "falla consecutiva" y "último fire" son en memoria (no persisten a disco). Si Umbral se reinicia, los contadores arrancan de 0. Para un deploy de larga vida, esto significa que después de un restart, hay que esperar \`minFailures\` checks antes de que el primer \`health_fail\` dispare. Trade-off aceptable para evitar escribir/serializar el estado en cada check.
+
+**Testing**: el botón "Probar" al lado de cada webhook (o "Probar antes de guardar" en el form de alta) manda un payload de ejemplo a la URL. Útil para verificar que el endpoint responde bien antes de esperar una falla real.`,
+  },
+
+  'advanced.audit': {
+    title: 'Visor de audit log',
+    short: 'Lee data/audit.log desde el navegador con filtros.',
+    body: `**Lee las últimas N entradas** del archivo \`data/audit.log\` y las muestra en una tabla con scroll virtual. Cada fila es un evento (timestamp + acción + detalle).
+
+**Filtros disponibles**:
+- **Acción**: dropdown con las acciones distintas que existen en el log (ej: \`config_update\`, \`login_ok\`, \`asset_delete\`).
+- **Detalle contiene**: substring case-insensitive sobre el campo \`detail\` (útil para buscar "features", "i18n", etc.).
+- **Desde / Hasta**: datetime-local en zona UTC. "Hasta" incluye el minuto seleccionado.
+- **Límite**: 50 / 200 / 500 / 1000 entradas.
+
+**Acciones**:
+- **Limpiar**: resetea filtros.
+- **Descargar log completo**: baja las últimas 1000 entradas como archivo \`.log\` para análisis offline.
+
+**Cuándo mirar el audit log**:
+- "¿Quién desactivó la categoría X?" → filter por action=\`config_update\` y detail contiene "X".
+- "¿A qué hora arrancamos a recibir errores de auth?" → filter por action=\`login_ok\` (o buscar nuevas actions que aparezcan después).
+- "¿Qué cambios se hicieron en la última hora?" → setear "Desde" a \`Date.now() - 1h\`.
+
+**Retención**: el log rota automáticamente a 10MB (mantiene 3 backups). Para retención de meses, exportá periódicamente o configurá un sidecar que copie el archivo.
+
+Si la feature está apagada, esta sección no aparece y el endpoint \`/api/audit\` devuelve 404.`,
+  },
+
   // ── Seguridad (Password) ─────────────────────────────────────────
+  'security.multiUser': {
+    title: 'Usuarios (multi-user)',
+    short: 'Crea usuarios con roles (admin/editor/viewer) y login con username.',
+    body: `**Multi-user** te permite crear varios admins/editores/viewers en lugar de compartir un único password. Cada user tiene su propio username, password (hasheado con bcrypt cost 12) y rol. El **password único** (super-admin) sigue siendo válido como rescue path por default — el admin puede deshabilitarlo en "Modo de acceso".
+
+**Modos de acceso** (3 estados):
+- \`password-only\` (default): sólo el password único. Si tenías un deploy legacy y no querés complicar, esto es lo que pasa antes de tocar nada.
+- \`both\`: password único + login con username. El password único sigue siendo válido para "emergencias" (ej: perder acceso a un user y necesitas entrar a crear uno nuevo).
+- \`users-only\`: sólo los users de la lista. El password único deja de funcionar. **Cuidado**: si quedás sin users válidos y single password off, NO podés entrar. El server rechaza este save si users está vacío. Confirmación dura: el form de "Solo usuarios" chequea que haya al menos un user antes de aplicar.
+
+**Roles**:
+- \`admin\`: full access (incluye gestión de users y config).
+- \`editor\`: puede editar cards/categorías/tema/branding, no tocar seguridad ni users.
+- \`viewer\`: solo lectura. Útil para auditoría, soporte, integraciones.
+
+**Sesiones per-user**: cada user tiene un \`userEpoch\` independiente. Cambiarle la password a Alice (o resetearla desde acá) incrementa su epoch, lo que invalida todas las sesiones de Alice sin tocar a Bob. Esto cierra el gap de "comprometieron a Alice, le cambio la pass, pero sus sesiones viejas siguen vivas" que tenía el sistema de password único.
+
+**Login con TOTP** (features.totp2fa, Ola 3.2): si está activa, cada user puede activar su propio 2FA. El password único super-admin **NO** puede protegerse con TOTP — intencional. Si perdés acceso a los TOTP seeds, el password único es el rescue path. Por eso sigue siendo válido por default.
+
+**Si la feature está apagada**: la sección no aparece en el tab Password, el server dropea \`users[]\` al guardar (defense in depth), y el login con username devuelve 401.`,
+  },
+
+  'security.accessMode': {
+    title: 'Modo de acceso',
+    short: 'Tres modos para el login: solo password, password+usuarios, o solo usuarios.',
+    body: `Define cómo se puede entrar al portal:
+
+**\`password-only\`** (default histórico): sólo el password único. Es lo que tenías antes de Ola 3.1. Simple, un solo secret que rotar si se filtra.
+
+**\`both\`**: password único + login con username. Tenés los dos mundos. El password único sirve como rescue path si perder acceso a un user (sesión expirada, MFA roto, etc). Trade-off: hay dos superficies de ataque.
+
+**\`users-only\`**: sólo los users. El password único deja de existir. **No recomendado** salvo que tengas compliance estricto o querés un único punto de entrada. Riesgo: si quedás sin users válidos (ej: borraste el último admin), no podés entrar — el server rechaza este save si users[] está vacío, pero si lo habilitás y después borrás el último user, quedás afuera y necesitás editar el JSON manualmente.
+
+**Decisión recomendada**: \`both\` (default si la feature multi-user está activa). Te da audit log per-user + la red de seguridad del password único.
+
+**Caveat legal**: si necesitás compliance PCI-DSS o similar que exija "single point of authentication", \`users-only\` te acerca a eso. Pero usualmente el password único sigue siendo aceptable como service account de emergencia documentado.`,
+  },
+
   'security.password': {
     title: 'Cambiar contraseña',
     short: 'Rota la password del admin. Invalida todas las otras sesiones.',

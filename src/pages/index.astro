@@ -7,19 +7,56 @@ import Logo from '~/components/Logo.astro';
 import Clock from '~/components/Clock.astro';
 import RefreshButton from '~/components/RefreshButton.astro';
 import StatusBar from '~/components/StatusBar.astro';
+import LanguageSwitcher from '~/components/LanguageSwitcher.astro';
 import { getConfig } from '~/lib/config';
 import { resolveIconUrl } from '~/lib/icons';
+import { isFeatureEnabled } from '~/lib/features';
+import { getActiveWindowsForCard } from '~/lib/maintenance';
+import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
 const config = await getConfig();
 const t = config.theme;
 const l = config.layout;
+
+// i18n: resolvemos el locale efectivo una sola vez al tope del page y lo
+// pasamos a todos los componentes que lo necesiten. Si la feature está
+// apagada, todo queda en español (comportamiento histórico).
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
+  : 'es';
+const trf = tr(locale);
 // Subpage categories are excluded from the main homepage (only accessible via /<category_id>)
 const subpageCategoryIds = new Set(
   config.categories.filter((c) => c.isSubpage).map((c) => c.id),
 );
 const enabledCards = config.cards
   .filter((c) => c.enabled && !subpageCategoryIds.has(c.category))
-  .sort((a, b) => a.order - b.order);
+  // Sort: pinned primero (independiente del order), después por order ASC.
+  // pinned es opt-in (features.pinned). Si la feature está apagada, el
+  // server fuerza pinned=false en todas las cards — este sort no hace
+  // diferencia (todos van por order).
+  .sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return a.order - b.order;
+  });
+// Maintenance windows (opt-in: features.maintenanceWindows): resolvemos
+// una sola vez qué cards están en mantenimiento AHORA y lo pasamos a
+// Card.astro vía prop. O(n) sobre windows × cardIds — ver src/lib/maintenance.ts
+const cardMaintenance = new Map<string, string>(); // cardId → reason
+const metricsEnabled = isFeatureEnabled(config, 'metrics');
+const qrEnabled = isFeatureEnabled(config, 'qr');
+if (isFeatureEnabled(config, 'maintenanceWindows')) {
+  for (const c of enabledCards) {
+    const windows = await getActiveWindowsForCard(c.id);
+    if (windows.length > 0) {
+      // Primera window que matchea (la más relevante si hay solapadas).
+      // Tomamos la razón de la primera.
+      cardMaintenance.set(c.id, windows[0].reason);
+    }
+  }
+}
 const logoUrl = resolveIconUrl(config.branding.logo);
 
 // Group by category (only categories that actually have enabled cards and are not standalone subpages)
@@ -48,14 +85,15 @@ const isHorizontal = t.groupLayout === 'horizontal';
     <header class="header">
       <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
       <h1 class="header-title">{config.branding.companyName}</h1>
-      {t.showClock && <Clock />}
-      <Search />
-      {t.showRefresh && <RefreshButton />}
+      {t.showClock && <Clock config={config} request={Astro.request} />}
+      <Search config={config} request={Astro.request} />
+      {t.showRefresh && <RefreshButton config={config} request={Astro.request} />}
+      {useI18n && <LanguageSwitcher config={config} current={locale} />}
       <button
         data-action="toggle-mode"
         class="mode-toggle"
-        aria-label="Cambiar modo claro/oscuro"
-        title="Cambiar modo claro/oscuro"
+        aria-label={useI18n ? trf('home.modeToggle') : 'Cambiar modo claro/oscuro'}
+        title={useI18n ? trf('home.modeToggleTitle') : 'Cambiar modo claro/oscuro'}
       >
         <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
@@ -65,8 +103,8 @@ const isHorizontal = t.groupLayout === 'horizontal';
 
     {enabledCards.length === 0 ? (
       <div class="empty">
-        <h2>No hay aplicaciones todavía</h2>
-        <p>Pedile al administrador que agregue algunas desde el panel.</p>
+        <h2>{useI18n ? trf('home.empty.title') : 'No hay aplicaciones todavía'}</h2>
+        <p>{useI18n ? trf('home.empty.body') : 'Pedile al administrador que agregue algunas desde el panel.'}</p>
       </div>
     ) : isHorizontal ? (
       <div class="groups-horizontal" style={`--groups-cols-mobile:${l.columnsMobile};--groups-cols-tablet:${l.columnsTablet};--groups-cols-desktop:${l.columnsDesktop};`}>
@@ -86,13 +124,13 @@ const isHorizontal = t.groupLayout === 'horizontal';
                   <h2 class="section-title">{cat.name}</h2>
                   {isLocked && (
                     <div class="cat-lock-status">
-                      <span class="cat-lock-badge badge-locked" title="Categoría protegida con contraseña">
+                      <span class="cat-lock-badge badge-locked" title={useI18n ? trf('home.locked.title') : 'Categoría protegida con contraseña'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        <span>Protegida</span>
+                        <span>{useI18n ? trf('home.locked.badge') : 'Protegida'}</span>
                       </span>
-                      <button type="button" class="cat-relock-btn" style="display: none;" title="Volver a bloquear categoría">
+                      <button type="button" class="cat-relock-btn" style="display: none;" title={useI18n ? trf('home.locked.relockTitle') : 'Volver a bloquear categoría'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        <span>Bloquear</span>
+                        <span>{useI18n ? trf('home.locked.relock') : 'Bloquear'}</span>
                       </button>
                     </div>
                   )}
@@ -107,29 +145,29 @@ const isHorizontal = t.groupLayout === 'horizontal';
                       <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
                   </div>
-                  <p class="lock-title">Categoría bloqueada</p>
-                  <p class="lock-subtitle">Ingresá la contraseña para ver los enlaces</p>
+                  <p class="lock-title">{useI18n ? trf('home.locked.title') : 'Categoría bloqueada'}</p>
+                  <p class="lock-subtitle">{useI18n ? trf('home.locked.subtitle') : 'Ingresá la contraseña para ver los enlaces'}</p>
                   <form class="lock-form" onsubmit="return false;">
                     <div class="lock-input-group">
                       <input
                         type="password"
                         class="lock-input"
-                        placeholder="Contraseña…"
+                        placeholder={useI18n ? trf('home.locked.unlockPlaceholder') : 'Contraseña…'}
                         autocomplete="current-password"
                         required
                       />
                       <button type="submit" class="lock-submit-btn">
-                        Desbloquear
+                        {useI18n ? trf('home.locked.unlockButton') : 'Desbloquear'}
                       </button>
                     </div>
-                    <p class="lock-error" style="display: none;">Contraseña incorrecta</p>
+                    <p class="lock-error" style="display: none;">{useI18n ? trf('home.locked.unlockError') : 'Contraseña incorrecta'}</p>
                   </form>
                 </div>
               )}
 
               <div class="category-cards-wrap" style={isLocked ? 'display: none;' : undefined}>
                 <div class="grid">
-                  {cards.map((c) => <Card card={c} layout={l} />)}
+                  {cards.map((c) => <Card card={c} layout={l} maintenanceReason={cardMaintenance.get(c.id) || ''} qrEnabled={qrEnabled} />)}
                 </div>
               </div>
             </section>
@@ -154,13 +192,13 @@ const isHorizontal = t.groupLayout === 'horizontal';
                   <h2 class="section-title">{cat.name}</h2>
                   {isLocked && (
                     <div class="cat-lock-status">
-                      <span class="cat-lock-badge badge-locked" title="Categoría protegida con contraseña">
+                      <span class="cat-lock-badge badge-locked" title={useI18n ? trf('home.locked.title') : 'Categoría protegida con contraseña'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        <span>Protegida</span>
+                        <span>{useI18n ? trf('home.locked.badge') : 'Protegida'}</span>
                       </span>
-                      <button type="button" class="cat-relock-btn" style="display: none;" title="Volver a bloquear categoría">
+                      <button type="button" class="cat-relock-btn" style="display: none;" title={useI18n ? trf('home.locked.relockTitle') : 'Volver a bloquear categoría'}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        <span>Bloquear</span>
+                        <span>{useI18n ? trf('home.locked.relock') : 'Bloquear'}</span>
                       </button>
                     </div>
                   )}
@@ -175,29 +213,29 @@ const isHorizontal = t.groupLayout === 'horizontal';
                       <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
                   </div>
-                  <p class="lock-title">Categoría bloqueada</p>
-                  <p class="lock-subtitle">Ingresá la contraseña para ver los enlaces</p>
+                  <p class="lock-title">{useI18n ? trf('home.locked.title') : 'Categoría bloqueada'}</p>
+                  <p class="lock-subtitle">{useI18n ? trf('home.locked.subtitle') : 'Ingresá la contraseña para ver los enlaces'}</p>
                   <form class="lock-form" onsubmit="return false;">
                     <div class="lock-input-group">
                       <input
                         type="password"
                         class="lock-input"
-                        placeholder="Contraseña…"
+                        placeholder={useI18n ? trf('home.locked.unlockPlaceholder') : 'Contraseña…'}
                         autocomplete="current-password"
                         required
                       />
                       <button type="submit" class="lock-submit-btn">
-                        Desbloquear
+                        {useI18n ? trf('home.locked.unlockButton') : 'Desbloquear'}
                       </button>
                     </div>
-                    <p class="lock-error" style="display: none;">Contraseña incorrecta</p>
+                    <p class="lock-error" style="display: none;">{useI18n ? trf('home.locked.unlockError') : 'Contraseña incorrecta'}</p>
                   </form>
                 </div>
               )}
 
               <div class="category-cards-wrap" style={isLocked ? 'display: none;' : undefined}>
                 <div class="grid">
-                  {cards.map((c) => <Card card={c} layout={l} />)}
+                  {cards.map((c) => <Card card={c} layout={l} maintenanceReason={cardMaintenance.get(c.id) || ''} qrEnabled={qrEnabled} />)}
                 </div>
               </div>
             </section>
@@ -210,7 +248,7 @@ const isHorizontal = t.groupLayout === 'horizontal';
   </main>
 </PublicLayout>
 
-<script define:vars={{ healthCheckInterval: l.healthCheckInterval }}>
+<script define:vars={{ healthCheckInterval: l.healthCheckInterval, metricsEnabled, healthCheckingLabel: useI18n ? trf('home.health.checking') : 'Verificando…', healthOkLabel: useI18n ? trf('home.health.ok', { latency: '{latency}' }) : 'Servicio OK ({latency}ms)', healthBadLabel: useI18n ? trf('home.health.bad', { status: '{status}' }) : 'HTTP {status}', healthFetchError: useI18n ? trf('home.health.fetchError') : 'Error al consultar /api/status' }}>
   // ── Desbloqueo de categorías protegidas ──
   (function () {
     function sha256Sync(str) {
@@ -400,7 +438,7 @@ const isHorizontal = t.groupLayout === 'horizontal';
       if (!id) continue;
       const d = document.createElement('span');
       d.className = 'health-dot pending';
-      d.title = 'Verificando…';
+      d.title = healthCheckingLabel;
       c.appendChild(d);
       dots.set(id, d);
     }
@@ -416,7 +454,7 @@ const isHorizontal = t.groupLayout === 'horizontal';
       dots.forEach((d) => {
         d.classList.remove('ok', 'bad');
         d.classList.add('pending');
-        d.title = 'Verificando…';
+        d.title = healthCheckingLabel;
       });
       try {
         const res = await fetch('/api/status', {
@@ -427,22 +465,58 @@ const isHorizontal = t.groupLayout === 'horizontal';
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         for (const r of (data.results || [])) {
+          // Las templates de salud usan {latency} y {status} como
+          // placeholders. Los reemplazamos con los valores reales.
+          const okLabel = healthOkLabel.replace('{latency}', r.latencyMs ?? '?');
+          const badLabel = healthBadLabel.replace('{status}', r.status ?? '?');
           setDot(
             r.id,
             r.ok ? 'ok' : 'bad',
-            r.ok ? `Servicio OK (${r.latencyMs ?? '?'}ms)` : (r.error || `HTTP ${r.status}`),
+            r.ok ? okLabel : (r.error || badLabel),
           );
         }
       } catch (err) {
         // Si el endpoint falla, marcamos a todos como bad (mejor rojo que
         // un falso verde que oculte un problema real del server).
         for (const id of dots.keys()) {
-          setDot(id, 'bad', 'Error al consultar /api/status');
+          setDot(id, 'bad', healthFetchError);
         }
       }
     };
     tick();
     setInterval(tick, Math.max(10, healthCheckInterval) * 1000);
+  })();
+
+  // ── Métricas: sparkline al lado de cada dot (opt-in: features.metrics) ──
+  // Fetch por card al /api/metrics?id=...&svg=1 — devuelve el path SVG
+  // inline. Si la feature está apagada, el endpoint devuelve 404 y
+  // simplemente no se muestra nada. Refrescamos cada 60s junto con
+  // el health check.
+  (function () {
+    if (!metricsEnabled) return;
+    const cards = Array.from(document.querySelectorAll('.card[data-health-check="true"]'));
+    if (cards.length === 0) return;
+    const loadSparklines = async () => {
+      for (const c of cards) {
+        const id = c.getAttribute('data-card-id');
+        if (!id) continue;
+        try {
+          const res = await fetch(`/api/metrics?id=${encodeURIComponent(id)}&svg=1&range=1h&limit=40`, { credentials: 'same-origin' });
+          if (!res.ok) continue;
+          const svg = await res.text();
+          if (!svg) continue;
+          let slot = c.querySelector('.health-sparkline');
+          if (!slot) {
+            slot = document.createElement('span');
+            slot.className = 'health-sparkline';
+            c.appendChild(slot);
+          }
+          slot.innerHTML = svg;
+        } catch (e) { /* silent — feature puede estar apagada */ }
+      }
+    };
+    loadSparklines();
+    setInterval(loadSparklines, Math.max(30, healthCheckInterval) * 1000);
   })();
 
   // ── Refresh button: location.reload conserva scroll/foco/search del

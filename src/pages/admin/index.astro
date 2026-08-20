@@ -1,31 +1,62 @@
 ---
 import AdminLayout from '~/layouts/AdminLayout.astro';
+import { getConfig } from '~/lib/config';
+import { isFeatureEnabled } from '~/lib/features';
+import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
+import { isDefaultPasswordHash } from '~/lib/auth';
 
 const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
 if (isAuthed) {
   return Astro.redirect('/admin/dashboard');
 }
+
+// i18n: traducimos el form de login si la feature está activa. Si no,
+// defaults históricos en español.
+const config = await getConfig();
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
+  : 'es';
+const trf = t(locale);
+
+const loginTitle = useI18n ? trf('admin.login.title') : 'Iniciar sesión';
+const passwordLabel = useI18n ? trf('admin.login.password') : 'Contraseña';
+const submitLabel = useI18n ? trf('admin.login.submit') : 'Entrar';
+const errorLabel = useI18n ? trf('admin.login.error') : 'Contraseña incorrecta';
+const csrfWarn = useI18n ? trf('admin.login.csrfWarn') : 'Sesión expirada, recargá la página';
+
+// Banner rojo si el password actual es uno de los default inseguros.
+// Mostramos un server-rendered alert (no depende de JS) para que el admin
+// lo vea apenas carga la página, no cuando Alpine termine de inicializar.
+const passwordHash = config.auth?.passwordHash ?? '';
+const isDefaultPassword = passwordHash ? await isDefaultPasswordHash(passwordHash) : false;
+const passwordWarning = useI18n ? trf('admin.login.passwordWarning') : 'Estás usando un password inseguro (admin / changeme / etc). Cambialo desde el panel después de entrar.';
 ---
 <AdminLayout title="Login" csrfToken={null} isAuthed={false} showNav={false}>
   <div class="login-wrap">
+    {isDefaultPassword ? (
+      <div class="login-warning" role="alert">
+        ⚠ {passwordWarning}
+      </div>
+    ) : null}
     <form id="login-form" class="login-card" autocomplete="off">
       <div class="login-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#60a5fa">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
-        <h1>Admin</h1>
+        <h1>{loginTitle}</h1>
         <p class="muted">Acceso al panel de configuración</p>
       </div>
       <div class="form-group">
-        <label for="password">Contraseña</label>
+        <label for="password">{passwordLabel}</label>
         <input id="password" name="password" type="password" required autofocus autocomplete="current-password" />
       </div>
-      <button type="submit" class="btn btn-primary" style="width:100%">Ingresar</button>
-      <p id="login-error" class="error" hidden></p>
+      <button type="submit" class="btn btn-primary" style="width:100%">{submitLabel}</button>
+      <p id="login-error" class="error" hidden>{errorLabel}</p>
     </form>
   </div>
 
-  <script>
+  <script is:inline define:vars={{ errorLabel, errorFallback: 'Error de red' }}>
     const form = document.getElementById('login-form');
     const err = document.getElementById('login-error');
     form?.addEventListener('submit', async (e) => {
@@ -41,13 +72,13 @@ if (isAuthed) {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          err.textContent = data.error || 'Error';
+          err.textContent = data.error || errorLabel;
           err.hidden = false;
           return;
         }
         window.location.href = '/admin/dashboard';
       } catch (e) {
-        err.textContent = 'Error de red';
+        err.textContent = errorFallback;
         err.hidden = false;
       }
     });
@@ -84,6 +115,20 @@ if (isAuthed) {
       border-radius: 6px;
       font-size: 0.85rem;
       margin: 0.75rem 0 0;
+    }
+    .login-warning {
+      color: #fca5a5;
+      background: rgba(220, 38, 38, 0.15);
+      border: 2px solid rgba(220, 38, 38, 0.4);
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      max-width: 360px;
+      width: 100%;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
   </style>
 </AdminLayout>

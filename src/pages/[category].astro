@@ -9,6 +9,8 @@ import RefreshButton from '~/components/RefreshButton.astro';
 import StatusBar from '~/components/StatusBar.astro';
 import { getConfig } from '~/lib/config';
 import { resolveIconUrl } from '~/lib/icons';
+import { isFeatureEnabled } from '~/lib/features';
+import { getActiveWindowsForCard } from '~/lib/maintenance';
 
 export const prerender = false;
 
@@ -25,7 +27,23 @@ if (!cat) {
 
 const cards = config.cards
   .filter((c) => c.category === cat.id && c.enabled)
-  .sort((a, b) => a.order - b.order);
+  // Sort: pinned primero, después por order ASC. Mismo patrón que en
+  // index.astro (opt-in: features.pinned).
+  .sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return a.order - b.order;
+  });
+
+// Maintenance windows: idem index.astro. Misma resolución (id → reason)
+// que pasamos a Card.astro para mostrar el badge ámbar.
+const cardMaintenance = new Map<string, string>();
+if (isFeatureEnabled(config, 'maintenanceWindows')) {
+  for (const c of cards) {
+    const ws = await getActiveWindowsForCard(c.id);
+    if (ws.length > 0) cardMaintenance.set(c.id, ws[0].reason);
+  }
+}
 
 const logoUrl = resolveIconUrl(config.branding.logo);
 const isLocked = Boolean(cat.isLocked && cat.password);
@@ -45,9 +63,9 @@ const pageTitle = `${cat.name} — ${config.branding.companyName}`;
         <h1 class="header-title">{config.branding.companyName}</h1>
       </div>
 
-      {t.showClock && <Clock />}
-      <Search />
-      {t.showRefresh && <RefreshButton />}
+      {t.showClock && <Clock config={config} request={Astro.request} />}
+      <Search config={config} request={Astro.request} />
+      {t.showRefresh && <RefreshButton config={config} request={Astro.request} />}
       <button
         data-action="toggle-mode"
         class="mode-toggle"
@@ -126,7 +144,7 @@ const pageTitle = `${cat.name} — ${config.branding.companyName}`;
           </div>
         ) : (
           <div class="grid">
-            {cards.map((c) => <Card card={c} layout={l} />)}
+            {cards.map((c) => <Card card={c} layout={l} maintenanceReason={cardMaintenance.get(c.id) || ''} />)}
           </div>
         )}
       </div>

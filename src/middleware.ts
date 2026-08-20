@@ -7,7 +7,7 @@ import { applySecurityHeaders } from '~/lib/http';
 // `card.healthCheck = true`. Es seguro hacerlo público — el endpoint sólo
 // hace HEAD a URLs que pasan la SSRF guard del handler y no expone
 // secrets (password hash, csrf, etc.).
-const PUBLIC_API_PREFIXES = ['/api/login', '/api/health', '/api/status', '/api/assets/'];
+const PUBLIC_API_PREFIXES = ['/api/login', '/api/health', '/api/status', '/api/assets/', '/api/locale', '/api/qr/', '/api/auth/check-default-password'];
 const PUBLIC_PAGE_PATHS = new Set(['/', '/404', '/500', '/manifest.webmanifest', '/sw.js']);
 // Prefijos que matchean cualquier URL que EMPIEZA con ellos.
 // `_image` se matchea como exact (es un archivo estático, no un prefijo de

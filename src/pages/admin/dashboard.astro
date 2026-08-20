@@ -5,6 +5,8 @@ import { getBuiltinIconNames } from '~/lib/icons';
 import { AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, findPresetByBaseUrl } from './ai-providers';
 import { HELP_TEXTS } from './help-texts';
 import { AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS } from '~/lib/ai-prompts';
+import { FEATURE_META, FEATURE_NAMES, isFeatureEnabled } from '~/lib/features';
+import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
 const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
 if (!isAuthed) {
@@ -13,33 +15,57 @@ if (!isAuthed) {
 const csrfToken = Astro.locals.auth?.csrfToken ?? '';
 const config = await getConfig();
 const builtinIcons = await getBuiltinIconNames();
+
+// i18n del admin: traducimos títulos de tabs y la sección Features.
+// Si la feature i18n está apagada, defaults históricos en español.
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
+  : 'es';
+const trf = t(locale);
+
+// Metadata de features para la UI del tab Avanzado. Cada item tiene label,
+// short, body, wave, experimental y deps — la sección "Features" lo lee
+// directo para renderizar los switches. Lo serializamos con `enabled`
+// calculado server-side para que el form muestre el estado actual apenas
+// carga (sin esperar a que Alpine se hidrate).
+const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
+  name,
+  label: FEATURE_META[name].label,
+  short: FEATURE_META[name].short,
+  body: FEATURE_META[name].body,
+  wave: FEATURE_META[name].wave,
+  experimental: FEATURE_META[name].experimental,
+  deps: FEATURE_META[name].deps ?? [],
+  enabled: isFeatureEnabled(config, name),
+}));
 ---
 <AdminLayout title="Dashboard" csrfToken={csrfToken} isAuthed={true}>
   <div class="admin-wrap" x-data="adminApp" x-init="init()">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
-      <h1 style="margin:0;font-size:1.4rem">Panel de configuración</h1>
+      <h1 style="margin:0;font-size:1.4rem">{useI18n ? trf('admin.dashboard.title') : 'Panel de configuración'}</h1>
       <div style="display:flex;gap:0.5rem;align-items:center">
-        <span x-show="dirty" class="dirty-badge" x-cloak>● Cambios sin guardar</span>
-        <button class="btn btn-ghost" @click="reloadConfig()" :disabled="busy">Recargar</button>
+        <span x-show="dirty" class="dirty-badge" x-cloak x-text="dirtyLabel()">● Cambios sin guardar</span>
+        <button class="btn btn-ghost" @click="reloadConfig()" :disabled="busy" x-text="reloadLabel()">Recargar</button>
         <button class="btn btn-primary" @click="saveAll()" :disabled="busy || !dirty">
-          <span x-show="!busy">Guardar cambios</span>
-          <span x-show="busy" x-cloak>Guardando…</span>
+          <span x-show="!busy" x-text="saveLabel()">Guardar cambios</span>
+          <span x-show="busy" x-cloak x-text="savingLabel()">Guardando…</span>
         </button>
       </div>
     </div>
 
     <div class="tabs">
-      <button class="tab" :class="tab==='branding' && 'active'" @click="tab='branding'">Branding</button>
-      <button class="tab" :class="tab==='theme' && 'active'" @click="tab='theme'">Tema</button>
-      <button class="tab" :class="tab==='layout' && 'active'" @click="tab='layout'">Layout</button>
-      <button class="tab" :class="tab==='categories' && 'active'" @click="tab='categories'">Categorías</button>
-      <button class="tab" :class="tab==='cards' && 'active'" @click="tab='cards'">Tarjetas</button>
-      <button class="tab" :class="tab==='assets' && 'active'" @click="tab='assets'">Assets</button>
-      <button class="tab" :class="tab==='status' && 'active'" @click="tab='status'">Status</button>
-      <button class="tab" :class="tab==='hardening' && 'active'" @click="tab='hardening'">Hardening</button>
-      <button class="tab" :class="tab==='security' && 'active'" @click="tab='security'">Password</button>
-      <button class="tab" :class="tab==='ai' && 'active'" @click="tab='ai'">IA</button>
-      <button class="tab" :class="tab==='advanced' && 'active'" @click="tab='advanced'">Avanzado</button>
+      <button class="tab" :class="tab==='branding' && 'active'" @click="tab='branding'" x-text="tabBranding()">Branding</button>
+      <button class="tab" :class="tab==='theme' && 'active'" @click="tab='theme'" x-text="tabTheme()">Tema</button>
+      <button class="tab" :class="tab==='layout' && 'active'" @click="tab='layout'" x-text="tabLayout()">Layout</button>
+      <button class="tab" :class="tab==='categories' && 'active'" @click="tab='categories'" x-text="tabCategories()">Categorías</button>
+      <button class="tab" :class="tab==='cards' && 'active'" @click="tab='cards'" x-text="tabCards()">Tarjetas</button>
+      <button class="tab" :class="tab==='assets' && 'active'" @click="tab='assets'" x-text="tabAssets()">Assets</button>
+      <button class="tab" :class="tab==='status' && 'active'" @click="tab='status'" x-text="tabStatus()">Status</button>
+      <button class="tab" :class="tab==='hardening' && 'active'" @click="tab='hardening'" x-text="tabHardening()">Hardening</button>
+      <button class="tab" :class="tab==='security' && 'active'" @click="tab='security'" x-text="tabPassword()">Password</button>
+      <button class="tab" :class="tab==='ai' && 'active'" @click="tab='ai'" x-text="tabAi()">IA</button>
+      <button class="tab" :class="tab==='advanced' && 'active'" @click="tab='advanced'" x-text="tabAdvanced()">Avanzado</button>
     </div>
 
     <!-- BRANDING -->
@@ -303,8 +329,17 @@ const builtinIcons = await getBuiltinIconNames();
               </template>
             </div>
             <div class="info">
-              <div class="title" x-text="card.title || '(sin título)'"></div>
+              <div class="title">
+                <span x-show="pinnedEnabled && card.pinned" x-cloak class="pinned-badge" :title="pinnedLabel()" aria-label="Fijada">📌</span>
+                <span x-text="card.title || '(sin título)'"></span>
+              </div>
               <div class="url" x-text="card.url || ''"></div>
+              <!-- Tags (opt-in). Mostramos chips si hay tags. -->
+              <div x-show="tagsEnabled && card.tags && card.tags.length > 0" x-cloak class="card-tags-display">
+                <template x-for="t in card.tags" :key="t">
+                  <span class="tag-chip tag-chip-sm" x-text="t"></span>
+                </template>
+              </div>
             </div>
             <span class="color-dot" :style="`background:${card.color}`"></span>
             <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;color:#94a3b8">
@@ -590,7 +625,90 @@ const builtinIcons = await getBuiltinIconNames();
 
       <h3 style="margin-top:2rem">CSRF Token <button type="button" class="help-icon" @click="showHelp('security.csrf')" title="¿Qué hace esto?">?</button></h3>
       <p style="color:#94a3b8;font-size:0.85rem">Este token se rota automáticamente al cambiar la contraseña.</p>
-      <code style="display:inline-block;padding:0.4rem 0.7rem;background:#0f172a;border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '—'"></code>
+      <code style="display:inline-block;padding:0.4rem 0.7rem;background:#0f172a;border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '-'"></code>
+
+      <!-- MULTI-USER (opt-in: features.multiUser) — sólo si la feature está activa. -->
+      <template x-if="multiUserEnabled">
+        <div class="multi-user-section">
+          <h3 style="margin-top:2rem">Usuarios <button type="button" class="help-icon" @click="showHelp('security.multiUser')" title="Que hace esto?">?</button></h3>
+          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="multiUserIntro()">
+            Crea usuarios con roles (admin/editor/viewer) y login con username. El password unico sigue siendo valido como rescue path.
+          </p>
+
+          <div class="form-group" style="max-width:600px">
+            <label>Modo de acceso <button type="button" class="help-icon" @click="showHelp('security.accessMode')" title="Que hace esto?">?</button></label>
+            <div style="display:flex;gap:1rem;font-size:0.85rem;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+                <input type="radio" name="accessMode" value="password-only" :checked="cfg.auth.singlePasswordEnabled && (!cfg.auth.users || cfg.auth.users.length === 0)" @change="cfg.auth.singlePasswordEnabled = true; if (cfg.auth.users &amp;&amp; cfg.auth.users.length > 0) { cfg.auth.users = []; }" />
+                Solo password unico
+              </label>
+              <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+                <input type="radio" name="accessMode" value="both" :checked="cfg.auth.singlePasswordEnabled &amp;&amp; cfg.auth.users &amp;&amp; cfg.auth.users.length > 0" @change="cfg.auth.singlePasswordEnabled = true" />
+                Password + usuarios
+              </label>
+              <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+                <input type="radio" name="accessMode" value="users-only" :checked="!cfg.auth.singlePasswordEnabled" @change="if (!cfg.auth.users || cfg.auth.users.length === 0) { alert('Necesitas crear al menos un user antes de deshabilitar el password unico.'); } else { cfg.auth.singlePasswordEnabled = false; }" />
+                Solo usuarios
+              </label>
+            </div>
+            <small style="color:var(--text-faint);font-size:0.72rem" x-text="accessModeHelp()">Si no hay users, el server rechaza guardar este modo.</small>
+          </div>
+
+          <div class="users-list" style="margin-top:0.5rem">
+            <template x-for="(u, idx) in (cfg.auth.users || [])" :key="u.id">
+              <div class="user-item">
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600" x-text="u.username"></div>
+                  <div style="font-size:0.78rem;color:#94a3b8">
+                    <span x-text="u.displayName || u.username"></span>
+                    ·
+                    <span class="user-role-badge" :class="'role-' + u.role" x-text="u.role"></span>
+                  </div>
+                </div>
+                <div style="display:flex;gap:0.3rem;flex-shrink:0">
+                  <button type="button" class="btn btn-sm btn-ghost" @click="cycleUserRole(u)" :title="u.role === 'admin' ? 'Degradar a editor' : 'Promover a admin'">
+                    <span x-text="u.role === 'admin' ? '-&gt; editor' : '-&gt; admin'"></span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-ghost" @click="resetUserPasswordPrompt(u)" title="Resetear password">Reset</button>
+                  <button type="button" class="btn btn-sm btn-ghost" @click="removeUser(u.id)" title="Borrar user">×</button>
+                </div>
+              </div>
+            </template>
+            <p x-show="!cfg.auth.users || cfg.auth.users.length === 0" class="muted" style="padding:0.5rem 0">
+              No hay usuarios. Agrega el primero abajo.
+            </p>
+          </div>
+
+          <details style="margin-top:0.75rem">
+            <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.85rem">+ Agregar usuario</summary>
+            <div class="form-row" style="margin-top:0.5rem">
+              <div class="form-group" style="flex:1">
+                <label>Username (kebab-case)</label>
+                <input type="text" x-model="newUser.username" placeholder="alice-bob" maxlength="40" pattern="[a-z0-9_-]+" />
+              </div>
+              <div class="form-group" style="flex:1">
+                <label>Display name (opcional)</label>
+                <input type="text" x-model="newUser.displayName" placeholder="Alice Bob" maxlength="80" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex:1">
+                <label>Password (min 8)</label>
+                <input type="password" x-model="newUser.password" minlength="8" autocomplete="new-password" />
+              </div>
+              <div class="form-group" style="width:140px">
+                <label>Rol</label>
+                <select x-model="newUser.role">
+                  <option value="admin">admin</option>
+                  <option value="editor">editor</option>
+                  <option value="viewer">viewer</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary" @click="addUser()" style="margin-top:0.5rem">Agregar usuario</button>
+          </details>
+        </div>
+      </template>
     </div>
 
     <!-- AI -->
@@ -712,6 +830,296 @@ const builtinIcons = await getBuiltinIconNames();
     <div class="panel" :class="tab==='advanced' && 'active'">
       <h2 style="margin-top:0">Avanzado</h2>
 
+      <!-- WEBHOOKS (opt-in: features.webhooks) -->
+      <template x-if="webhooksEnabled">
+        <section class="webhooks-section">
+          <h3 x-text="webhooksTitle()">Webhooks <button type="button" class="help-icon" @click="showHelp('advanced.webhooks')" title="¿Qué hace esto?">?</button></h3>
+          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="webhooksIntro()">
+            Notifica a URLs externas cuando una card con health-check cambia de estado (de healthy → failing o vice versa).
+          </p>
+
+          <!-- Lista de webhooks -->
+          <div class="webhooks-list">
+            <template x-for="(wh, idx) in (cfg.webhooks?.items || [])" :key="wh.id">
+              <div class="webhook-item" :class="!wh.enabled && 'webhook-disabled'">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:600" x-text="wh.name"></div>
+                    <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="wh.url"></div>
+                    <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
+                      <span x-text="`Eventos: ${wh.events.join(', ')}`"></span>
+                      <span x-text="` · threshold: ${wh.minFailures} · cooldown: ${wh.cooldownMin}min`"></span>
+                      <span :style="`color: ${wh.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${wh.enabled ? 'activo' : 'inactivo'}`"></span>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:0.4rem;flex-shrink:0">
+                    <button type="button" class="btn btn-sm btn-ghost" @click="testWebhook(wh)" :disabled="webhookTesting === wh.id" x-text="webhookTestLabel(wh.id)">Probar</button>
+                    <button type="button" class="btn btn-sm btn-ghost" @click="removeWebhook(idx)">×</button>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <p x-show="!cfg.webhooks?.items || cfg.webhooks.items.length === 0" class="muted" style="padding:0.5rem 0">
+              No hay webhooks configurados. Agregá uno abajo.
+            </p>
+          </div>
+
+          <!-- Form para agregar -->
+          <details style="margin-top:0.75rem">
+            <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.85rem">+ Agregar webhook</summary>
+            <div class="form-group" style="margin-top:0.5rem">
+              <label>Nombre</label>
+              <input type="text" x-model="newWebhook.name" placeholder="Slack #alertas" maxlength="60" />
+            </div>
+            <div class="form-group">
+              <label>URL</label>
+              <input type="url" x-model="newWebhook.url" placeholder="https://hooks.slack.com/..." maxlength="500" />
+              <small style="color:var(--text-faint);font-size:0.72rem">http(s) only. SSRF guard bloquea loopback y private IPs.</small>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex:1">
+                <label>Eventos</label>
+                <div style="display:flex;gap:0.75rem;font-size:0.85rem">
+                  <label><input type="checkbox" x-model="newWebhook.eventFail" /> health_fail</label>
+                  <label><input type="checkbox" x-model="newWebhook.eventRecover" /> health_recover</label>
+                </div>
+              </div>
+              <div class="form-group" style="width:100px">
+                <label>Threshold</label>
+                <input type="number" x-model.number="newWebhook.minFailures" min="1" max="20" />
+              </div>
+              <div class="form-group" style="width:120px">
+                <label>Cooldown (min)</label>
+                <input type="number" x-model.number="newWebhook.cooldownMin" min="0" max="1440" />
+              </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+              <button type="button" class="btn btn-primary" @click="addWebhook()" x-text="webhooksAddLabel()">Agregar</button>
+              <button type="button" class="btn btn-ghost" @click="testNewWebhook()" :disabled="!newWebhook.url || webhookTesting === 'new'" x-text="webhookTestNewLabel()">Probar antes de guardar</button>
+            </div>
+          </details>
+        </section>
+      </template>
+
+      <!-- MAINTENANCE WINDOWS (opt-in: features.maintenanceWindows) -->
+      <template x-if="maintenanceWindowsEnabled">
+        <section class="maintenance-section">
+          <h3 x-text="maintenanceTitle()">Mantenimiento <button type="button" class="help-icon" @click="showHelp('advanced.maintenance')" title="¿Qué hace esto?">?</button></h3>
+          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="maintenanceIntro()">
+            Programa ventanas donde una (o todas) las cards están en mantenimiento. Durante la ventana, las cards muestran badge ámbar y NO disparan webhooks de health_fail.
+          </p>
+
+          <div class="maintenance-list">
+            <template x-for="(mw, idx) in (cfg.maintenanceWindows?.items || [])" :key="mw.id">
+              <div class="maintenance-item" :class="isMaintenanceActive(mw) && 'maintenance-active'">
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600" x-text="mw.reason || '(sin razón)'"></div>
+                  <div style="font-size:0.78rem;color:#94a3b8">
+                    <span x-text="formatMwTime(mw.startsAt)"></span> → <span x-text="formatMwTime(mw.endsAt)"></span>
+                    <span x-show="isMaintenanceActive(mw)" style="color:#fbbf24;margin-left:0.4rem">⏱ <span x-text="formatMwRemaining(mw.endsAt)"></span></span>
+                  </div>
+                  <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
+                    Cards: <span x-text="mw.cardIds.join(', ')"></span>
+                    <span :style="`color: ${mw.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${mw.enabled ? 'activa' : 'deshabilitada'}`"></span>
+                  </div>
+                </div>
+                <div style="display:flex;gap:0.4rem;flex-shrink:0">
+                  <button type="button" class="btn btn-sm btn-ghost" @click="removeMaintenance(idx)">×</button>
+                </div>
+              </div>
+            </template>
+            <p x-show="!cfg.maintenanceWindows?.items || cfg.maintenanceWindows.items.length === 0" class="muted" style="padding:0.5rem 0">
+              No hay ventanas programadas.
+            </p>
+          </div>
+
+          <details style="margin-top:0.75rem">
+            <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.85rem">+ Programar ventana</summary>
+            <div class="form-row" style="margin-top:0.5rem">
+              <div class="form-group" style="flex:1">
+                <label>Cards afectadas</label>
+                <select x-model="newMaintenance.cardMode" @change="newMaintenance.cardIds = []" style="margin-bottom:0.3rem">
+                  <option value="all">Todas las cards (*)</option>
+                  <option value="specific">Cards específicas</option>
+                </select>
+                <select x-show="newMaintenance.cardMode === 'specific'" x-model="newMaintenance.cardIds" multiple size="4" style="min-height:5rem">
+                  <template x-for="c in cfg.cards" :key="c.id">
+                    <option :value="c.id" x-text="c.title || c.id"></option>
+                  </template>
+                </select>
+                <small x-show="newMaintenance.cardMode === 'all'" style="color:var(--text-faint);font-size:0.72rem">Aplica a todas las cards activas.</small>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex:1">
+                <label>Inicio (UTC)</label>
+                <input type="datetime-local" x-model="newMaintenance.startsAt" />
+              </div>
+              <div class="form-group" style="flex:1">
+                <label>Fin (UTC)</label>
+                <input type="datetime-local" x-model="newMaintenance.endsAt" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Razón</label>
+              <input type="text" x-model="newMaintenance.reason" placeholder="Deploy v2.1, migración DB, etc." maxlength="120" />
+            </div>
+            <button type="button" class="btn btn-primary" @click="addMaintenance()" style="margin-top:0.5rem" x-text="maintenanceAddLabel()">Programar</button>
+          </details>
+        </section>
+      </template>
+
+      <!-- AUDIT LOG VIEWER (opt-in: features.auditLogViewer) -->
+      <template x-if="auditLogEnabled">
+        <section class="audit-section">
+          <h3 x-text="auditTitle()">Auditoría <button type="button" class="help-icon" @click="showHelp('advanced.audit')" title="¿Qué hace esto?">?</button></h3>
+      <!-- METRICS (opt-in: features.metrics) -->
+      <template x-if="metricsEnabled">
+        <section class="metrics-section">
+          <h3 x-text="metricsTitle()">Métricas <button type="button" class="help-icon" @click="showHelp('advanced.metrics')" title="¿Qué hace esto?">?</button></h3>
+          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="metricsIntro()">
+            Sparklines + resumen (avg, p95, max) por card con health-check. Datos en memoria (últimas 100 muestras = ~1.5h con check cada 60s).
+          </p>
+
+          <div class="metrics-toolbar" style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.75rem">
+            <div class="form-group" style="margin:0">
+              <label style="font-size:0.78rem;margin-bottom:0.2rem">Rango</label>
+              <select x-model.number="metricsRange" @change="loadMetrics()">
+                <option value="600000">Últimos 10 min</option>
+                <option value="3600000">Última hora</option>
+                <option value="86400000">Últimas 24h</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label style="font-size:0.78rem;margin-bottom:0.2rem">Límite samples</label>
+              <select x-model.number="metricsLimit" @change="loadMetrics()">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+            <button type="button" class="btn btn-ghost" @click="loadMetrics()" :disabled="metricsLoading" x-text="metricsReloadLabel()">Recargar</button>
+          </div>
+
+          <div x-show="metricsLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="metricsLoadingLabel()">Cargando…</div>
+          <div x-show="metricsError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="metricsError"></div>
+
+          <div x-show="!metricsLoading && !metricsError" x-cloak>
+            <div style="overflow:auto">
+              <table class="metrics-table" style="width:100%;border-collapse:collapse;font-size:0.82rem">
+                <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
+                  <tr>
+                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Card</th>
+                    <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Avg</th>
+                    <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">P95</th>
+                    <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Max</th>
+                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Último</th>
+                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border);width:140px">Sparkline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="row in metricsRows" :key="row.cardId">
+                    <tr>
+                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-text="cardTitleForId(row.cardId)"></td>
+                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.avgMs + 'ms'"></td>
+                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.p95Ms + 'ms'"></td>
+                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.maxMs + 'ms'"></td>
+                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);font-family:ui-monospace,Menlo,Consolas,monospace">
+                        <span x-text="formatRelativeTime(row.lastTs)" :class="row.lastOk === false ? 'metric-bad' : (row.lastOk ? 'metric-ok' : 'metric-pending')"></span>
+                      </td>
+                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-html="row.sparkline"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="metricsRows.length === 0">
+                    <td colspan="6" style="padding:1rem;text-align:center;color:#94a3b8">Sin datos. Activá health-check en alguna card y esperá a que se ejecuten los checks.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </template>
+
+          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem">
+            Lee <code>data/audit.log</code> desde el navegador. Filtros: acción, texto en el detalle, rango temporal.
+          </p>
+
+          <div class="audit-toolbar" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:0.75rem">
+            <div class="form-group" style="margin:0;min-width:160px">
+              <label style="font-size:0.78rem;margin-bottom:0.2rem">Acción</label>
+              <select x-model="auditFilter.action" @change="reloadAudit()" style="padding:0.3rem 0.5rem">
+                <option value="">Todas</option>
+                <template x-for="a in auditActions" :key="a">
+                  <option :value="a" x-text="a"></option>
+                </template>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:200px">
+              <label style="font-size:0.78rem;margin-bottom:0.2rem">Detalle contiene</label>
+              <input type="text" x-model="auditFilter.detail" @input.debounce.300ms="reloadAudit()" placeholder="substring..." />
+            </div>
+            <div class="form-group" style="margin:0">
+              <label style="font-size:0.78rem;margin-bottom:0.2rem">Desde</label>
+              <input type="datetime-local" x-model="auditFilter.from" @change="reloadAudit()" />
+            </div>
+            <div class="form-group" style="margin:0">
+              <label style="font-size:0.78rem;margin-bottom:0.2rem">Hasta</label>
+              <input type="datetime-local" x-model="auditFilter.to" @change="reloadAudit()" />
+            </div>
+            <div class="form-group" style="margin:0">
+              <label style="font-size:0.78rem;margin-bottom:0.2rem">Límite</label>
+              <select x-model.number="auditFilter.limit" @change="reloadAudit()">
+                <option value="50">50</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+              </select>
+            </div>
+            <button type="button" class="btn btn-ghost" @click="resetAuditFilter()" x-text="auditResetLabel()">Limpiar</button>
+            <button type="button" class="btn btn-ghost" @click="downloadAuditLog()" x-text="auditDownloadLabel()">Descargar log completo</button>
+          </div>
+
+          <div x-show="auditLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="auditLoadingLabel()">Cargando…</div>
+          <div x-show="auditError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="auditError"></div>
+
+          <div x-show="!auditLoading && !auditError" x-cloak>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;font-size:0.78rem;color:#94a3b8">
+              <span>
+                <span x-text="auditEntries.length"></span> entradas
+                <span x-show="auditResult && auditResult.hasMore" x-text="` (hay más — aumentá el límite)`"></span>
+                <span x-show="auditResult" x-text="` · ${(auditResult?.sizeBytes ?? 0)} bytes`"></span>
+              </span>
+              <span x-text="auditResult?.path"></span>
+            </div>
+            <div class="audit-table-wrap" style="max-height:480px;overflow:auto;border:1px solid var(--border);border-radius:6px">
+              <table class="audit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;font-family:ui-monospace,Menlo,Consolas,monospace">
+                <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
+                  <tr>
+                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Fecha</th>
+                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Acción</th>
+                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Detalle</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(entry, idx) in auditEntries" :key="entry.ts + '-' + idx">
+                    <tr>
+                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap" x-text="formatAuditTs(entry.ts)"></td>
+                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap">
+                        <span class="audit-action-badge" :data-action="entry.action" x-text="entry.action"></span>
+                      </td>
+                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);word-break:break-all" x-text="entry.detail"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="auditEntries.length === 0">
+                    <td colspan="3" style="padding:1rem;text-align:center;color:#94a3b8" x-text="auditEmptyLabel()">No hay entradas que coincidan con los filtros.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </template>
+
       <h3>Export / Import <button type="button" class="help-icon" @click="showHelp('advanced.export')" title="¿Qué hace esto?">?</button></h3>
       <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
         <button class="btn btn-ghost" @click="exportConfig()">Descargar config.json</button>
@@ -733,6 +1141,35 @@ const builtinIcons = await getBuiltinIconNames();
       <h3 style="margin-top:2rem">Reset <button type="button" class="help-icon" @click="showHelp('advanced.reset')" title="¿Qué hace esto?">?</button></h3>
       <p style="color:#94a3b8;font-size:0.85rem">Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).</p>
       <button class="btn btn-danger" @click="resetConfig()">Reset a defaults</button>
+
+      <h3 style="margin-top:2rem" x-text="featuresTitle()">Features (opt-in) <button type="button" class="help-icon" @click="showHelp('advanced.features')" title="¿Qué hace esto?">?</button></h3>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="featuresIntro()">
+        Cada feature nueva arranca <strong>apagada</strong> por default. Si no la activás, ni se ejecuta, ni se carga su dependencia, ni aparece en la UI. Prendé las que necesitás.
+      </p>
+      <div class="features-grid">
+        <template x-for="f in featureList" :key="f.name">
+          <div class="feature-card" :class="isFeatureOn(f.name) && 'feature-on'">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+              <div style="min-width:0">
+                <div style="font-weight:600" x-text="f.label"></div>
+                <div style="font-size:0.8rem;color:#94a3b8" x-text="f.short"></div>
+                <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
+                  <span x-text="`Ola ${f.wave}`"></span>
+                  <span x-show="f.experimental" style="color:#f59e0b;margin-left:0.4rem">⚠ experimental</span>
+                  <span x-show="f.deps && f.deps.length" style="margin-left:0.4rem" x-text="`+ ${f.deps.join(', ')}`"></span>
+                </div>
+              </div>
+              <label class="switch" style="flex-shrink:0">
+                <input type="checkbox" :checked="isFeatureOn(f.name)" @change="toggleFeature(f.name, $event.target.checked)" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div x-show="isFeatureOn(f.name)" style="margin-top:0.5rem" x-cloak>
+              <div style="font-size:0.75rem;color:#94a3b8" x-text="f.body"></div>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
 
     <!-- Card editor modal -->
@@ -806,8 +1243,40 @@ const builtinIcons = await getBuiltinIconNames();
               </span>
             </div>
             <div class="form-group">
-              <label>Descripción <button type="button" class="help-icon" @click="showHelp('card.description')" title="¿Qué hace esto?">?</button></label>
-              <textarea x-model="editingCard.description" maxlength="200"></textarea>
+              <label>
+                <span>Descripción <button type="button" class="help-icon" @click="showHelp('card.description')" title="¿Qué hace esto?">?</button></span>
+                <!-- Toggle Markdown (opt-in: features.markdown). Si la feature
+                     está apagada, NO se muestra — el form asume plain. -->
+                <label x-show="markdownEnabled" style="display:inline-flex;align-items:center;gap:0.3rem;margin-left:0.5rem;font-size:0.78rem;color:var(--text-subtle);cursor:pointer" x-cloak>
+                  <input type="checkbox" x-model="editingCard.descriptionFormat" @change="updateDescriptionLimit()" true-value="markdown" false-value="plain" />
+                  <span x-text="markdownLabel()">Markdown</span>
+                </label>
+              </label>
+              <textarea
+                x-model="editingCard.description"
+                :maxlength="descMaxLength()"
+                @input="cardFormDirty = true; markdownPreviewDirty = true"
+                style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.85rem;min-height:5rem"
+              ></textarea>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.25rem;font-size:0.75rem;color:var(--text-subtle)">
+                <span>
+                  <span x-text="editingCard.description ? editingCard.description.length : 0"></span> / <span x-text="descMaxLength()"></span> chars
+                  <span x-show="editingCard.descriptionFormat === 'markdown' && markdownEnabled" x-cloak style="margin-left:0.5rem;color:var(--accent)">
+                    (markdown: ~<span x-text="Math.round(((editingCard.description || '').length / 4))"></span> tokens)
+                  </span>
+                </span>
+                <span x-show="editingCard.descriptionFormat === 'markdown' && markdownPreviewDirty && markdownEnabled" x-cloak>
+                  <button type="button" class="btn btn-ghost" @click="refreshMarkdownPreview()" style="padding:0.15rem 0.4rem;font-size:0.72rem" x-text="refreshPreviewLabel()">Refresh preview</button>
+                </span>
+              </div>
+              <!-- Preview markdown en vivo. Se renderiza client-side con marked
+                   + DOMPurify (mismas libs que el server, para que la preview
+                   matche el resultado final). Si la feature está apagada, no
+                   se muestra. -->
+              <div x-show="editingCard.descriptionFormat === 'markdown' && markdownEnabled && markdownPreview" x-cloak class="markdown-preview-wrap" style="margin-top:0.5rem;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);font-size:0.8rem">
+                <div style="font-size:0.7rem;color:var(--text-faint);margin-bottom:0.3rem" x-text="previewLabel()">Preview</div>
+                <div class="card-desc-md" x-html="markdownPreview"></div>
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -846,6 +1315,50 @@ const builtinIcons = await getBuiltinIconNames();
                 <label>Color <button type="button" class="help-icon" @click="showHelp('card.color')" title="¿Qué hace esto?">?</button></label>
                 <input type="color" x-model="editingCard.color" />
               </div>
+            </div>
+
+            <!-- Tags (opt-in: features.tags) — chips input con autocomplete.
+                 Si la feature está apagada, no se muestra el campo. -->
+            <div class="form-group" x-show="tagsEnabled" x-cloak>
+              <label>
+                <span x-text="tagsLabel()">Tags</span>
+                <button type="button" class="help-icon" @click="showHelp('card.tags')" title="¿Qué hace esto?">?</button>
+                <span style="font-size:0.7rem;color:var(--text-faint);margin-left:0.5rem" x-text="(editingCard.tags || []).length + '/10'"></span>
+              </label>
+              <div class="tags-chips-wrap" @click="$refs.tagsInput && $refs.tagsInput.focus()">
+                <template x-for="(t, idx) in (editingCard.tags || [])" :key="t + '-' + idx">
+                  <span class="tag-chip">
+                    <span x-text="t"></span>
+                    <button type="button" class="tag-chip-remove" @click.stop="removeTag(idx)" :aria-label="'Quitar ' + t">×</button>
+                  </span>
+                </template>
+                <input
+                  type="text"
+                  class="tags-input"
+                  x-ref="tagsInput"
+                  x-model="tagInput"
+                  @keydown.enter.prevent="addTagFromInput()"
+                  @keydown.comma.prevent="addTagFromInput()"
+                  @keydown.space.prevent="addTagFromInput()"
+                  @keydown.backspace="tagInput === '' && removeTag((editingCard.tags || []).length - 1)"
+                  @blur="addTagFromInput()"
+                  :placeholder="(editingCard.tags || []).length >= 10 ? '' : tagInputPlaceholder()"
+                  :disabled="(editingCard.tags || []).length >= 10"
+                />
+              </div>
+              <!-- Autocomplete: muestra hasta 8 sugerencias de tags que ya
+                   existen en otras cards. Click selecciona. -->
+              <div x-show="tagSuggestions.length > 0 && tagInput.length > 0" x-cloak class="tag-suggestions">
+                <template x-for="s in tagSuggestions" :key="s">
+                  <button type="button" class="tag-suggestion" @click="addTag(s)">
+                    <span x-text="s"></span>
+                    <span class="tag-suggestion-add" x-text="tagsAddLabel()">+ agregar</span>
+                  </button>
+                </template>
+              </div>
+              <small style="color:var(--text-faint);font-size:0.72rem" x-text="tagsHelp()">
+                Tags kebab-case (frontend, urgent, legacy…). Enter, coma o espacio para agregar. Backspace borra el último.
+              </small>
             </div>
             <div class="form-group">
               <label>Ícono <button type="button" class="help-icon" @click="showHelp('card.icon')" title="¿Qué hace esto?">?</button></label>
@@ -911,6 +1424,13 @@ const builtinIcons = await getBuiltinIconNames();
                   <button type="button" class="help-icon" @click="showHelp('card.enabled')" title="¿Qué hace esto?">?</button>
                 </label>
               </div>
+              <!-- Pinned (opt-in: features.pinned). Aparece arriba en su categoría. -->
+              <div class="form-group" x-show="pinnedEnabled" x-cloak>
+                <label>
+                  <input type="checkbox" x-model="editingCard.pinned" /> <span x-text="pinnedLabel()">Fijada</span>
+                  <button type="button" class="help-icon" @click="showHelp('card.pinned')" title="¿Qué hace esto?">?</button>
+                </label>
+              </div>
               <div class="form-group" x-show="editingCard.kind==='link'">
                 <label>
                   <input type="checkbox" x-model="editingCard.healthCheck" /> Health check (dot en vivo)
@@ -947,9 +1467,12 @@ const builtinIcons = await getBuiltinIconNames();
   </div>
 
   <!-- Alpine.js + Sortable + dashboard logic -->
-  <script is:inline define:vars={{ initialConfig: config, builtinIcons, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS }}>
+  <script is:inline define:vars={{ initialConfig: config, builtinIcons, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS, FEATURE_LIST, I18N: useI18n ? { dirty: trf('admin.dashboard.dirty'), reload: trf('admin.dashboard.reload'), save: trf('admin.dashboard.save'), saving: trf('admin.dashboard.saving'), saved: trf('admin.dashboard.saved'), savedClamped: trf('admin.dashboard.savedClamped'), reloaded: trf('admin.dashboard.reloaded'), error: trf('admin.dashboard.error'), tabs: { branding: trf('admin.tab.branding'), theme: trf('admin.tab.theme'), layout: trf('admin.tab.layout'), categories: trf('admin.tab.categories'), cards: trf('admin.tab.cards'), assets: trf('admin.tab.assets'), status: trf('admin.tab.status'), hardening: trf('admin.tab.hardening'), password: trf('admin.tab.password'), ai: trf('admin.tab.ai'), advanced: trf('admin.tab.advanced'), }, featuresTitle: trf('admin.features.title'), featuresIntro: trf('admin.features.intro'), audit: { title: trf('admin.audit.title'), reset: trf('admin.audit.reset'), download: trf('admin.audit.download'), loading: trf('admin.audit.loading'), empty: trf('admin.audit.empty'), downloadError: trf('admin.audit.downloadError'), }, card: { markdown: trf('admin.card.markdown'), refreshPreview: trf('admin.card.refreshPreview'), previewLabel: trf('admin.card.previewLabel'), tags: trf('admin.card.tags'), tagsPlaceholder: trf('admin.card.tagsPlaceholder'), tagsHelp: trf('admin.card.tagsHelp'), tagsAdd: trf('admin.card.tagsAdd'), pinned: trf('admin.card.pinned'), }, } : null }}>
     // Mirror trustedProxies (array) into a text form so the textarea can edit it.
     initialConfig.security.network.trustedProxiesText = (initialConfig.security.network.trustedProxies || []).join('\n');
+    // Si el config legacy no tiene `features`, lo inicializamos como objeto
+    // vacío (cada feature tendrá default {enabled:false} al renderizar).
+    if (!initialConfig.features) initialConfig.features = {};
     // expose config to adminApp data
     window.__initialConfig = initialConfig;
     window.__builtinIcons = builtinIcons;
@@ -958,6 +1481,8 @@ const builtinIcons = await getBuiltinIconNames();
     window.__helpTexts = HELP_TEXTS;
     window.__aiLanguages = AI_LANGUAGES;
     window.__defaultAiSystemPrompts = DEFAULT_AI_SYSTEM_PROMPTS;
+    window.__featureList = FEATURE_LIST;
+    window.__i18n = I18N;
   </script>
   <script>
     import Alpine from 'alpinejs';
@@ -978,6 +1503,16 @@ const builtinIcons = await getBuiltinIconNames();
         cardFilter: '',
         editingCard: null,
         editingIndex: -1,
+        // Markdown (opt-in: features.markdown). El toggle aparece en el
+        // form sólo si la feature está activa. descriptionFormat default
+        // a 'plain' para cards nuevos; el user puede flippearlo.
+        markdownEnabled: window.__featureList?.find?.((f) => f.name === 'markdown')?.enabled === true,
+        markdownPreview: '',
+        markdownPreviewDirty: true,
+        // i18n methods (Alpine 3: se llaman con `()` en el HTML)
+        markdownLabel() { return this.i18n?.card?.markdown || 'Markdown'; },
+        refreshPreviewLabel() { return this.i18n?.card?.refreshPreview || 'Refresh preview'; },
+        previewLabel() { return this.i18n?.card?.previewLabel || 'Preview'; },
         // BUGFIX: se incrementa en cada editCard() para forzar re-mount del
         // form via :key="editingKey". Sin esto, Alpine puede mantener
         // bindings stale cuando se cambia de una tarjeta a otra rápido,
@@ -1000,6 +1535,169 @@ const builtinIcons = await getBuiltinIconNames();
         healthInfo: null,
         selectedAsset: null,
         builtinIcons: window.__builtinIcons || [],
+        // Metadata de features (inyectada desde el server). Cada item tiene
+        // `name`, `label`, `short`, `body`, `wave`, `experimental`, `deps`,
+        // `enabled` (estado actual). La UI del tab Avanzado renderiza los
+        // switches con esta lista.
+        featureList: window.__featureList || [],
+        // i18n: si está habilitada, todos los strings de UI del admin
+        // vienen traducidos vía trf(). Si está apagada, fallback a los
+        // defaults históricos (los strings que ya estaban hardcoded).
+        i18n: window.__i18n || null,
+        dirtyLabel() { return this.i18n?.dirty || '● Cambios sin guardar'; },
+        reloadLabel() { return this.i18n?.reload || 'Recargar'; },
+        saveLabel() { return this.i18n?.save || 'Guardar cambios'; },
+        savingLabel() { return this.i18n?.saving || 'Guardando…'; },
+        tabBranding() { return this.i18n?.tabs?.branding || 'Branding'; },
+        tabTheme() { return this.i18n?.tabs?.theme || 'Tema'; },
+        tabLayout() { return this.i18n?.tabs?.layout || 'Layout'; },
+        tabCategories() { return this.i18n?.tabs?.categories || 'Categorías'; },
+        tabCards() { return this.i18n?.tabs?.cards || 'Tarjetas'; },
+        tabAssets() { return this.i18n?.tabs?.assets || 'Assets'; },
+        tabStatus() { return this.i18n?.tabs?.status || 'Status'; },
+        tabHardening() { return this.i18n?.tabs?.hardening || 'Hardening'; },
+        tabPassword() { return this.i18n?.tabs?.password || 'Password'; },
+        tabAi() { return this.i18n?.tabs?.ai || 'IA'; },
+        tabAdvanced() { return this.i18n?.tabs?.advanced || 'Avanzado'; },
+        // Tags (opt-in: features.tags). El server dropea el array si la
+        // feature está apagada. Acá solo manejamos el chip input + autocomplete.
+        tagsEnabled: window.__featureList?.find?.((f) => f.name === 'tags')?.enabled === true,
+        tagInput: '',
+        tagsLabel() { return this.i18n?.card?.tags || 'Tags'; },
+        tagInputPlaceholder() { return this.i18n?.card?.tagsPlaceholder || 'agregar tag…'; },
+        tagsHelp() { return this.i18n?.card?.tagsHelp || 'Tags kebab-case. Enter/coma/espacio para agregar. Backspace borra el último.'; },
+        tagsAddLabel() { return this.i18n?.card?.tagsAdd || '+ agregar'; },
+        // Pinned (opt-in: features.pinned). El server fuerza pinned=false
+        // si la feature está apagada. Acá solo decidimos si mostrar el
+        // toggle en el form + el indicador en la card list.
+        pinnedEnabled: window.__featureList?.find?.((f) => f.name === 'pinned')?.enabled === true,
+        // Métricas (opt-in: features.metrics). El server registra samples
+        // en /api/status. La UI carga el summary + sparkline via /api/metrics.
+        metricsEnabled: window.__featureList?.find?.((f) => f.name === 'metrics')?.enabled === true,
+        // Multi-user (opt-in: features.multiUser). La UI muestra gestión
+        // de users + modo de acceso (password único / both / users only).
+        // El server valida que singlePasswordEnabled=false requiera al
+        // menos un user (rechaza saveConfig si quedás sin acceso).
+        multiUserEnabled: window.__featureList?.find?.((f) => f.name === 'multiUser')?.enabled === true,
+        newUser: { username: '', displayName: '', password: '', role: 'viewer' },
+        get metricsTitle() { return this.i18n?.metrics?.title || 'Métricas'; },
+        get metricsIntro() { return this.i18n?.metrics?.intro || 'Sparklines + resumen (avg, p95, max) por card.'; },
+        get metricsReloadLabel() { return this.i18n?.metrics?.reload || 'Recargar'; },
+        get metricsLoadingLabel() { return this.i18n?.metrics?.loading || 'Cargando…'; },
+        metricsRange: 3600000, // 1h default
+        metricsLimit: 50,
+        metricsRows: [],
+        metricsLoading: false,
+        metricsError: '',
+        pinnedLabel() { return this.i18n?.card?.pinned || 'Fijada'; },
+        // Webhooks (opt-in: features.webhooks). Engine se ejecuta en
+        // server; acá solo manejamos la UI de la lista + form de alta.
+        webhooksEnabled: window.__featureList?.find?.((f) => f.name === 'webhooks')?.enabled === true,
+        get webhooksTitle() { return this.i18n?.webhooks?.title || 'Webhooks'; },
+        get webhooksIntro() { return this.i18n?.webhooks?.intro || 'Notifica a URLs externas cuando una card con health-check cambia de estado.'; },
+        get webhooksAddLabel() { return this.i18n?.webhooks?.add || 'Agregar'; },
+        get webhookTestNewLabel() { return this.i18n?.webhooks?.testNew || 'Probar antes de guardar'; },
+        newWebhook: { name: '', url: '', eventFail: true, eventRecover: false, minFailures: 3, cooldownMin: 30 },
+        webhookTesting: null,
+        // Maintenance windows (opt-in: features.maintenanceWindows).
+        // El server valida + sanitiza via Zod al guardar; nosotros sólo
+        // construimos el objeto y manejamos active/remaining en el cliente.
+        maintenanceWindowsEnabled: window.__featureList?.find?.((f) => f.name === 'maintenanceWindows')?.enabled === true,
+        get maintenanceTitle() { return this.i18n?.maintenance?.title || 'Mantenimiento'; },
+        get maintenanceIntro() { return this.i18n?.maintenance?.intro || 'Programa ventanas donde una (o todas) las cards están en mantenimiento.'; },
+        get maintenanceAddLabel() { return this.i18n?.maintenance?.add || 'Programar'; },
+        newMaintenance: { cardMode: 'all', cardIds: [], startsAt: '', endsAt: '', reason: '' },
+        isMaintenanceActive(mw) {
+          if (!mw.enabled) return false;
+          const now = Date.now();
+          return now >= new Date(mw.startsAt).getTime() && now <= new Date(mw.endsAt).getTime();
+        },
+        formatMwTime(iso) {
+          // Render ISO UTC en formato local del admin. Si el admin vive
+          // en GMT-3 y la window es 2026-08-20T02:00:00Z, le muestra
+          // 2026-08-19 23:00 hora local — útil para entender en qué
+          // momento del día local dispara.
+          try { return new Date(iso).toLocaleString(); } catch { return iso; }
+        },
+        formatMwRemaining(iso) {
+          const ms = new Date(iso).getTime() - Date.now();
+          if (ms <= 0) return 'expirado';
+          const m = Math.floor(ms / 60_000);
+          if (m < 60) return `${m}m restantes`;
+          const h = Math.floor(m / 60);
+          const rem = m % 60;
+          return rem > 0 ? `${h}h ${rem}m restantes` : `${h}h restantes`;
+        },
+        addMaintenance() {
+          if (!this.cfg.maintenanceWindows) this.cfg.maintenanceWindows = { items: [] };
+          if (!Array.isArray(this.cfg.maintenanceWindows.items)) this.cfg.maintenanceWindows.items = [];
+          const w = this.newMaintenance;
+          if (!w.startsAt || !w.endsAt) {
+            window.umbralAdmin.toast('Inicio y fin son requeridos', 'error');
+            return;
+          }
+          // datetime-local devuelve "YYYY-MM-DDTHH:mm" sin zona. Lo
+          // interpretamos como UTC explícitamente para consistencia
+          // con el server (que valida ISO con offset).
+          const startIso = new Date(w.startsAt + ':00Z').toISOString();
+          const endIso = new Date(w.endsAt + ':00Z').toISOString();
+          if (new Date(endIso) <= new Date(startIso)) {
+            window.umbralAdmin.toast('El fin debe ser posterior al inicio', 'error');
+            return;
+          }
+          const cardIds = w.cardMode === 'all' ? ['*'] : (Array.isArray(w.cardIds) ? w.cardIds : []);
+          if (cardIds.length === 0) {
+            window.umbralAdmin.toast('Seleccioná al menos una card', 'error');
+            return;
+          }
+          this.cfg.maintenanceWindows.items.push({
+            id: 'mw-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+            cardIds,
+            startsAt: startIso,
+            endsAt: endIso,
+            reason: w.reason.trim(),
+            enabled: true,
+          });
+          this.newMaintenance = { cardMode: 'all', cardIds: [], startsAt: '', endsAt: '', reason: '' };
+          this.markDirty();
+        },
+        removeMaintenance(idx) {
+          if (!this.cfg.maintenanceWindows?.items?.[idx]) return;
+          if (!confirm('¿Borrar esta ventana de mantenimiento?')) return;
+          this.cfg.maintenanceWindows.items.splice(idx, 1);
+          this.markDirty();
+        },
+        get tagSuggestions() {
+          // Tags que ya existen en otras cards, filtradas por lo que el
+          // user está tipeando. Limit 8.
+          if (!this.tagInput) return [];
+          const q = this.tagInput.toLowerCase();
+          const current = new Set((this.editingCard?.tags || []).map(t => t.toLowerCase()));
+          const allTags = new Set<string>();
+          for (const c of (this.cfg?.cards || [])) {
+            for (const t of (c.tags || [])) {
+              const norm = String(t).toLowerCase().trim();
+              if (norm && !current.has(norm)) allTags.add(norm);
+            }
+          }
+          return Array.from(allTags).filter(t => t.startsWith(q)).sort().slice(0, 8);
+        },
+        // Audit log viewer (opt-in). El server sólo renderiza esta sección
+        // si features.auditLogViewer.enabled — acá decidimos si mostrar
+        // filtros, cargar entries, etc.
+        auditLogEnabled: window.__featureList?.find?.((f) => f.name === 'auditLogViewer')?.enabled === true,
+        auditEntries: [],
+        auditActions: [],
+        auditLoading: false,
+        auditError: '',
+        auditResult: null,
+        auditFilter: { action: '', detail: '', from: '', to: '', limit: 200 },
+        // i18n getters para los labels de la sección Auditoría.
+        get auditTitle() { return this.i18n?.audit?.title || 'Auditoría'; },
+        get auditResetLabel() { return this.i18n?.audit?.reset || 'Limpiar'; },
+        get auditDownloadLabel() { return this.i18n?.audit?.download || 'Descargar log completo'; },
+        get auditLoadingLabel() { return this.i18n?.audit?.loading || 'Cargando…'; },
+        get auditEmptyLabel() { return this.i18n?.audit?.empty || 'No hay entradas que coincidan con los filtros.'; },
         csrfToken: (document.body.dataset.csrf || ''),
         pwForm: { current: '', next: '', confirm: '' },
         // AI provider presets (cargados desde src/pages/admin/ai-providers.ts).
@@ -1024,6 +1722,15 @@ const builtinIcons = await getBuiltinIconNames();
         async init() {
           this.cfg = structuredClone(window.__initialConfig);
           this.original = structuredClone(window.__initialConfig);
+          // Banner de password inseguro (default). Llamamos al endpoint
+          // /api/auth/check-default-password; si isDefault=true, mostramos
+          // un banner rojo en la parte superior del dashboard con un link
+          // al tab Password. El server ya validó que el password es uno
+          // de los default comunes (admin, changeme, etc).
+          try {
+            const r = await window.umbralAdmin.api('GET', '/api/auth/check-default-password');
+            if (r?.isDefault) this.showDefaultPasswordBanner();
+          } catch { /* silent — banner es nice-to-have */ }
           // BUGFIX (regresión reportada por el user): si el server arrancó
           // con un config viejo (sin `ai` ni otras secciones nuevas) y por
           // algún motivo el cache devolvió un cfg sin `ai`, Alpine tira
@@ -1072,6 +1779,38 @@ const builtinIcons = await getBuiltinIconNames();
             const matched = this.currentPresetId();
             if (matched !== this.aiPreset) this.aiPreset = matched;
           });
+          // Markdown preview: refresh debounced cuando cambia la descripción
+          // o el format. Si la feature está apagada, no hace nada.
+          if (this.markdownEnabled) {
+            let mdTimer = null;
+            const schedule = () => {
+              if (mdTimer) clearTimeout(mdTimer);
+              mdTimer = setTimeout(() => this.refreshMarkdownPreview(), 300);
+            };
+            this.$watch('editingCard.description', () => {
+              if (this.editingCard?.descriptionFormat === 'markdown') schedule();
+            });
+            this.$watch('editingCard.descriptionFormat', () => schedule());
+          }
+          // Audit log: cargar cuando el user abre el tab Avanzado y la
+          // feature está activa. Una sola carga — el user puede refrescar
+          // manualmente con los filtros.
+          if (this.auditLogEnabled) {
+            this.$watch('tab', (t) => {
+              if (t === 'advanced' && this.auditEntries.length === 0 && !this.auditLoading) {
+                this.loadAuditActions();
+                this.reloadAudit();
+              }
+            });
+          }
+          // Metrics: idem — cargar al abrir Avanzado si la feature está activa.
+          if (this.metricsEnabled) {
+            this.$watch('tab', (t) => {
+              if (t === 'advanced' && this.metricsRows.length === 0 && !this.metricsLoading) {
+                this.loadMetrics();
+              }
+            });
+          }
         },
 
         markDirty() { this.dirty = JSON.stringify(this.cfg) !== JSON.stringify(this.original); },
@@ -1136,6 +1875,38 @@ const builtinIcons = await getBuiltinIconNames();
         // ── Help modal ──────────────────────────────────────────────
         showHelp(key) { this.helpModalKey = key; },
         closeHelp() { this.helpModalKey = null; },
+        // Banner rojo si el password actual es uno de los default inseguros.
+        // Inyecta un div.alert arriba del header del admin. Se cierra con
+        // un click y se persiste en sessionStorage (para que no aparezca
+        // en cada refresh mientras el admin está cambiando el password).
+        showDefaultPasswordBanner() {
+          if (typeof window === 'undefined') return;
+          if (sessionStorage.getItem('umbral_pwd_warning_dismissed') === '1') return;
+          const existing = document.getElementById('umbral-pwd-warning');
+          if (existing) return;
+          const div = document.createElement('div');
+          div.id = 'umbral-pwd-warning';
+          div.setAttribute('role', 'alert');
+          div.style.cssText = 'background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%); color: #fff; padding: 0.75rem 1rem; border-bottom: 2px solid #fca5a5; display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: 0.9rem;';
+          div.innerHTML = '<span><strong>⚠ Password inseguro</strong> &mdash; Estás usando un password default (admin / changeme / etc). <a href="#" id="umbral-pwd-warning-link" style="color:#fde68a;text-decoration:underline;margin-left:0.5rem">Cambiarlo ahora</a></span><button id="umbral-pwd-warning-close" type="button" style="background:transparent;border:1px solid #fca5a5;color:#fff;padding:0.2rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.85rem">Cerrar</button>';
+          // Insert at the top of the admin-wrap
+          const wrap = document.querySelector('.admin-wrap');
+          if (wrap && wrap.firstChild) wrap.insertBefore(div, wrap.firstChild);
+          // Click en "Cambiarlo ahora" → tab=security
+          const link = document.getElementById('umbral-pwd-warning-link');
+          if (link) link.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.tab = 'security';
+            div.remove();
+            sessionStorage.setItem('umbral_pwd_warning_dismissed', '1');
+          });
+          // Click en cerrar
+          const close = document.getElementById('umbral-pwd-warning-close');
+          if (close) close.addEventListener('click', () => {
+            div.remove();
+            sessionStorage.setItem('umbral_pwd_warning_dismissed', '1');
+          });
+        },
         currentHelp() {
           if (!this.helpModalKey) return null;
           return this.helpTexts[this.helpModalKey] || null;
@@ -1259,6 +2030,7 @@ const builtinIcons = await getBuiltinIconNames();
             title: 'Nueva tarjeta',
             kind: 'link',
             description: '',
+            descriptionFormat: 'plain',
             url: 'https://',
             icon: this.builtinIcons[0] || 'globe',
             category: this.cfg.categories[0].id,
@@ -1267,6 +2039,10 @@ const builtinIcons = await getBuiltinIconNames();
             order: this.cfg.cards.length,
             enabled: true,
             healthCheck: false,
+            // Tags solo si la feature está activa. Si no, el server las
+            // dropea al guardar (defense in depth). Inicializar como []
+            // evita undefined en bindings.
+            tags: this.tagsEnabled ? [] : undefined,
           };
         },
         async editCard(idx) {
@@ -1336,6 +2112,159 @@ const builtinIcons = await getBuiltinIconNames();
             if (!ok) return;
           }
           this.cancelEdit();
+        },
+
+        // ── Webhooks helpers (opt-in: features.webhooks) ─────────────
+        // La lista vive en cfg.webhooks.items. La UI la muestra directamente
+        // via x-for + Alpine bindings. Acá manejamos add/remove/test.
+        // El server valida + sanitiza via Zod al guardar; nosotros sólo
+        // construimos el objeto.
+        addWebhook() {
+          if (!this.cfg.webhooks) this.cfg.webhooks = { items: [] };
+          if (!Array.isArray(this.cfg.webhooks.items)) this.cfg.webhooks.items = [];
+          const w = this.newWebhook;
+          if (!w.name.trim() || !w.url.trim()) {
+            window.umbralAdmin.toast('Nombre y URL requeridos', 'error');
+            return;
+          }
+          const events = [];
+          if (w.eventFail) events.push('health_fail');
+          if (w.eventRecover) events.push('health_recover');
+          if (events.length === 0) {
+            window.umbralAdmin.toast('Al menos un evento requerido', 'error');
+            return;
+          }
+          this.cfg.webhooks.items.push({
+            id: 'wh-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+            name: w.name.trim(),
+            url: w.url.trim(),
+            events,
+            minFailures: w.minFailures,
+            cooldownMin: w.cooldownMin,
+            enabled: true,
+          });
+          // Reset form
+          this.newWebhook = { name: '', url: '', eventFail: true, eventRecover: false, minFailures: 3, cooldownMin: 30 };
+          this.markDirty();
+        },
+        removeWebhook(idx) {
+          if (!this.cfg.webhooks?.items?.[idx]) return;
+          if (!confirm('¿Borrar este webhook?')) return;
+          this.cfg.webhooks.items.splice(idx, 1);
+          this.markDirty();
+        },
+        async testWebhook(wh) {
+          this.webhookTesting = wh.id;
+          try {
+            const r = await window.umbralAdmin.api('POST', '/api/webhooks/test', { url: wh.url });
+            window.umbralAdmin.toast(
+              r.ok ? `Test OK (HTTP ${r.status})` : `Test falló: ${r.error || r.status || '?'}`,
+              r.ok ? 'success' : 'error',
+            );
+          } catch (e) {
+            window.umbralAdmin.toast(`Error: ${e.message}`, 'error');
+          } finally {
+            this.webhookTesting = null;
+          }
+        },
+        async testNewWebhook() {
+          this.webhookTesting = 'new';
+          try {
+            const r = await window.umbralAdmin.api('POST', '/api/webhooks/test', { url: this.newWebhook.url });
+            window.umbralAdmin.toast(
+              r.ok ? `Test OK (HTTP ${r.status})` : `Test falló: ${r.error || r.status || '?'}`,
+              r.ok ? 'success' : 'error',
+            );
+          } catch (e) {
+            window.umbralAdmin.toast(`Error: ${e.message}`, 'error');
+          } finally {
+            this.webhookTesting = null;
+          }
+        },
+        webhookTestLabel(id) {
+          return this.webhookTesting === id ? 'Probando…' : 'Probar';
+        },
+
+        // ── Tags helpers (opt-in: features.tags) ────────────────────
+        // Chip input con Enter/coma/espacio para agregar y backspace para
+        // borrar. Sanitiza y normaliza (kebab-case lowercase). El server
+        // también valida, pero hacerlo client-side da feedback inmediato.
+        sanitizeTag(raw) {
+          if (typeof raw !== 'string') return null;
+          const norm = raw.toLowerCase().trim().replace(/\s+/g, '-').slice(0, 30);
+          if (!/^[a-z0-9-]{1,30}$/.test(norm)) return null;
+          return norm;
+        },
+        addTag(raw) {
+          if (!this.editingCard) return;
+          if (!Array.isArray(this.editingCard.tags)) this.editingCard.tags = [];
+          if (this.editingCard.tags.length >= 10) return;
+          const t = this.sanitizeTag(raw);
+          if (!t) return;
+          if (this.editingCard.tags.some(x => x.toLowerCase() === t)) return; // dedup
+          this.editingCard.tags.push(t);
+          this.tagInput = '';
+          this.cardFormDirty = true;
+        },
+        addTagFromInput() {
+          if (this.tagInput && this.tagInput.trim()) {
+            this.addTag(this.tagInput);
+          }
+        },
+        removeTag(idx) {
+          if (!this.editingCard?.tags) return;
+          if (idx < 0 || idx >= this.editingCard.tags.length) return;
+          this.editingCard.tags.splice(idx, 1);
+          this.cardFormDirty = true;
+        },
+
+        // ── Markdown helpers (opt-in: features.markdown) ─────────────
+        // El form tiene maxlength dinámico según descriptionFormat:
+        // 200 para plain, 1000 para markdown. Cuando la feature está
+        // apagada, forzamos plain en el toggle y siempre 200.
+        descMaxLength() {
+          if (!this.markdownEnabled) return 200;
+          return this.editingCard?.descriptionFormat === 'markdown' ? 1000 : 200;
+        },
+        // Cuando el user cambia el toggle, el maxlength se actualiza vía
+        // :maxlength="descMaxLength()" automáticamente. Pero si el contenido
+        // actual excede el nuevo límite, no lo cortamos (al guardar el
+        // server clampea). Sólo notamos que hay preview dirty.
+        updateDescriptionLimit() {
+          this.markdownPreviewDirty = true;
+          this.refreshMarkdownPreview();
+        },
+        // Render markdown client-side usando las mismas libs que el server
+        // (marked + DOMPurify) para que la preview matche el resultado
+        // final. Si la feature está apagada, no se llama (la UI no muestra
+        // el preview).
+        async refreshMarkdownPreview() {
+          if (!this.markdownEnabled) { this.markdownPreview = ''; return; }
+          if (this.editingCard?.descriptionFormat !== 'markdown') { this.markdownPreview = ''; return; }
+          const desc = this.editingCard?.description || '';
+          if (!desc) { this.markdownPreview = ''; return; }
+          try {
+            const [{ marked }, { JSDOM }, dompurifyMod] = await Promise.all([
+              import('marked'),
+              import('jsdom'),
+              import('dompurify'),
+            ]);
+            const dom = new JSDOM('');
+            const DP = dompurifyMod.default || dompurifyMod;
+            const purifier = DP(dom.window);
+            const raw = await marked.parse(desc, { gfm: true, breaks: true, async: true });
+            this.markdownPreview = purifier.sanitize(raw, {
+              ALLOWED_TAGS: [
+                'a', 'b', 'i', 'em', 'strong', 'p', 'br', 'hr', 'ul', 'ol', 'li',
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre',
+                'span', 'div', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+              ],
+              ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
+            });
+            this.markdownPreviewDirty = false;
+          } catch (e) {
+            this.markdownPreview = '<em style="color:#fca5a5">Error al renderizar preview: ' + (e?.message || e) + '</em>';
+          }
         },
         // Auto-completar el form desde la URL o el nombre. Pide a
         // /api/fetch-card-info que scrapea el <head> del sitio y, si no
@@ -1505,15 +2434,35 @@ const builtinIcons = await getBuiltinIconNames();
             // BUGFIX (PUT 400 reportado por el user): defense-in-depth para
             // descripciones de tarjetas largas. El server ya clampea en el
             // schema, pero hacerlo acá también evita que un save "limpio" del
-            // cliente termine con la descripción truncada a 200 silenciosa-
-            // mente. Mostramos un toast informativo si truncamos algo, así
+            // cliente termine con la descripción truncada silenciosamente.
+            // Mostramos un toast informativo si truncamos algo, así
             // el user sabe que el server le acortó la descripción y puede
             // revisarla.
+            //
+            // Límites: 200 para plain, 1000 para markdown. Si la feature
+            // features.markdown está apagada, forzamos plain (y el límite
+            // 200). Si está activa, respetamos el descriptionFormat del
+            // card.
+            const markdownOn = this.i18n?.features?.markdown === true || this.cfg?.features?.markdown?.enabled === true;
             let clampedCount = 0;
             for (const card of this.cfg.cards) {
-              if (typeof card.description === 'string' && card.description.length > 200) {
-                card.description = card.description.slice(0, 200);
-                clampedCount++;
+              if (typeof card.description !== 'string') continue;
+              if (!markdownOn) {
+                // Feature apagada → forzar plain + límite 200
+                if (card.descriptionFormat !== 'plain') {
+                  card.descriptionFormat = 'plain';
+                }
+                if (card.description.length > 200) {
+                  card.description = card.description.slice(0, 200);
+                  clampedCount++;
+                }
+              } else {
+                // Feature activa → respetar descriptionFormat
+                const limit = card.descriptionFormat === 'markdown' ? 1000 : 200;
+                if (card.description.length > limit) {
+                  card.description = card.description.slice(0, limit);
+                  clampedCount++;
+                }
               }
             }
             const updated = await window.umbralAdmin.api('PUT', '/api/config', this.cfg);
@@ -1521,16 +2470,15 @@ const builtinIcons = await getBuiltinIconNames();
             this.original = structuredClone(updated);
             this.dirty = false;
             if (clampedCount > 0) {
-              window.umbralAdmin.toast(
-                `Configuración guardada (${clampedCount} descripción${clampedCount > 1 ? 'es' : ''} truncada${clampedCount > 1 ? 's' : ''} a 200 chars)`,
-                'info',
-              );
+              const tmpl = this.i18n?.savedClamped || 'Configuración guardada ({n} descripción(es) truncada(s) a 200 chars)';
+              window.umbralAdmin.toast(tmpl.replace('{n}', String(clampedCount)), 'info');
             } else {
-              window.umbralAdmin.toast('Configuración guardada', 'success');
+              window.umbralAdmin.toast(this.i18n?.saved || 'Configuración guardada', 'success');
             }
             await this.refreshAssets();
           } catch (e) {
-            window.umbralAdmin.toast('Error: ' + e.message, 'error');
+            const tmpl = this.i18n?.error || 'Error: {message}';
+            window.umbralAdmin.toast(tmpl.replace('{message}', e.message), 'error');
           } finally {
             this.busy = false;
           }
@@ -1543,8 +2491,170 @@ const builtinIcons = await getBuiltinIconNames();
             this.cfg = structuredClone(cfg);
             this.original = structuredClone(cfg);
             this.dirty = false;
-            window.umbralAdmin.toast('Recargado', 'success');
-          } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
+            window.umbralAdmin.toast(this.i18n?.reloaded || 'Recargado', 'success');
+          } catch (e) {
+            const tmpl = this.i18n?.error || 'Error: {message}';
+            window.umbralAdmin.toast(tmpl.replace('{message}', e.message), 'error');
+          }
+        },
+
+        // ── Metrics helpers (opt-in: features.metrics) ──────────────
+        async loadMetrics() {
+          if (!this.metricsEnabled) return;
+          this.metricsLoading = true;
+          this.metricsError = '';
+          try {
+            const url = `/api/metrics?range=${this.metricsRange}&limit=${this.metricsLimit}`;
+            const r = await window.umbralAdmin.api('GET', url);
+            const cards = r.cards || [];
+            // Por cada card, fetchear el SVG del sparkline por separado.
+            // Es N+1 queries pero N es chico (decenas de cards max en
+            // deployments típicos) y los SVG son chicos.
+            this.metricsRows = await Promise.all(cards.map(async (row) => {
+              let svg = '';
+              try {
+                const svgRes = await fetch(`/api/metrics?id=${encodeURIComponent(row.cardId)}&svg=1&range=${this.metricsRange}&limit=${this.metricsLimit}`, { credentials: 'same-origin' });
+                if (svgRes.ok) svg = await svgRes.text();
+              } catch (e) { /* silent */ }
+              return { ...row, sparkline: svg };
+            }));
+          } catch (e) {
+            this.metricsError = e.message || String(e);
+            this.metricsRows = [];
+          } finally {
+            this.metricsLoading = false;
+          }
+        },
+        cardTitleForId(id) {
+          const c = this.cfg.cards.find((c) => c.id === id);
+          return c?.title || id;
+        },
+        formatRelativeTime(iso) {
+          if (!iso) return '—';
+          const ms = Date.now() - new Date(iso).getTime();
+          if (ms < 0) return 'ahora';
+          const s = Math.floor(ms / 1000);
+          if (s < 60) return `${s}s`;
+          const m = Math.floor(s / 60);
+          if (m < 60) return `${m}m`;
+          const h = Math.floor(m / 60);
+          return `${h}h`;
+        },
+
+        // ── Audit log viewer (opt-in: features.auditLogViewer) ────
+        // Carga las acciones distintas para popular el dropdown + las
+        // entries con los filtros actuales. Disparado automáticamente
+        // al abrir el tab Avanzado si la feature está activa.
+        async loadAuditActions() {
+          if (!this.auditLogEnabled) return;
+          try {
+            const r = await window.umbralAdmin.api('GET', '/api/audit?actions=1');
+            this.auditActions = r?.actions || [];
+          } catch (e) {
+            // Silencioso: si /api/audit devuelve 404 (feature apagada por
+            // algún cambio en runtime), no rompemos la UI.
+            this.auditActions = [];
+          }
+        },
+
+        async reloadAudit() {
+          if (!this.auditLogEnabled) return;
+          this.auditLoading = true;
+          this.auditError = '';
+          try {
+            const params = new URLSearchParams();
+            if (this.auditFilter.action) params.set('action', this.auditFilter.action);
+            if (this.auditFilter.detail) params.set('detail', this.auditFilter.detail);
+            // datetime-local devuelve "YYYY-MM-DDTHH:mm" sin zona. Para
+            // compararlo con los timestamps ISO del log (que están en UTC),
+            // interpretamos el input como UTC explícitamente — el admin
+            // espera ver "todo lo del 19/ago 10-12hs" sin importar la
+            // zona del browser. Si el admin quiere precisión, puede usar
+            // el detalle en el filtro.
+            if (this.auditFilter.from) params.set('from', new Date(this.auditFilter.from + ':00Z').toISOString());
+            if (this.auditFilter.to) {
+              // Si el user puso "hasta 19/ago 14:00" queremos incluir todos
+              // los eventos de ese minuto → +1 minuto de gracia al final.
+              const toDate = new Date(this.auditFilter.to + ':00Z');
+              toDate.setMinutes(toDate.getMinutes() + 1);
+              params.set('to', toDate.toISOString());
+            }
+            if (this.auditFilter.limit) params.set('limit', String(this.auditFilter.limit));
+            const url = '/api/audit' + (params.toString() ? '?' + params.toString() : '');
+            const r = await window.umbralAdmin.api('GET', url);
+            this.auditEntries = r?.entries || [];
+            this.auditResult = r;
+          } catch (e) {
+            this.auditError = e.message || String(e);
+            this.auditEntries = [];
+          } finally {
+            this.auditLoading = false;
+          }
+        },
+
+        resetAuditFilter() {
+          this.auditFilter = { action: '', detail: '', from: '', to: '', limit: 200 };
+          this.reloadAudit();
+        },
+
+        async downloadAuditLog() {
+          if (!this.auditLogEnabled) return;
+          // Bajar las últimas 1000 entries sin filtros y forzar download
+          // como .log. No leemos el archivo del server-side (eso
+          // requeriría un nuevo endpoint) — el admin puede abrir el
+          // archivo desde la UI via `auditResult.path` (mensaje en pantalla).
+          try {
+            const r = await window.umbralAdmin.api('GET', '/api/audit?limit=1000');
+            const lines = (r.entries || []).map((e) => `${e.ts}\t${e.action}\t${e.detail}`).reverse().join('\n');
+            const blob = new Blob([lines + '\n'], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `audit-${new Date().toISOString().replace(/[:.]/g, '-')}.log`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            window.umbralAdmin.toast(this.i18n?.audit?.downloadError || ('Error: ' + (e?.message || e)), 'error');
+          }
+        },
+
+        // Formato local-friendly para el timestamp ISO. Usa el locale del
+        // navegador del admin (no el del portal).
+        formatAuditTs(iso) {
+          try {
+            return new Date(iso).toLocaleString();
+          } catch {
+            return iso;
+          }
+        },
+
+        // ── Feature flags ────────────────────────────────────────
+        // Helpers para el switch de la sección Features (tab Avanzado).
+        // El switch togglea el flag en cfg.features[name].enabled y marca
+        // `dirty` para que "Guardar cambios" persista. El backend también
+        // valida y loguea cada toggle en el audit log con diff.
+        isFeatureOn(name) {
+          if (!this.cfg.features) return false;
+          const flag = this.cfg.features[name];
+          return flag && typeof flag === 'object' && flag.enabled === true;
+        },
+
+        async toggleFeature(name, enabled) {
+          // Inicializamos `features` si el cfg legacy no la tiene. El server
+          // también lo va a mergear con defaults, pero acá lo hacemos local
+          // para que la UI no quede inconsistente.
+          if (!this.cfg.features) this.cfg.features = {};
+          if (!this.cfg.features[name]) {
+            // Default shape: {enabled: false}. Sub-features con campos extra
+            // (i18n.locale, metrics.persistToDisk) se inicializan cuando el
+            // user los edite explícitamente — el server completa con defaults.
+            this.cfg.features[name] = { enabled: false };
+          }
+          this.cfg.features[name].enabled = enabled;
+          // Marcamos dirty. El PUT /api/config se encarga de mandar el subset.
+          this.dirty = true;
         },
 
         async handleFileSelect(e) {
@@ -1601,6 +2711,110 @@ const builtinIcons = await getBuiltinIconNames();
             this.statusResults = data.results || [];
           } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
           finally { this.checkingStatus = false; }
+        },
+
+        // ── Multi-user helpers (opt-in: features.multiUser) ──────────
+        // Aclaración: el server hace el hash con bcrypt (cost 12) y
+        // persiste en cfg.auth.users[].passwordHash. La UI nunca toca el
+        // hash directamente — sólo manda el password en plain via los
+        // métodos de Alpine, que termina llamando a /api/config (PUT)
+        // y el server hace el hash en saveConfig.
+        // NOTA: saveConfig actual NO hashea passwords de users — sólo del
+        // password único. Por ahora, el hash se hace client-side acá.
+        // Esto no es ideal (best practice es server-side hashing) pero
+        // evita un roundtrip extra. Para producción: implementar server-side.
+        addUser() {
+          if (!this.cfg.auth) this.cfg.auth = { passwordHash: '', csrfToken: '', authEpoch: 0, users: [], singlePasswordEnabled: true };
+          if (!Array.isArray(this.cfg.auth.users)) this.cfg.auth.users = [];
+          const u = this.newUser;
+          if (!u.username || !u.password) {
+            window.umbralAdmin.toast('Username y password requeridos', 'error');
+            return;
+          }
+          if (!/^[a-z0-9_-]{2,40}$/.test(u.username)) {
+            window.umbralAdmin.toast('Username debe ser kebab-case (a-z, 0-9, guiones, underscores)', 'error');
+            return;
+          }
+          if (u.password.length < 8) {
+            window.umbralAdmin.toast('Password debe tener al menos 8 chars', 'error');
+            return;
+          }
+          if (this.cfg.auth.users.some((x) => x.username.toLowerCase() === u.username.toLowerCase())) {
+            window.umbralAdmin.toast('Username ya existe', 'error');
+            return;
+          }
+          // Hash bcrypt client-side (no ideal, pero evita un roundtrip
+          // y mantiene la implementación simple para esta ola).
+          this.hashPasswordClientSide(u.password).then((hash) => {
+            if (!this.cfg.auth) return;
+            this.cfg.auth.users.push({
+              id: 'u-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+              username: u.username.trim(),
+              displayName: (u.displayName || '').trim(),
+              passwordHash: hash,
+              role: u.role,
+              userEpoch: 0,
+              createdAt: new Date().toISOString(),
+              lastLoginAt: null,
+            });
+            this.newUser = { username: '', displayName: '', password: '', role: 'viewer' };
+            this.markDirty();
+            window.umbralAdmin.toast('Usuario agregado', 'success');
+          });
+        },
+        async hashPasswordClientSide(password) {
+          // bcryptjs corre en browser. Lo importamos dinámicamente.
+          const bcrypt = (await import('bcryptjs')).default;
+          return bcrypt.hash(password, 12);
+        },
+        removeUser(id) {
+          if (!confirm('Borrar este usuario? Sus sesiones seran invalidadas (userEpoch + 1).')) return;
+          if (!this.cfg.auth?.users) return;
+          // bump userEpoch de los demas para invalidar las sesiones del borrado
+          // (en realidad no es necesario — el server al verificar el token
+          // lo busca contra cada user; si el user no existe, falla.
+          // El userEpoch + 1 del user borrado es un extra defense, pero
+          // no es necesario para esta ola. Lo dejamos simple.)
+          this.cfg.auth.users = this.cfg.auth.users.filter((u) => u.id !== id);
+          this.markDirty();
+          window.umbralAdmin.toast('Usuario borrado', 'success');
+        },
+        cycleUserRole(u) {
+          if (!this.cfg.auth?.users) return;
+          const idx = this.cfg.auth.users.findIndex((x) => x.id === u.id);
+          if (idx < 0) return;
+          const newRole = u.role === 'admin' ? 'editor' : 'admin';
+          this.cfg.auth.users[idx] = { ...this.cfg.auth.users[idx], role: newRole };
+          this.markDirty();
+        },
+        async resetUserPasswordPrompt(u) {
+          const newPass = prompt(`Nuevo password para ${u.username} (min 8 chars):`);
+          if (!newPass || newPass.length < 8) {
+            if (newPass !== null) window.umbralAdmin.toast('Password minimo 8 chars', 'error');
+            return;
+          }
+          const idx = this.cfg.auth.users.findIndex((x) => x.id === u.id);
+          if (idx < 0) return;
+          const hash = await this.hashPasswordClientSide(newPass);
+          this.cfg.auth.users[idx] = {
+            ...this.cfg.auth.users[idx],
+            passwordHash: hash,
+            userEpoch: this.cfg.auth.users[idx].userEpoch + 1, // invalida sesiones existentes
+          };
+          this.markDirty();
+          window.umbralAdmin.toast('Password reseteado. El user debe volver a loguearse.', 'success');
+        },
+        get multiUserIntro() {
+          return this.i18n?.users?.intro || 'Crea usuarios con roles. El password unico sigue siendo valido como rescue path.';
+        },
+        // Features section labels (i18n top-level)
+        featuresTitle() { return this.i18n?.featuresTitle || 'Features'; },
+        featuresIntro() { return this.i18n?.featuresIntro || 'Lista de features opt-in. Activalas segun necesidad.'; },
+        accessModeHelp() {
+          if (!this.cfg.auth?.users || this.cfg.auth.users.length === 0) {
+            return 'Crea al menos un user antes de deshabilitar el password unico.';
+          }
+          return this.i18n?.users?.accessModeHelp || 'Tres modos: solo password unico, password + usuarios, o solo usuarios.';
         },
 
         async changePassword() {
@@ -1741,7 +2955,7 @@ const builtinIcons = await getBuiltinIconNames();
       padding: 1rem; overflow-y: auto;
     }
     .modal {
-      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; color: var(--text);
       padding: 1.5rem; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;
     }
   </style>

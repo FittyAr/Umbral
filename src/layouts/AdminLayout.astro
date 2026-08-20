@@ -2,6 +2,10 @@
 import '~/styles/global.css';
 import '~/styles/admin.css';
 import ThemeScript from '~/components/ThemeScript.astro';
+import { getConfig } from '~/lib/config';
+import { isFeatureEnabled } from '~/lib/features';
+import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
+
 interface Props {
   title: string;
   csrfToken: string | null;
@@ -9,6 +13,17 @@ interface Props {
   showNav?: boolean;
 }
 const { title, csrfToken, isAuthed, showNav = true } = Astro.props;
+
+// i18n: resolvemos el locale para este admin render. El admin también
+// se traduce — si el admin está navegando en inglés, todo el panel se
+// ve en inglés. Si la feature está apagada, queda en español.
+const config = await getConfig();
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
+  : 'es';
+const trf = t(locale);
+
 const theme = {
   colorMode: 'auto' as 'light' | 'dark' | 'auto',
   accentColor: '#60a5fa',
@@ -20,7 +35,7 @@ const theme = {
 };
 ---
 <!doctype html>
-<html lang="es">
+<html lang={locale}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -33,30 +48,31 @@ const theme = {
       <nav class="admin-nav">
         <a href="/" class="nav-home" target="_blank" rel="noopener">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          Ver portada
+          {useI18n ? trf('admin.nav.home') : 'Ver portada'}
         </a>
         <span class="nav-divider"></span>
-        <span class="nav-title">Admin</span>
+        <span class="nav-title">{useI18n ? trf('admin.nav.title') : 'Admin'}</span>
         <div class="nav-actions">
           <button
             data-action="toggle-mode"
             class="mode-toggle-admin"
-            aria-label="Cambiar modo claro/oscuro"
-            title="Cambiar modo claro/oscuro"
+            aria-label={useI18n ? trf('admin.nav.modeToggle') : 'Cambiar modo claro/oscuro'}
+            title={useI18n ? trf('admin.nav.modeToggle') : 'Cambiar modo claro/oscuro'}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
             </svg>
           </button>
-          <button data-action="logout" class="btn-ghost">Cerrar sesión</button>
+          <button data-action="logout" class="btn-ghost">{useI18n ? trf('admin.nav.logout') : 'Cerrar sesión'}</button>
         </div>
       </nav>
     )}
     <slot />
 
     {/* Apply the same light/dark toggle the public pages use, so the admin
-        follows the user's preference and stays coherent across the platform. */}
-    <ThemeScript theme={theme} />
+        follows the user's preference and stays coherent across the platform.
+        Pasamos config + request para que el toggle use el locale correcto. */}
+    <ThemeScript theme={theme} config={config} request={Astro.request} />
 
     {/* Global admin helpers (Alpine.js, fetch wrapper, toast) */}
     <script is:inline>

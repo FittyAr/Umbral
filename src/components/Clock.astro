@@ -1,31 +1,50 @@
 ---
 // Reloj en vivo. Renderiza la hora actual y la actualiza cada segundo via
-// setInterval. El formato respeta el locale del browser (es-AR por default
-// según el <html lang="es"> del layout). El usuario lo activa desde
+// setInterval. El formato respeta el locale efectivo (config.i18n o el
+// default histórico 'es'). El usuario lo activa desde
 // Admin → Tema → "Mostrar reloj".
+import type { Config } from '~/lib/schema';
+import { isFeatureEnabled } from '~/lib/features';
+import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
+
+interface Props {
+  config: Config;
+  request?: Request;
+}
+const { config, request } = Astro.props as Props & { request?: Request };
+
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(request, config, request ? readLocaleCookie(request) : undefined)
+  : 'es';
+const tr = t(locale);
+
+// El aria-label se traduce. El formato de fecha/hora del Intl.DateTimeFormat
+// usa el locale nativo del browser (es-AR, en-US, pt-BR, etc.). Mapeamos
+// el código de locale de Umbral al código BCP-47 que Intl entiende —
+// 'es' → 'es-AR' (default del proyecto), 'en' → 'en-US', 'pt' → 'pt-BR'.
+const intlLocale = useI18n
+  ? ({ es: 'es-AR', en: 'en-US', pt: 'pt-BR' }[locale] || locale)
+  : 'es-AR';
+const ariaLabel = useI18n ? tr('home.clock.aria') : 'Hora actual';
 ---
-<time class="clock" datetime="" aria-label="Hora actual">
+<time class="clock" datetime="" aria-label={ariaLabel}>
   <span class="clock-time">--:--:--</span>
   <span class="clock-date" aria-hidden="true"></span>
 </time>
 
-<script>
-  // Encapsulado: corre una vez por documento. Como Astro evalúa <script>
-  // default una vez por page load, el intervalo queda vivo hasta que se
-  // recarga la página (que es justamente cuando el clock debería reiniciar).
-  // Locale: forzamos 'es' (el del documento) para que el formato sea
-  // castellano independientemente del locale del browser. El user puede
-  // cambiarlo editando este componente si necesita otro idioma.
+<script define:vars={{ intlLocale }}>
+  // El locale efectivo llega como var del server. Encapsulado: corre una
+  // vez por page load, vive hasta el siguiente reload.
   const el = document.querySelector('.clock');
   if (el) {
     const timeEl = el.querySelector('.clock-time');
     const dateEl = el.querySelector('.clock-date');
     const isoEl = el;
-    const locale = 'es';
-    const dateFmt = new Intl.DateTimeFormat(locale, {
+    const dateFmt = new Intl.DateTimeFormat(intlLocale, {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     });
-    const timeFmt = new Intl.DateTimeFormat(locale, {
+    const timeFmt = new Intl.DateTimeFormat(intlLocale, {
       hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
     });
     const tick = () => {

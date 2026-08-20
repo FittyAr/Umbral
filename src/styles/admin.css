@@ -407,3 +407,249 @@ textarea { resize: vertical; min-height: 60px; }
   border-color: var(--border-strong);
   color: var(--text);
 }
+
+/* ── Feature flags grid (tab Avanzado → Features) ──────────────────── */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.feature-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+}
+.feature-card:hover {
+  border-color: var(--border-strong);
+}
+.feature-card.feature-on {
+  border-color: #10b981;
+  background: color-mix(in srgb, #10b981 6%, var(--surface));
+}
+
+/* Toggle switch (reusado por features y cualquier futuro opt-in). */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--border-strong);
+  transition: 0.2s;
+  border-radius: 999px;
+}
+.switch .slider::before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+.switch input:checked + .slider {
+  background-color: #10b981;
+}
+.switch input:checked + .slider::before {
+  transform: translateX(16px);
+}
+
+/* ── Audit log viewer ───────────────────────────────────────── */
+.audit-section { margin-top: 1.5rem; }
+.audit-table-wrap { background: var(--surface); }
+.audit-table tbody tr:hover { background: var(--surface-hover); }
+.audit-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+.audit-action-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: var(--surface-hover);
+  color: var(--text-subtle);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+/* Color-code por tipo de acción. Si la lista crece, esto se queda corto,
+   pero cubre los casos más comunes sin agregar lógica runtime. */
+.audit-action-badge[data-action="config_update"] { background: rgba(96, 165, 250, 0.15); color: #60a5fa; border-color: rgba(96, 165, 250, 0.3); }
+.audit-action-badge[data-action="config_reset"] { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+.audit-action-badge[data-action="login_ok"] { background: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.3); }
+.audit-action-badge[data-action^="asset_"] { background: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(168, 85, 247, 0.3); }
+.audit-action-badge[data-action^="feature_toggle"] { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+
+/* ── Tags (opt-in: features.tags) ──────────────────────────────── */
+.tags-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: text;
+  min-height: 2.25rem;
+  align-items: center;
+}
+.tags-chips-wrap:focus-within { border-color: var(--accent); }
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  font-size: 0.78rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  white-space: nowrap;
+}
+.tag-chip-sm { padding: 0.05rem 0.4rem; font-size: 0.7rem; }
+.tag-chip-remove {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.6;
+  font-size: 0.95rem;
+}
+.tag-chip-remove:hover { opacity: 1; }
+.tags-input {
+  flex: 1;
+  min-width: 8rem;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  padding: 0.1rem 0.25rem;
+}
+.tag-suggestions {
+  margin-top: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.tag-suggestion {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+.tag-suggestion:hover { background: var(--surface-hover); }
+.tag-suggestion-add {
+  color: var(--text-faint);
+  font-size: 0.7rem;
+  font-family: inherit;
+}
+.card-tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin-top: 0.25rem;
+}
+
+/* ── Pinned (opt-in: features.pinned) ───────────────────────────── */
+.pinned-badge {
+  display: inline-block;
+  font-size: 0.85rem;
+  margin-right: 0.35rem;
+  filter: hue-rotate(15deg) saturate(1.2);
+  vertical-align: middle;
+}
+.card-tags-display .pinned-badge,
+.title .pinned-badge {
+  display: inline-block;
+}
+
+/* ── Webhooks (opt-in: features.webhooks) ────────────────────────── */
+.webhooks-section { margin-top: 1.5rem; }
+.webhooks-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.webhook-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  transition: opacity 0.15s;
+}
+.webhook-disabled { opacity: 0.5; }
+.webhook-item:hover { border-color: var(--border-strong); }
+.btn-sm { padding: 0.2rem 0.55rem; font-size: 0.78rem; }
+
+/* ── Maintenance windows (opt-in: features.maintenanceWindows) ────── */
+.maintenance-section { margin-top: 1.5rem; }
+.maintenance-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.maintenance-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.maintenance-active {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+/* ── Metrics (opt-in: features.metrics) ─────────────────────────── */
+.metrics-section { margin-top: 1.5rem; }
+.metrics-toolbar { display: flex; gap: 0.5rem; align-items: flex-end; }
+.metrics-table tbody tr:hover { background: var(--surface-hover); }
+.metric-ok { color: #4ade80; }
+.metric-bad { color: #f87171; }
+.metric-pending { color: #94a3b8; }
+
+/* ── Multi-user (opt-in: features.multiUser) ─────────────────────── */
+.multi-user-section { margin-top: 1.5rem; }
+.users-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.user-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.user-role-badge {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-weight: 500;
+  background: var(--surface-hover);
+  color: var(--text-subtle);
+}
+.user-role-badge.role-admin { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.user-role-badge.role-editor { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+.user-role-badge.role-viewer { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }

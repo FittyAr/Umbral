@@ -2,11 +2,43 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { ConfigSchema, type Config, type ConfigUpdate } from './schema';
 import { hashPassword, generateToken } from './auth';
+import {
+  portalConfigPath as _portalConfigPath,
+  portalUploadsPath as _portalUploadsPath,
+  portalAuditPath as _portalAuditPath,
+  migrateLegacyToMultiPortal,
+} from './multi-portal';
+import { isFeatureEnabled } from './features';
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+
+// Multi-portal (Ola 4.1): CONFIG_PATH / UPLOADS_DIR / AUDIT_LOG_PATH
+// pueden ser por-portal. Mantenemos las constantes para compat con código
+// legacy que las usa directamente — devuelven el path del portal "default"
+// que es el comportamiento histórico (data/config.json, etc).
 export const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 export const AUDIT_LOG_PATH = path.join(DATA_DIR, 'audit.log');
+
+// portalId activo para este proceso. Default: 'default' (legacy single-
+// portal mode). Se cambia en runtime por setActivePortalId() (vía
+// middleware que matchea el request). Una sola instancia del server
+// sirve un solo portal a la vez (los portales múltiples se sirven en
+// paralelo con un reverse proxy que matchea el host y dispatcha a
+// distintas instancias). Esta es la simplificación que hicimos para
+// esta versión — un server = un portal activo. Para multi-portal
+// real con un server único, se necesita un map in-memory de caches.
+// (Ola 4.1) Portal activo para este proceso. Default: 'default' (legacy
+// single-portal). Multi-portal mode: el middleware setea el portal id
+// per-request vía setActivePortalId() antes de que el handler llame a
+// getConfig(). En una sola instancia del server, se sirve un portal
+// a la vez — para multi-portal real con dispatch en runtime, el proxy
+// externo (nginx/Caddy/Traefik) rutea por host/pathPrefix a distintas
+// instancias, o se usa una sola instancia con cache per-portal in-memory
+// (v2 de esta feature, requiere refactor del cache a Map<portalId, Cache>).
+let activePortalId = 'default';
+export function setActivePortalId(id: string) { activePortalId = id; }
+export function getActivePortalId() { return activePortalId; }
 
 /** Defaults used to seed a brand-new config.json. */
 function defaultConfig(): Config {
@@ -101,6 +133,10 @@ function defaultConfig(): Config {
       braveApiKey: '',
       tavilyApiKey: '',
     },
+    // Features flags (ver src/lib/features.ts). Default vacío → todas las
+    // features nuevas arrancan apagadas, manteniendo compat 100% con v1.x.
+    // El admin activa cada una desde /admin → Avanzado → Features.
+    features: {},
     categories: [
       { id: 'com', name: 'Comunicación', icon: 'message-circle', isLocked: false, password: '', isSubpage: false },
       { id: 'prod', name: 'Productividad', icon: 'briefcase', isLocked: false, password: '', isSubpage: false },
@@ -140,6 +176,14 @@ const CACHE_TTL_MS = 5_000; // read-through TTL to balance freshness and perf
 
 function invalidate() {
   cache = null;
+  // BUGFIX: también reseteamos `seedPromise` para que el próximo getConfig()
+  // re-lea desde disco. Sin esto, después del primer seed el `seedPromise`
+  // queda cacheado con la config del boot, y un saveConfig() + getConfig()
+  // devuelve los datos VIEJOS aunque el archivo ya tenga los nuevos. Esto
+  // es lo que rompía los toggles múltiples de features: cada PUT veía
+  // `current.features = {}` (el default del boot) en vez de los toggles
+  // previos guardados en disco.
+  seedPromise = null;
 }
 // Exportado para que otros módulos (assets.ts) puedan forzar reload fresco
 // antes de operaciones que dependen de la config vigente (evita TOCTOU entre
@@ -151,8 +195,14 @@ export const _invalidate = invalidate;
 // Filesystem helpers
 // ──────────────────────────────────────────────────────────────────────────
 async function ensureDirs() {
+  // Per-portal (Ola 4.1): usa portalUploadsPath(portalId) que respeta
+  // el portal activo. Si multiPortal está apagado, devuelve data/uploads
+  // (legacy). El DATA_DIR siempre existe (necesario para que el multi-portal
+  // root pueda crearse).
+  const portalUploads = _portalUploadsPath(activePortalId);
   await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.mkdir(UPLOADS_DIR, { recursive: true });
+  await fs.mkdir(path.dirname(portalUploads), { recursive: true });
+  await fs.mkdir(portalUploads, { recursive: true });
 }
 
 async function seedIfMissing(initialPassword?: string): Promise<Config> {
@@ -164,8 +214,9 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
   if (seedPromise) return seedPromise;
   seedPromise = (async () => {
     await ensureDirs();
+    const portalCfgPath = _portalConfigPath(activePortalId);
     try {
-      await fs.access(CONFIG_PATH);
+      await fs.access(portalCfgPath);
     } catch {
       const cfg = defaultConfig();
       const now = new Date().toISOString();
@@ -187,7 +238,7 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
         console.log('[umbral] Initial password set from INITIAL_PASSWORD env var.');
       }
 
-      await fs.writeFile(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
+      await fs.writeFile(portalCfgPath, JSON.stringify(cfg, null, 2), 'utf8');
       return cfg;
     }
     // File exists; load and validate.
@@ -204,7 +255,7 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
 }
 
 async function loadFresh(): Promise<Config> {
-  const raw = await fs.readFile(CONFIG_PATH, 'utf8');
+  const raw = await fs.readFile(_portalConfigPath(activePortalId), 'utf8');
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -229,29 +280,30 @@ async function loadFresh(): Promise<Config> {
     // path strict), pero el admin asume que existe. Lo mergeamos con
     // defaults si falta, y re-persistimos para que el siguiente load no
     // tenga que hacerlo.
+    const portalCfg = _portalConfigPath(activePortalId);
     if (!data.ai) {
       data = { ...data, ai: defaultConfig().ai };
-      const tmp = CONFIG_PATH + '.tmp';
+      const tmp = portalCfg + '.tmp';
       await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
-      await fs.rename(tmp, CONFIG_PATH);
+      await fs.rename(tmp, portalCfg);
       console.log('[umbral] config sin sección ai — agregada con defaults.');
     }
     // externalSearch es .optional() por la misma razón que ai: configs viejos
     // no la tienen. Mismo patrón de auto-migración.
     if (!data.externalSearch) {
       data = { ...data, externalSearch: defaultConfig().externalSearch };
-      const tmp = CONFIG_PATH + '.tmp';
+      const tmp = portalCfg + '.tmp';
       await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
-      await fs.rename(tmp, CONFIG_PATH);
+      await fs.rename(tmp, portalCfg);
       console.log('[umbral] config sin sección externalSearch — agregada con defaults.');
     }
     // Si fontUrl quedó apuntando al Google Fonts default de versiones anteriores,
     // limpiarlo a '' para que el render sea 100% local y no bloquee en redes aisladas.
     if (data.theme?.fontUrl?.includes('fonts.googleapis.com')) {
       data = { ...data, theme: { ...data.theme, fontUrl: '' } };
-      const tmp = CONFIG_PATH + '.tmp';
+      const tmp = portalCfg + '.tmp';
       await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
-      await fs.rename(tmp, CONFIG_PATH);
+      await fs.rename(tmp, portalCfg);
       console.log('[umbral] fontUrl de Google Fonts migrado a fuente local (offline-safe).');
     }
     return data;
@@ -317,9 +369,10 @@ async function loadFresh(): Promise<Config> {
     // Re-validate the merged result.
     const revalidated = ConfigSchema.safeParse(merged);
     if (revalidated.success) {
-      const tmp = CONFIG_PATH + '.tmp';
+      const portalCfg = _portalConfigPath(activePortalId);
+      const tmp = portalCfg + '.tmp';
       await fs.writeFile(tmp, JSON.stringify(revalidated.data, null, 2), 'utf8');
-      await fs.rename(tmp, CONFIG_PATH);
+      await fs.rename(tmp, portalCfg);
       return revalidated.data;
     }
   }
@@ -358,10 +411,12 @@ export async function getConfig(): Promise<Config> {
 
 export async function saveConfig(update: ConfigUpdate): Promise<Config> {
   const current = await getConfig();
-  // auth y _meta no se pueden actualizar desde el client — el server los
-  // gestiona (auth vía /api/password, _meta se regenera acá). Aunque el
-  // schema los acepte (z.unknown) los descartamos explícitamente.
-  const { auth: _ignoredAuth, _meta: _ignoredMeta, ...cleanUpdate } = update;
+  // _meta no se puede actualizar desde el client (se regenera acá).
+  // auth SÍ se acepta desde el client a partir de Ola 3.1 (multi-user)
+  // — el server hace gating de los users[] según features.multiUser.enabled
+  // (ver el IIFE de auth más abajo). Mantenemos el spread para que el
+  // campo llegue a saveConfig.
+  const { _meta: _ignoredMeta, ...cleanUpdate } = update;
   const merged = {
     ...current,
     ...cleanUpdate,
@@ -387,8 +442,112 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
     externalSearch: cleanUpdate.externalSearch
       ? { ...(current.externalSearch ?? defaults.externalSearch), ...cleanUpdate.externalSearch }
       : (current.externalSearch ?? defaults.externalSearch),
+    // Features: deep-merge igual que security. El client envía sólo los
+    // flags que cambió; el server mergea contra current.features para no
+    // pisar los otros. BUGFIX sin esto: cambiar UN feature reseteaba los
+    // demás (ej: prender tags, después prender metrics borraba el toggle
+    // de tags porque el shallow merge del top-level reemplazaba el objeto
+    // entero).
+    //
+    // Estrategia: tomar current.features y aplicar encima SOLO los
+    // sub-objetos que el client envió. Si el client envió un sub-objeto
+    // de un feature (ej: { enabled: true } para tags), mergearlo con el
+    // current correspondiente para no perder sub-campos como
+    // `metrics.persistToDisk` o `i18n.locale`.
+    features: (() => {
+      const currentFeatures = (current.features ?? {}) as Record<string, Record<string, unknown>>;
+      const updateFeatures = (cleanUpdate.features ?? {}) as Record<string, Record<string, unknown>>;
+      const mergedFeatures: Record<string, Record<string, unknown>> = { ...currentFeatures };
+      for (const [key, partialUpdate] of Object.entries(updateFeatures)) {
+        mergedFeatures[key] = { ...(currentFeatures[key] ?? {}), ...partialUpdate };
+      }
+      return mergedFeatures;
+    })(),
     categories: cleanUpdate.categories ?? current.categories,
-    cards: cleanUpdate.cards ?? current.cards,
+    cards: (() => {
+      // Defense-in-depth para el opt-in de markdown: si la feature está
+      // apagada, forzar plain + límite 200 chars en TODAS las cards (el
+      // cliente ya lo hace, pero un request malicioso o un bug del UI
+      // podría saltarse ese paso). Si la feature está activa, respetar
+      // descriptionFormat (200 para plain, 1000 para markdown).
+      //
+      // Mismo principio para tags (opt-in: features.tags): si la feature
+      // está apagada, dropeamos el array completo (defense in depth — el
+      // server no persiste tags si el admin no las activó). El schema
+      // ya sanitiza las tags (normaliza kebab-case + dedup) en su
+      // preprocess, así que acá sólo necesitamos gating.
+      //
+      // Y para pinned (opt-in: features.pinned): si la feature está
+      // apagada, forzar pinned=false. Más simple que tags/markdown porque
+      // es un solo boolean.
+      const baseCards = (cleanUpdate.cards ?? current.cards) as Array<{
+        description?: string;
+        descriptionFormat?: 'plain' | 'markdown';
+        tags?: string[];
+        pinned?: boolean;
+      }>;
+      const features = (current.features ?? {}) as {
+        markdown?: { enabled?: boolean };
+        tags?: { enabled?: boolean };
+        pinned?: { enabled?: boolean };
+      };
+      const markdownOn = features.markdown?.enabled === true;
+      const tagsOn = features.tags?.enabled === true;
+      const pinnedOn = features.pinned?.enabled === true;
+      return baseCards.map((c) => {
+        const description = typeof c.description === 'string' ? c.description : '';
+        const baseCard = { ...c };
+        // Description + format gating
+        if (!markdownOn) {
+          baseCard.description = description.slice(0, 200);
+          baseCard.descriptionFormat = 'plain' as const;
+        } else {
+          const limit = c.descriptionFormat === 'markdown' ? 1000 : 200;
+          baseCard.description = description.slice(0, limit);
+          baseCard.descriptionFormat = c.descriptionFormat === 'markdown' ? ('markdown' as const) : ('plain' as const);
+        }
+        // Tags gating
+        if (!tagsOn) {
+          delete baseCard.tags;
+        }
+        // Pinned gating
+        if (!pinnedOn) {
+          baseCard.pinned = false;
+        }
+        return baseCard;
+      });
+    })(),
+    // Maintenance windows gating: si la feature está apagada, dropear
+    // el array (defense in depth). Mismo patrón que webhooks/tags.
+    maintenanceWindows: (() => {
+      const mw = (cleanUpdate as ConfigUpdate).maintenanceWindows;
+      const base = (current.maintenanceWindows ?? { items: [] }) as { items?: unknown[] };
+      const featuresMaint = (current.features ?? {}) as { maintenanceWindows?: { enabled?: boolean } };
+      if (!featuresMaint.maintenanceWindows?.enabled) {
+        return { items: [] };
+      }
+      return mw ? { ...base, ...mw } : base;
+    })(),
+    // Auth (incluye users[] de multi-user). Si la feature está apagada,
+    // dropear users[] (defense in depth). El password único + csrfToken +
+    // authEpoch siguen siendo válidos.
+    //
+    // IMPORTANTE: usamos `merged.features` (no `current.features`) para
+    // chequear si la feature está activa. Si la prendemos en el mismo
+    // PUT, el merged ya tiene multiUser.enabled=true, pero el current no.
+    // Usar el current nos haría dropear users[] cuando en realidad
+    // queremos aceptarlos.
+    auth: (() => {
+      const incomingFeatures = (cleanUpdate as ConfigUpdate).features as { multiUser?: { enabled?: boolean } } | undefined;
+      const featureOn = incomingFeatures?.multiUser?.enabled === true;
+      const base = (current.auth ?? { passwordHash: '', csrfToken: '', authEpoch: 0, users: [], singlePasswordEnabled: true }) as { passwordHash: string; csrfToken: string; authEpoch: number; users?: unknown[]; singlePasswordEnabled?: boolean };
+      const incoming = (cleanUpdate as ConfigUpdate).auth as { users?: unknown[]; singlePasswordEnabled?: boolean } | undefined;
+      if (!featureOn) {
+        return { ...base, users: [], singlePasswordEnabled: true };
+      }
+      if (!incoming) return base;
+      return { ...base, ...incoming };
+    })(),
     _meta: { ...current._meta, updatedAt: new Date().toISOString() },
   };
   // BUGFIX / BUG-PROTECTION: la tarjeta default de docs (id='docs', url='/docs')
@@ -448,10 +607,11 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
   // Re-validate the merged result.
   const result = ConfigSchema.parse(merged);
 
-  // Atomic write: write to .tmp then rename.
-  const tmp = CONFIG_PATH + '.tmp';
+  // Atomic write: write to .tmp then rename. Per-portal (Ola 4.1).
+  const portalCfg = _portalConfigPath(activePortalId);
+  const tmp = portalCfg + '.tmp';
   await fs.writeFile(tmp, JSON.stringify(result, null, 2), 'utf8');
-  await fs.rename(tmp, CONFIG_PATH);
+  await fs.rename(tmp, portalCfg);
   invalidate();
   return result;
 }
@@ -472,7 +632,7 @@ export async function resetConfig(): Promise<Config> {
       authEpoch: 0,
     };
   }
-  await fs.writeFile(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
+  await fs.writeFile(_portalConfigPath(activePortalId), JSON.stringify(cfg, null, 2), 'utf8');
   invalidate();
   return cfg;
 }

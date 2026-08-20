@@ -2,10 +2,12 @@ import type { APIRoute } from 'astro';
 import { getConfig } from '~/lib/config';
 import { json, error } from '~/lib/http';
 import { isPrivateOrLoopback, resolveAndCheckUrl } from '~/lib/ssrf';
+import { processHealthResults } from '~/lib/webhooks';
+import { recordSample } from '~/lib/metrics';
 
 export const prerender = false;
 
-interface CheckResult {
+interface StatusResult {
   id: string;
   url: string;
   ok: boolean;
@@ -40,14 +42,19 @@ export const POST: APIRoute = async ({ request }) => {
   // Cap total a 50 chequeos para evitar abuso si alguien carga miles de cards.
   const capped = targets.slice(0, 50);
 
-  const checks: CheckResult[] = await Promise.all(
-    capped.map(async (c): Promise<CheckResult> => {
+  const checks: StatusResult[] = await Promise.all(
+    capped.map(async (c): Promise<StatusResult> => {
       const t0 = Date.now();
       // Bloqueo SSRF: rechaza URLs a infra interna / metadata / loopback.
       // Skip si el admin permite hosts internos (deploy típico en LAN).
       const guard = allowInternal ? { ok: true } : await resolveAndCheckUrl(c.url);
       if (!guard.ok) {
-        return { id: c.id, url: c.url, ok: false, error: guard.reason, latencyMs: Date.now() - t0 };
+        const result: StatusResult = { id: c.id, url: c.url, ok: false, error: guard.reason, latencyMs: Date.now() - t0 };
+        // Registrar muestra de latencia (opt-in: features.metrics).
+        if (c.healthCheck) {
+          recordSample(c.id, { ts: new Date().toISOString(), latencyMs: result.latencyMs ?? 0, ok: result.ok });
+        }
+        return result;
       }
       try {
         const ctrl = new AbortController();
@@ -62,12 +69,37 @@ export const POST: APIRoute = async ({ request }) => {
           redirect: 'manual',
         });
         clearTimeout(timer);
-        return { id: c.id, url: c.url, ok: res.ok, status: res.status, latencyMs: Date.now() - t0 };
+        const result: StatusResult = { id: c.id, url: c.url, ok: res.ok, status: res.status, latencyMs: Date.now() - t0 };
+        if (c.healthCheck) {
+          recordSample(c.id, { ts: new Date().toISOString(), latencyMs: result.latencyMs ?? 0, ok: result.ok });
+        }
+        return result;
       } catch (err) {
-        return { id: c.id, url: c.url, ok: false, error: (err as Error).message, latencyMs: Date.now() - t0 };
+        const result: StatusResult = { id: c.id, url: c.url, ok: false, error: (err as Error).message, latencyMs: Date.now() - t0 };
+        if (c.healthCheck) {
+          recordSample(c.id, { ts: new Date().toISOString(), latencyMs: result.latencyMs ?? 0, ok: result.ok });
+        }
+        return result;
       }
     }),
   );
+
+  // Disparar webhooks si la feature está activa. No bloqueamos la response
+  // del endpoint: los webhooks se procesan en background. Si fallan, el
+  // error queda en audit.log para debugging.
+  // Convertimos el shape al que espera el engine (necesita title).
+  processHealthResults(
+    checks.map((c, i) => ({
+      cardId: c.id,
+      ok: c.ok,
+      status: c.status,
+      latencyMs: c.latencyMs,
+      url: c.url,
+      title: capped[i]?.title ?? '',
+    })),
+  ).catch((e) => {
+    console.error('[umbral] webhook engine failed:', e);
+  });
 
   return json({ results: checks });
 };

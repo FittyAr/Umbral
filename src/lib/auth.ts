@@ -17,6 +17,25 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, BCRYPT_COST);
 }
 
+/** Detecta si el password actual es uno de los default inseguros comunes
+ *  (admin, changeme, default, password, 12345678, etc.) sin necesidad
+ *  de tener el plaintext. Para cada candidate, usamos bcrypt.compare
+ *  contra el hash guardado. Si matchea, es default. Limitaciones: bcrypt
+ *  es lento (~200ms por hash con cost 12). Con ~10 candidates son ~2s.
+ *  Solo se corre en el endpoint /api/auth/check-default-password, no en
+ *  cada request. */
+const DEFAULT_CANDIDATE_PASSWORDS = [
+  'admin', 'changeme', 'default', 'password', '12345678', 'umbral', 'admin123', 'root', 'toor', 'test', 'guest',
+];
+export async function isDefaultPasswordHash(hash: string): Promise<boolean> {
+  for (const candidate of DEFAULT_CANDIDATE_PASSWORDS) {
+    try {
+      if (await bcrypt.compare(candidate, hash)) return true;
+    } catch { continue; }
+  }
+  return false;
+}
+
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   if (!password || !hash) return false;
   try {
@@ -76,27 +95,30 @@ function sign(payload: string): string {
   return crypto.createHmac('sha256', getSecret()).update(payload).digest('hex');
 }
 
-/** Create a signed session token: <id>.<epoch>.<hmac>.
- *  El epoch va firmado adentro del HMAC (parte del payload) → un atacante
- *  no puede bajar el epoch de su propio token para "revivir" una sesión
- *  invalidada por cambio de password. */
-export function createSessionToken(epoch: number): string {
+/** Create a signed session token: <id>.<authEpoch>.<userEpoch>.<hmac>.
+ *  Para el modo legacy (single password), userEpoch=0. El userEpoch permite
+ *  invalidar sesiones de un user específico cuando cambia su password,
+ *  sin tocar a los demás. */
+export function createSessionToken(authEpoch: number, userEpoch: number = 0): string {
   const id = generateToken(24);
-  const payload = `${id}.${epoch}`;
+  const payload = `${id}.${authEpoch}.${userEpoch}`;
   return `${payload}.${sign(payload)}`;
 }
 
-export function verifySessionToken(token: string | undefined | null, epoch: number): boolean {
+export function verifySessionToken(
+  token: string | undefined | null,
+  authEpoch: number,
+  userEpoch: number = 0,
+): boolean {
   if (!token) return false;
-  // Formato: <id>.<epoch>.<sig>. Usamos split con límite para tolerar
-  // tokens viejos de 2 partes (los rechazamos, no son válidos).
+  // Formato: <id>.<authEpoch>.<userEpoch>.<sig>. Usamos split con límite
+  // para tolerar tokens viejos de 3 partes (los rechazamos, no son válidos).
   const parts = token.split('.');
-  if (parts.length !== 3) return false;
-  const [id, tokenEpoch, sig] = parts;
-  // Epoch debe matchear exactamente — no parseamos, comparison string→number
-  // puede traer surprises con leading zeros o NaN.
-  if (tokenEpoch !== String(epoch)) return false;
-  const payload = `${id}.${tokenEpoch}`;
+  if (parts.length !== 4) return false;
+  const [id, tokenAuthEpoch, tokenUserEpoch, sig] = parts;
+  if (tokenAuthEpoch !== String(authEpoch)) return false;
+  if (tokenUserEpoch !== String(userEpoch)) return false;
+  const payload = `${id}.${tokenAuthEpoch}.${tokenUserEpoch}`;
   const expected = sign(payload);
   if (sig.length !== expected.length) return false;
   return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
@@ -108,6 +130,17 @@ export function verifySessionToken(token: string | undefined | null, epoch: numb
 export interface AuthContext {
   isAuthenticated: boolean;
   csrfToken: string | null;
+  /** "legacy" si entró con el password único, username si entró con su
+   *  cuenta. Null si no está autenticado. Útil para el audit log. */
+  actor: string | null;
+  /** Rol del user actual ('admin' | 'editor' | 'viewer') o null si no
+   *  está autenticado o es legacy super-admin (que se considera admin). */
+  role: 'admin' | 'editor' | 'viewer' | null;
+  /** true si el user actual tiene permisos de admin (sea user admin o
+   *  legacy super-admin). La UI lo usa para gating. */
+  isAdmin: boolean;
+  /** username del user actual, o null. Útil para el audit log. */
+  username: string | null;
 }
 
 /** Loads the current config (with auth) and returns the auth state for the request. */
@@ -115,10 +148,66 @@ export async function buildAuthContext(request: Request): Promise<AuthContext> {
   const cookie = parseCookie(request.headers.get('cookie') || '');
   const token = cookie[SESSION_COOKIE];
   const cfg = await getConfig();
-  const epoch = cfg.auth?.authEpoch ?? 0;
+  const authEpoch = cfg.auth?.authEpoch ?? 0;
+
+  // Si no hay users[] en config, modo legacy — verificamos sólo con
+  // authEpoch (userEpoch=0).
+  const users = cfg.auth?.users ?? [];
+  if (users.length === 0) {
+    const ok = verifySessionToken(token, authEpoch, 0);
+    return {
+      isAuthenticated: ok,
+      csrfToken: cfg.auth?.csrfToken ?? null,
+      actor: ok ? 'legacy' : null,
+      role: ok ? 'admin' : null,
+      isAdmin: ok,
+      username: null,
+    };
+  }
+
+  // Modo multi-user: el token puede ser legacy (super-admin) o per-user.
+  // Probamos legacy primero.
+  const cfgSingleEnabled = cfg.auth?.singlePasswordEnabled !== false;
+  if (cfgSingleEnabled) {
+    const legacyOk = verifySessionToken(token, authEpoch, 0);
+    if (legacyOk) {
+      return {
+        isAuthenticated: true,
+        csrfToken: cfg.auth?.csrfToken ?? null,
+        actor: 'legacy',
+        role: 'admin',
+        isAdmin: true,
+        username: null,
+      };
+    }
+  }
+
+  // Multi-user: el payload del token no incluye el userId (lo podríamos
+  // agregar pero requeriría DB lookup en cada verify). Como alternativa,
+  // validamos probando contra el userEpoch de CADA user. El que matchee
+  // es el user activo. Esto es O(n) por request pero n es chico (típicamente
+  // <10) y solo se ejecuta cuando hay un token.
+  for (const u of users) {
+    const ok = verifySessionToken(token, authEpoch, u.userEpoch);
+    if (ok) {
+      return {
+        isAuthenticated: true,
+        csrfToken: cfg.auth?.csrfToken ?? null,
+        actor: u.username,
+        role: u.role,
+        isAdmin: u.role === 'admin',
+        username: u.username,
+      };
+    }
+  }
+
   return {
-    isAuthenticated: verifySessionToken(token, epoch),
+    isAuthenticated: false,
     csrfToken: cfg.auth?.csrfToken ?? null,
+    actor: null,
+    role: null,
+    isAdmin: false,
+    username: null,
   };
 }
 

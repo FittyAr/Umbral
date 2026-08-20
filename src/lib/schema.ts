@@ -137,7 +137,57 @@ export const CardSchema = z.object({
   // solo el .transform() que SIEMPRE corre (no necesita pasar validación
   // previa). El tipo resultante sigue siendo string, así que el resto del
   // código no cambia.
-  description: z.string().default('').transform((v) => v.slice(0, 200)),
+  //
+  // Markdown: si `features.markdown.enabled`, el admin puede usar formato
+  // rico (1000 chars). Si está apagada, se clampea a 200 y se renderiza
+  // como plain. El handler saveConfig decide el límite según la feature
+  // (no acá en el schema, para que el JSON legacy siga parseable).
+  description: z.string().default(''),
+  // 'plain' (default) = texto plano escapado por Astro. 'markdown' = se
+  // parsea con marked + DOMPurify antes de inyectar. Si la feature
+  // features.markdown está apagada, saveConfig fuerza 'plain'
+  // independientemente del JSON (ver saveConfig abajo).
+  descriptionFormat: z.enum(['plain', 'markdown']).default('plain'),
+  // Tags (opt-in: features.tags). Array de strings kebab-case
+  // lowercase, max 30 chars cada uno, max 10 por card. Las tags son
+  // cross-cutting (una card puede tener tags de varias "dimensiones":
+  // ej: "urgent", "frontend", "legacy"). Se usan para búsqueda y filtrado.
+  // Si la feature está apagada, saveConfig dropea este campo (defense in
+  // depth — el server no persiste tags si el admin no las activó).
+  //
+  // El preprocess normaliza cada tag (lowercase, kebab-case, trim, max 30
+  // chars) ANTES de validar. Tags inválidos (después de normalizar) se
+  // dropean silenciosamente con un filter. La dedup se hace acá también.
+  tags: z.preprocess(
+    (raw) => {
+      if (!Array.isArray(raw)) return [];
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const t of raw) {
+        if (typeof t !== 'string') continue;
+        const norm = t.toLowerCase().trim().replace(/\s+/g, '-').slice(0, 30);
+        if (!/^[a-z0-9-]{1,30}$/.test(norm)) continue;
+        if (seen.has(norm)) continue;
+        seen.add(norm);
+        out.push(norm);
+        if (out.length >= 10) break;
+      }
+      return out;
+    },
+    z.array(z.string()).max(10, 'Máximo 10 tags por tarjeta'),
+  ).default([]),
+  // Pinned (opt-in: features.pinned). Las cards pinned se renderizan
+  // primero en su categoría, sin importar el `order`. Default false (no
+  // pinned). Si la feature está apagada, el server fuerza `false` por
+  // defense in depth — un request que mande `pinned: true` sin la
+  // feature activa queda persistido como `pinned: false`.
+  pinned: z.boolean().default(false),
+  // Latency warning threshold (opt-in: features.metrics). Si la card
+  // tiene un valor y el último check supera este threshold en ms, se
+  // muestra un dot amarillo (no rojo — sigue funcionando pero lento).
+  // Default 0 = sin threshold. Si la feature está apagada, este campo
+  // se ignora en el render.
+  latencyThresholdMs: z.number().int().min(0).max(60_000).default(0),
   // URL: para 'link' es obligatoria; para 'note' es opcional. Aceptamos
   // string vacío como caso válido (no falla el regex). El check de "es
   // obligatoria para link" está en el superRefine de abajo.
@@ -195,16 +245,56 @@ export const CardSchema = z.object({
 // ──────────────────────────────────────────────────────────────────────────
 // Auth (no se expone al admin: vive solo en el JSON raíz)
 //
-// authEpoch: contador que se incrementa cada vez que cambia la password.
-// El session token incluye el epoch con el que fue emitido; al verificarlo,
-// si no matchea el actual, la sesión es inválida. Esto cierra el gap de
-// "cambié la password pero las sesiones viejas siguen vivas" — antes sólo
-// se rotaba el CSRF, la session token seguía siendo válida hasta expirar.
+// authEpoch: contador GLOBAL que se incrementa cada vez que cambia la
+// password del super-admin. El session token incluye el epoch con el que
+// fue emitido; al verificarlo, si no matchea el actual, la sesión es
+// inválida. Esto cierra el gap de "cambié la password pero las sesiones
+// viejas siguen vivas" — antes sólo se rotaba el CSRF, la session token
+// seguía siendo válida hasta expirar.
+//
+// A partir de Ola 3.1 (features.multiUser), soportamos users[] con
+// epoch por usuario (userEpoch: number) para invalidar sesiones de un
+// usuario específico (ej: Alice cambia su password) sin tocar a los
+// demás. Los tokens de sesión incluyen tanto el authEpoch global como
+// el userEpoch al que fueron emitidos.
 // ──────────────────────────────────────────────────────────────────────────
+export const UserRoleSchema = z.enum(['admin', 'editor', 'viewer']);
+export const UserSchema = z.object({
+  id: z.string().min(8).max(80),
+  username: z.string().min(2).max(40).regex(/^[a-z0-9_-]+$/, 'Username debe ser lowercase, alfanumérico + guiones y underscores'),
+  displayName: z.string().min(1).max(80).default(''),
+  passwordHash: z.string().min(1),
+  role: UserRoleSchema.default('viewer'),
+  // epoch por usuario — incrementa cuando ese user cambia su password
+  // o es borrado. Permite invalidar sesiones de un user sin tocar a los
+  // demás (escenario típico: "comprometieron a Alice, le cambio la pass").
+  userEpoch: z.number().int().min(0).default(0),
+  createdAt: z.string().datetime().nullable().default(null),
+  lastLoginAt: z.string().datetime().nullable().default(null),
+  // 2FA: secret TOTP cifrado (sólo si features.totp2fa está activa y el
+  // user lo activó). null = sin 2FA. El server lo lee server-side.
+  // (El render del admin no muestra esto — sólo el endpoint de login
+  // lo valida. La función pública es: 'el admin no debería ver los
+  // secrets de los 2FA en ningún lado'.)
+  totpSecret: z.string().nullable().default(null).optional(),
+});
+
 export const AuthSchema = z.object({
   passwordHash: z.string().min(1),
   csrfToken: z.string().min(1),
   authEpoch: z.number().int().min(0).default(0),
+  // Multi-user (opt-in: features.multiUser). Default vacío → legacy mode
+  // (sólo password único). Si tiene al menos un user, se activa el modo
+  // multi-user. Los users[] se dropean al guardar si la feature está
+  // apagada (defense in depth).
+  users: z.array(UserSchema).default([]),
+  // Si true, el password único (super-admin) sigue siendo válido como
+  // rescue path. Default true. El admin puede flipearlo a false desde
+  // el tab Password para "solo usuarios + sin rescue path".
+  // Validación: si users[] está vacío y singlePasswordEnabled=false,
+  // el sistema no es accesible — el server rechaza este estado al
+  // guardar (revisar en saveConfig).
+  singlePasswordEnabled: z.boolean().default(true),
 });
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -332,6 +422,94 @@ export const ExternalSearchSchema = z.object({
   tavilyApiKey: z.string().max(200).default(''),
 });
 
+// ──────────────────────────────────────────────────────────────────────────
+// Webhooks (opt-in: features.webhooks)
+//
+// Lista de webhooks a los que Umbral notifica cuando una card con
+// healthCheck=true cambia de estado (de healthy → failing o vice versa).
+// Opt-in: si features.webhooks.enabled === false, el engine NO se
+// ejecuta aunque haya webhooks configurados (defense in depth).
+//
+// Cada webhook define:
+// - id: identificador único (uuid v4)
+// - name: label visible en el admin
+// - url: endpoint HTTPS al que POSTear el payload
+// - events: array de eventos que disparan este webhook (health_fail, health_recover)
+// - minFailures: cuántas fallas consecutivas antes de disparar health_fail
+// - cooldownMin: minutos entre notificaciones del mismo webhook (anti-spam)
+// - enabled: si false, no se ejecuta pero queda en config
+// ──────────────────────────────────────────────────────────────────────────
+export const WebhookEventSchema = z.enum(['health_fail', 'health_recover']);
+
+export const WebhookSchema = z.object({
+  id: z.string().min(8).max(80),
+  name: z.string().min(1).max(60),
+  // URL: sólo http(s). Validamos el formato acá; el engine aplica SSRF
+  // guard antes de hacer fetch (bloquea loopback, private IPs, etc).
+  url: z.string().url().refine(
+    (u) => /^https?:\/\//.test(u),
+    'URL debe empezar con http:// o https://',
+  ).refine(
+    (u) => u.length <= 500,
+    'URL demasiado larga (max 500 chars)',
+  ),
+  events: z.array(WebhookEventSchema).min(1, 'Al menos un evento').default(['health_fail']),
+  minFailures: z.number().int().min(1).max(20).default(3),
+  cooldownMin: z.number().int().min(0).max(1440).default(30),
+  enabled: z.boolean().default(true),
+});
+
+export const WebhooksSchema = z.object({
+  items: z.array(WebhookSchema).default([]),
+});
+// Sin `.default({})` en el outer: si lo hacemos, WebhooksSchema deja de
+// tener `.partial()`. El campo en ConfigSchema es .optional() así que
+// configs viejos siguen parseando. saveConfig maneja el default (items: []).
+
+export type Webhook = z.infer<typeof WebhookSchema>;
+export type WebhookEvent = z.infer<typeof WebhookEventSchema>;
+
+// ──────────────────────────────────────────────────────────────────────────
+// Maintenance windows (opt-in: features.maintenanceWindows)
+//
+// Lista de ventanas de mantenimiento programadas. Durante una ventana
+// activa, las cards afectadas muestran un badge ámbar "🔧 Mantenimiento"
+// en la portada y NO disparan webhooks de health_fail (reducir spam
+// durante deploys).
+//
+// Una ventana tiene:
+// - id: identificador único
+// - cardIds: array de card IDs afectados (o ['*'] para "todas")
+// - startsAt / endsAt: ISO timestamps (UTC). endsAt > startsAt.
+// - reason: descripción libre (ej: "Deploy v2.1")
+// - enabled: si false, la ventana queda guardada pero no se aplica
+//
+// Auto-cleanup: las ventanas con endsAt < now - 24h se consideran
+// "históricas" y se pueden borrar en bulk desde la UI.
+// ──────────────────────────────────────────────────────────────────────────
+export const MaintenanceWindowSchema = z.object({
+  id: z.string().min(8).max(80),
+  cardIds: z.array(z.string().min(1).max(80)).min(1, 'Al menos una card o "*"').default(['*']),
+  // '*' como sentinel para "todas las cards". Validamos que el primer
+  // elemento sea '*' o un cardId real (no se puede mezclar).
+  startsAt: z.string().datetime({ message: 'startsAt debe ser ISO 8601 UTC' }),
+  endsAt: z.string().datetime({ message: 'endsAt debe ser ISO 8601 UTC' }),
+  reason: z.string().max(120).default(''),
+  enabled: z.boolean().default(true),
+}).refine(
+  (w) => new Date(w.endsAt).getTime() > new Date(w.startsAt).getTime(),
+  { message: 'endsAt debe ser posterior a startsAt', path: ['endsAt'] },
+);
+
+export const MaintenanceWindowsSchema = z.object({
+  items: z.array(MaintenanceWindowSchema).default([]),
+});
+// Sin `.default({})` en outer (mismo fix que FeaturesSchema/WebhooksSchema)
+// para que `.partial()` funcione. El default de items=[] lo aplica el
+// preprocess en saveConfig.
+
+export type MaintenanceWindow = z.infer<typeof MaintenanceWindowSchema>;
+
 export const HeadersSecuritySchema = z.object({
   // Content-Security-Policy. null = no se envía el header (permisivo).
   // Endurecer: dejar el default sugerido.
@@ -389,6 +567,159 @@ export type AI = z.infer<typeof AISchema>;
 export type ExternalSearch = z.infer<typeof ExternalSearchSchema>;
 
 // ──────────────────────────────────────────────────────────────────────────
+// Features (feature flags opt-in)
+//
+// PRINCIPIO 7 del plan de ampliación: toda feature nueva debe poder
+// apagarse. El admin decide qué activa; si no la quiere, no la paga (ni
+// en código que corre, ni en dependencias, ni en tamaño de config, ni en
+// ruido visual). El loader usa `isFeatureEnabled()` para gating y los
+// módulos que requieran deps nuevas se importan dinámicamente.
+//
+// Default `false` para TODO. La app "simplemente funciona" como en v1.x.
+// Si el admin apaga una feature que ya tenía datos, los datos se
+// preservan en config.json pero inertes; al volver a activar, reaparecen.
+//
+// Esta sección es el primer bloque que las próximas olas (markdown, tags,
+// pinned, presets, audit log viewer, webhooks, métricas, QR, multi-user,
+// OIDC, multi-portal) van a poblar. Por ahora arranca vacía con la
+// infraestructura lista.
+// ──────────────────────────────────────────────────────────────────────────
+const FeatureFlagSchema = z.object({
+  enabled: z.boolean().default(false),
+});
+
+export const FeaturesSchema = z.object({
+  i18n: z
+    .object({
+      enabled: z.boolean().default(false),
+      locale: z.enum(['es', 'en', 'pt']).default('es'),
+    })
+    .default({ enabled: false, locale: 'es' }),
+  markdown: FeatureFlagSchema.default({ enabled: false }),
+  tags: FeatureFlagSchema.default({ enabled: false }),
+  pinned: FeatureFlagSchema.default({ enabled: false }),
+  presets: FeatureFlagSchema.default({ enabled: false }),
+  auditLogViewer: FeatureFlagSchema.default({ enabled: false }),
+  qr: FeatureFlagSchema.default({ enabled: false }),
+  metrics: z
+    .object({
+      enabled: z.boolean().default(false),
+      persistToDisk: z.boolean().default(false),
+      retentionHours: z.number().int().min(1).max(720).default(24),
+    })
+    .default({ enabled: false, persistToDisk: false, retentionHours: 24 }),
+  webhooks: FeatureFlagSchema.default({ enabled: false }),
+  maintenanceWindows: FeatureFlagSchema.default({ enabled: false }),
+  multiUser: FeatureFlagSchema.default({ enabled: false }),
+  totp2fa: FeatureFlagSchema.default({ enabled: false }),
+  oidc: FeatureFlagSchema.default({ enabled: false }),
+  apiTokens: FeatureFlagSchema.default({ enabled: false }),
+  multiPortal: FeatureFlagSchema.default({ enabled: false }),
+});
+// NOTA: NO usamos `.default({})` en el outer schema. Si lo hacemos,
+// FeaturesSchema se convierte en un ZodDefault que no tiene `.partial()`.
+// En su lugar, declaramos `features: FeaturesSchema.optional()` en el
+// ConfigSchema (abajo). El código que lo lee debe chequear `cfg.features`
+// por null antes de usarlo — el helper `isFeatureEnabled()` ya lo hace.
+
+export type Features = z.infer<typeof FeaturesSchema>;
+
+// ──────────────────────────────────────────────────────────────────────────
+// Portals (opt-in: features.multiPortal) — una sola instancia sirve
+// múltiples portales (ej: "IT", "Marketing", "Dev"), cada uno con su
+// propio config, uploads, audit log. Routing por Host header o path
+// prefix. Ver el plan Ola 4.1.
+//
+// Cuando la feature está apagada, el portal implícito es "default" y
+// todo vive en data/ (legacy). Cuando se prende, se migra automáticamente
+// data/ → data/portals/default/.
+// ──────────────────────────────────────────────────────────────────────────
+export const PortalSchema = z.object({
+  id: z.string().min(1).max(40).regex(/^[a-z0-9-]+$/, 'ID debe ser kebab-case (a-z, 0-9, guiones)'),
+  name: z.string().min(1).max(80),
+  // host: dominio que matchea. Vacío = matchea por pathPrefix solamente.
+  // '*' = wildcard (matchea cualquier host).
+  host: z.string().max(200).optional().default(''),
+  // pathPrefix: prefijo de path. '*' = matchea todos los paths (default
+  // portal). Default '/'.
+  pathPrefix: z.string().max(20).regex(/^[/a-z*0-9-]*$/, 'pathPrefix debe empezar con / y solo letras/digitos/guiones/asterisco').default('/'),
+});
+export const PortalsSchema = z.object({
+  items: z.array(PortalSchema).min(1, 'Al menos un portal requerido cuando multiPortal esta activo').default([]),
+  defaultPortal: z.string().min(1).max(40).default('default'),
+});
+export type Portal = z.infer<typeof PortalSchema>;
+
+// ──────────────────────────────────────────────────────────────────────────
+// Top-level Config
+// ──────────────────────────────────────────────────────────────────────────
+// OIDC (opt-in: features.oidc) — login con OpenID Connect (Keycloak,
+// Google Workspace, Authentik, Azure AD, etc.). DEFAULT OFF — incluso
+// para instalaciones nuevas, el admin debe explícitamente configurar
+// un provider. La razón: OIDC cambia el flujo de auth (agrega rutas,
+// superficie de ataque diferente) y no queremos que se active por
+// accidente. Ver src/lib/oidc.ts.
+// ──────────────────────────────────────────────────────────────────────────
+export const OIDCProviderSchema = z.object({
+  id: z.string().min(2).max(40).regex(/^[a-z0-9-]+$/, 'ID debe ser kebab-case'),
+  name: z.string().min(1).max(60),
+  // Issuer URL: el .well-known/openid-configuration se descubre desde acá
+  // (ej: https://keycloak.example.com/realms/umbral).
+  issuer: z.string().url().refine((u) => /^https?:\/\//.test(u), 'issuer debe ser http(s)'),
+  clientId: z.string().min(1).max(200),
+  clientSecret: z.string().min(1).max(500),
+  scopes: z.array(z.string().min(1).max(60)).default(['openid', 'profile', 'email']),
+  claimMap: z.object({
+    username: z.string().min(1).max(60).default('preferred_username'),
+    email: z.string().min(1).max(60).default('email'),
+    displayName: z.string().min(1).max(60).default('name'),
+    role: z.string().min(1).max(60).default('umbral_role'),
+  }).default({}),
+  // Si true y el user no existe en users[], se crea automáticamente
+  // con el rol por default. Si false, login falla con "user not provisioned".
+  autoProvision: z.boolean().default(false),
+  defaultRole: z.enum(['admin', 'editor', 'viewer']).default('viewer'),
+  enabled: z.boolean().default(true),
+  redirectPath: z.string().max(100).default('/'),
+});
+export const OIDCSchema = z.object({
+  providers: z.array(OIDCProviderSchema).default([]),
+});
+export type OIDCProvider = z.infer<typeof OIDCProviderSchema>;
+
+// ──────────────────────────────────────────────────────────────────────────
+// API tokens (opt-in: features.apiTokens) — para integraciones externas
+// (CI/CD, scripts, el CLI de Ola 4.2). Un token es una string opaca
+// que el server valida contra el hash bcrypt guardado en disco. El
+// header es "Authorization: Bearer umb_xxx". Los tokens tienen un
+// scope (read/write) y un expiresAt opcional. El admin los crea/borra
+// desde el panel. Audit log: api_token_created / api_token_used.
+// ──────────────────────────────────────────────────────────────────────────
+export const ApiTokenScopeSchema = z.enum(['read', 'write']);
+export const ApiTokenSchema = z.object({
+  id: z.string().min(8).max(80),
+  name: z.string().min(1).max(80),
+  // Sólo guardamos el hash bcrypt, NUNCA el plaintext (igual que users).
+  tokenHash: z.string().min(1),
+  // "read" = GET endpoints. "write" = todo (incluye read).
+  scope: ApiTokenScopeSchema.default('read'),
+  // ISO 8601 UTC. null = no expira.
+  expiresAt: z.string().datetime().nullable().default(null),
+  // Metadata para el admin
+  createdAt: z.string().datetime().nullable().default(null),
+  lastUsedAt: z.string().datetime().nullable().default(null),
+  // Últimos 4 chars del token (para identificar en la lista). NUNCA el
+  // token completo — eso es el secret que sale una sola vez al crear.
+  tokenLast4: z.string().length(4).default('****'),
+  // "true" para revocar (preserva el slot en el array para audit log).
+  revoked: z.boolean().default(false),
+});
+export const ApiTokensSchema = z.object({
+  items: z.array(ApiTokenSchema).default([]),
+});
+export type ApiToken = z.infer<typeof ApiTokenSchema>;
+
+// ──────────────────────────────────────────────────────────────────────────
 // Top-level Config
 // ──────────────────────────────────────────────────────────────────────────
 export const ConfigSchema = z.object({
@@ -400,9 +731,30 @@ export const ConfigSchema = z.object({
   // `ai` es opt-in: el admin lo activa desde el panel cuando quiera.
   // Default vacío → todos los endpoints /api/ai devuelven 503.
   ai: AISchema.optional(),
+  // Webhooks (opt-in: features.webhooks). Si la feature está apagada,
+  // el engine NO se ejecuta aunque haya webhooks configurados.
+  webhooks: WebhooksSchema.optional(),
+  // Maintenance windows (opt-in: features.maintenanceWindows). Si la
+  // feature está apagada, el render las ignora y los webhooks no las
+  // respetan.
+  maintenanceWindows: MaintenanceWindowsSchema.optional(),
+  // OIDC (opt-in: features.oidc). Lista de providers (Keycloak, Google,
+  // Authentik, etc.). Default array vacío = sin providers. Si la feature
+  // está apagada, el engine no se ejecuta y los endpoints /api/auth/oidc/*
+  // devuelven 404 (defense-in-depth).
+  oidc: OIDCSchema.optional(),
+  // API tokens (opt-in: features.apiTokens). Lista de tokens para
+  // integraciones externas. Si la feature está apagada, los tokens no se
+  // persisten (defense-in-depth).
+  apiTokens: ApiTokensSchema.optional(),
   // External search (Brave / Tavily / etc) — opcional, también.
   // Default vacío → auto-completar usa sólo Wikipedia + DuckDuckGo (sin key).
   externalSearch: ExternalSearchSchema.optional(),
+  // Features flags: sistema unificado de opt-in. Ver FeaturesSchema arriba
+  // y src/lib/features.ts para el helper `isFeatureEnabled()`. Cada ola
+  // del roadmap (markdown, tags, webhooks, multi-portal, ...) se registra
+  // acá con default `enabled: false`.
+  features: FeaturesSchema.optional(),
   categories: z.array(CategorySchema).default([]),
   cards: z.array(CardSchema).default([]),
   auth: AuthSchema.optional(),
@@ -443,6 +795,15 @@ export const ConfigUpdateSchema = z
     security: SecuritySchema.partial().optional(),
     ai: AISchema.partial().optional(),
     externalSearch: ExternalSearchSchema.partial().optional(),
+    webhooks: WebhooksSchema.partial().optional(),
+    maintenanceWindows: MaintenanceWindowsSchema.partial().optional(),
+    portals: PortalsSchema.partial().optional(),
+    oidc: OIDCSchema.partial().optional(),
+    apiTokens: ApiTokensSchema.partial().optional(),
+    // Features flags: el admin puede togglear individuales. Cada feature
+    // tiene su sub-schema; aceptamos partials para permitir updates
+    // granulares (ej: cambiar sólo `features.i18n.locale`).
+    features: FeaturesSchema.partial().optional(),
     categories: z.array(CategorySchema).optional(),
     cards: z.array(CardSchema).optional(),
     // auth y _meta son sólo del server — el client los manda sin querer al
