@@ -2,8 +2,12 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import PublicLayout from '~/layouts/PublicLayout.astro';
+import Logo from '~/components/Logo.astro';
+import LanguageSwitcher from '~/components/LanguageSwitcher.astro';
 import { getConfig } from '~/lib/config';
 import { resolveIconUrl } from '~/lib/icons';
+import { isFeatureEnabled } from '~/lib/features';
+import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
 export const prerender = false;
 
@@ -117,6 +121,12 @@ const docs = await listDocs();
 const config = await getConfig();
 const logoUrl = resolveIconUrl(config.branding.logo);
 
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
+  : 'es';
+const trf = tr(locale);
+
 // Group by section
 const grouped = new Map<string, typeof docs>();
 for (const d of docs) {
@@ -135,16 +145,43 @@ const sectionLabels: Record<string, string> = {
 };
 ---
 <PublicLayout config={config} title="Documentación — Umbral">
-  <main class="page-wrap">
+  <main class="page-wrap docs-page">
     <header class="header">
-      {logoUrl && (
-        <img src={logoUrl} alt={config.branding.companyName} class="header-logo" />
-      )}
-      <h1 class="header-title">Documentación</h1>
+      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+        <a href="/" class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Portada principal'}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span>{useI18n ? trf('home.subpage.back') : 'Portada principal'}</span>
+        </a>
+        <span style="color:var(--border-strong);user-select:none">|</span>
+        <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
+        <h1 class="header-title">{config.branding.companyName}</h1>
+      </div>
+
+      <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem">
+        <a href="/admin" class="subpage-back-link" title="Panel de administración">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Admin</span>
+        </a>
+        {useI18n && <LanguageSwitcher config={config} current={locale} />}
+        <button
+          data-action="toggle-mode"
+          class="mode-toggle"
+          aria-label={useI18n ? trf('home.modeToggle') : 'Cambiar modo claro/oscuro'}
+          title={useI18n ? trf('home.modeToggleTitle') : 'Cambiar modo claro/oscuro'}
+        >
+          <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="docs-hero" style="margin: 1.5rem 0 2rem;">
+      <h1 style="font-size: 1.8rem; margin: 0 0 0.3rem; font-weight: 700;">Documentación</h1>
       <p class="docs-page-subtitle">
         Guías de instalación, configuración, uso y desarrollo.
       </p>
-    </header>
+    </div>
 
     {docs.length === 0 ? (
       <div class="empty">
@@ -153,7 +190,7 @@ const sectionLabels: Record<string, string> = {
       </div>
     ) : (
       Array.from(grouped.entries()).map(([section, items]) => (
-        <section class="docs-section">
+        <section class="docs-section" id={section}>
           <h2 class="section-title">{sectionLabels[section] ?? section}</h2>
           <div class="grid docs-grid">
             {items.map((doc) => (
@@ -178,7 +215,12 @@ const sectionLabels: Record<string, string> = {
     )}
 
     <footer class="docs-footer">
-      Editá los archivos en <code>docs/</code> y reiniciá la app para ver los cambios.
+      <div style="display:flex;justify-content:center;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem">
+        <a href="/" style="color:var(--accent);text-decoration:none;font-weight:500">← Volver a la portada principal</a>
+        <span style="color:var(--text-faint)">•</span>
+        <a href="/admin" style="color:var(--accent);text-decoration:none;font-weight:500">Ir al panel de administración</a>
+      </div>
+      <div>Editá los archivos en <code>docs/</code> y reiniciá la app para ver los cambios.</div>
     </footer>
   </main>
 </PublicLayout>

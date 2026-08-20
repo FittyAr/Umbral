@@ -63,7 +63,7 @@ export function resolvePortalId(request: Request, cfg: Config): string {
     }
   }
   // 3) Default: si hay un portal con pathPrefix='*' o '', usarlo
-  const fallback = portals.find((p) => p.pathPrefix === '*' || p.pathPrefix === '/');
+  const fallback = portals.find((p: Portal) => p.pathPrefix === '*' || p.pathPrefix === '/');
   if (fallback) return fallback.id;
   // 4) Fallback final: defaultPortal configurado
   return cfg.portals.defaultPortal || 'default';

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { json, error } from '~/lib/http';
 import { getConfig } from '~/lib/config';
+import { isFeatureEnabled } from '~/lib/features';
 import { getDefaultSystemPrompt } from '~/lib/ai-prompts';
 
 export const prerender = false;
@@ -21,8 +22,8 @@ export const prerender = false;
 export const POST: APIRoute = async ({ request }) => {
   const cfg = await getConfig();
   const ai = cfg.ai;
-  if (!ai?.enabled) {
-    return error('IA no está habilitada. Configurala en Admin → IA.', 503);
+  if (!isFeatureEnabled(cfg, 'ai') || !ai?.enabled) {
+    return error('IA no está habilitada. Configurala en Admin → Avanzado → Features.', 503);
   }
   if (!ai.baseUrl) {
     return error('Falta baseUrl de la IA', 503);
@@ -106,9 +107,10 @@ Devolvé únicamente el JSON con el title y description mejorados.`;
   // consistentemente los "max 60 chars" del system prompt y devuelve
   // strings más largas. Si no clampeamos acá, el admin save falla con
   // "String must contain at most 200 character(s)".
+  const parsedObj = parsed as Record<string, unknown>;
   const improved = {
-    title: String(parsed.title || title).slice(0, 80),
-    description: String(parsed.description || description).slice(0, 200),
+    title: String(parsedObj.title || title).slice(0, 80),
+    description: String(parsedObj.description || description).slice(0, 200),
   };
   return json(improved);
 };

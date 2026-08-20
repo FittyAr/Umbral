@@ -7,7 +7,7 @@ import { applySecurityHeaders } from '~/lib/http';
 // `card.healthCheck = true`. Es seguro hacerlo público — el endpoint sólo
 // hace HEAD a URLs que pasan la SSRF guard del handler y no expone
 // secrets (password hash, csrf, etc.).
-const PUBLIC_API_PREFIXES = ['/api/login', '/api/health', '/api/status', '/api/assets/', '/api/locale', '/api/qr/', '/api/auth/check-default-password'];
+const PUBLIC_API_PREFIXES = ['/api/login', '/api/health', '/api/status', '/api/assets/', '/api/locale', '/api/qr/', '/api/auth/'];
 const PUBLIC_PAGE_PATHS = new Set(['/', '/404', '/500', '/manifest.webmanifest', '/sw.js']);
 // Prefijos que matchean cualquier URL que EMPIEZA con ellos.
 // `_image` se matchea como exact (es un archivo estático, no un prefijo de
@@ -124,15 +124,27 @@ export const onRequest = defineMiddleware(async (context, next) => {
       });
     }
     const method = request.method.toUpperCase();
-    const requiresCsrf =
-      csrfPolicy === 'all' || (csrfPolicy === 'mutations' && UNSAFE_METHODS.has(method));
-    if (requiresCsrf) {
-      const sent = request.headers.get(CSRF_HEADER);
-      if (!auth.csrfToken || !sent || sent !== auth.csrfToken) {
-        return new Response(JSON.stringify({ error: 'CSRF inválido' }), {
+    const isMutation = UNSAFE_METHODS.has(method);
+
+    if (auth.isApiToken) {
+      if (isMutation && !auth.isAdmin) {
+        return new Response(JSON.stringify({ error: 'Token solo tiene permisos de lectura' }), {
           status: 403,
           headers: { 'content-type': 'application/json' },
         });
+      }
+      // Los API tokens no requieren CSRF
+    } else {
+      const requiresCsrf =
+        csrfPolicy === 'all' || (csrfPolicy === 'mutations' && isMutation);
+      if (requiresCsrf) {
+        const sent = request.headers.get(CSRF_HEADER);
+        if (!auth.csrfToken || !sent || sent !== auth.csrfToken) {
+          return new Response(JSON.stringify({ error: 'CSRF inválido' }), {
+            status: 403,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
       }
     }
   }

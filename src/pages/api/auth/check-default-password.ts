@@ -17,12 +17,11 @@ import { json, error } from '~/lib/http';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ request }) => {
-  // No requiere auth: es solo informativo, el admin debe verlo
-  // incluso si su sesión expiró (porque justamente le decimos que
-  // cambie el password). Pero el body de respuesta es "isDefault",
-  // no expone info sensible.
-  void request;
+export const GET: APIRoute = async ({ locals }) => {
+  const auth = locals.auth;
+  if (!auth?.isAuthenticated) {
+    return error('No autorizado', 401);
+  }
   const cfg = await getConfig();
   const hash = cfg.auth?.passwordHash;
   if (!hash) {

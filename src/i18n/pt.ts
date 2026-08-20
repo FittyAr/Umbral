@@ -68,6 +68,8 @@ export const pt = {
   'admin.dashboard.title': 'Painel de configuração',
   'admin.dashboard.dirty': '● Alterações não salvas',
   'admin.dashboard.reload': 'Recarregar',
+  'admin.dashboard.save': 'Salvar alterações',
+  'admin.dashboard.saving': 'Salvando…',
   'admin.dashboard.saved': 'Configuração salva',
   'admin.dashboard.savedClamped': 'Configuração salva ({n, plural, one {# descrição truncada} other {# descrições truncadas}} para 200 chars)',
   'admin.dashboard.reloaded': 'Recarregado',
@@ -84,6 +86,14 @@ export const pt = {
   'admin.tab.hardening': 'Hardening',
   'admin.tab.password': 'Senha',
   'admin.tab.ai': 'IA',
+  'admin.tab.webhooks': 'Webhooks',
+  'admin.tab.maintenance': 'Manutenção',
+  'admin.tab.audit': 'Auditoria',
+  'admin.tab.metrics': 'Métricas',
+  'admin.tab.oidc': 'OIDC / SSO',
+  'admin.tab.tokens': 'Tokens de API',
+  'admin.tab.portals': 'Multi-Portal',
+  'admin.tab.iconPacks': 'Ícones Git',
   'admin.tab.advanced': 'Avançado',
 
   // ── Admin: Features (opt-in) ─────────────────────────────────────
@@ -102,8 +112,9 @@ export const pt = {
 
   // ── Admin: Webhooks (opt-in) ─────────────────────────────────────
   'admin.webhooks.title': 'Webhooks',
-  'admin.webhooks.intro': 'Notifica URLs externas quando um cartão com health-check muda de estado (saudável → falhando ou vice-versa).',
+  'admin.webhooks.intro': 'Notifica URLs externas quando um card monitorado muda de estado (healthy → failing ou vice-versa).',
   'admin.webhooks.add': 'Adicionar',
+  'admin.webhooks.testNew': 'Testar antes de salvar',
 
   // ── Admin: Maintenance windows (opt-in) ─────────────────────────
   'admin.maintenance.title': 'Manutenção',

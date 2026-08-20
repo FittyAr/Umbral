@@ -136,24 +136,42 @@ function defaultConfig(): Config {
     // Features flags (ver src/lib/features.ts). Default vacío → todas las
     // features nuevas arrancan apagadas, manteniendo compat 100% con v1.x.
     // El admin activa cada una desde /admin → Avanzado → Features.
-    features: {},
+    features: {
+      markdown: { enabled: false },
+      tags: { enabled: false },
+      pinned: { enabled: false },
+      i18n: { enabled: false, locale: 'es' },
+      presets: { enabled: true },
+      auditLogViewer: { enabled: true },
+      webhooks: { enabled: false },
+      maintenanceWindows: { enabled: false },
+      metrics: { enabled: false, persistToDisk: false, retentionHours: 24 },
+      qr: { enabled: false },
+      multiUser: { enabled: false },
+      totp2fa: { enabled: false },
+      oidc: { enabled: false },
+      apiTokens: { enabled: false },
+      multiPortal: { enabled: false },
+      status: { enabled: false },
+      ai: { enabled: false },
+      iconPacks: { enabled: false },
+    },
+    portals: { defaultPortal: 'default', items: [] },
+    oidc: { providers: [] },
+    apiTokens: { items: [] },
     categories: [
       { id: 'com', name: 'Comunicación', icon: 'message-circle', isLocked: false, password: '', isSubpage: false },
       { id: 'prod', name: 'Productividad', icon: 'briefcase', isLocked: false, password: '', isSubpage: false },
       { id: 'dev', name: 'Desarrollo', icon: 'code', isLocked: false, password: '', isSubpage: false },
     ],
     cards: [
-      // Tarjeta default que apunta a la documentación del sistema. El admin
-      // puede borrarla desde /admin → Tarjetas si no la quiere. Vive acá
-      // (en defaultConfig) en vez de hardcodear en la portada para que:
-      // 1) Respete el orden/agrupamiento del usuario (categoría "Desarrollo").
-      // 2) Sea eliminable sin tocar código.
-      // 3) Migrar a versiones viejas no la rompa — el merge deep la respeta
-      //    si el usuario ya tenía cards custom.
+      // Tarjeta default que apunta a la documentación del sistema.
       {
         id: 'docs',
         title: 'Documentación',
+        kind: 'link',
         description: 'Cómo instalar, configurar y usar Umbral',
+        descriptionFormat: 'plain',
         url: '/docs',
         icon: 'file-text',
         category: 'dev',
@@ -161,6 +179,10 @@ function defaultConfig(): Config {
         color: '#10b981',
         order: 0,
         enabled: true,
+        healthCheck: false,
+        latencyThresholdMs: 0,
+        pinned: false,
+        tags: [],
       },
     ],
     _meta: { createdAt: null, updatedAt: null },
@@ -228,6 +250,8 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
         passwordHash: await hashPassword(password || 'admin'),
         csrfToken: generateToken(32),
         authEpoch: 0,
+        users: [],
+        singlePasswordEnabled: true,
       };
 
       if (!password) {
@@ -273,7 +297,7 @@ async function loadFresh(): Promise<Config> {
     // dejar la app inaccesible.
     if (!data.auth) {
       const password = process.env.INITIAL_PASSWORD || 'admin';
-      data = { ...data, auth: { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0 } };
+      data = { ...data, auth: { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0, users: [], singlePasswordEnabled: true } };
       console.warn('[umbral] config sin auth — regenerando. Cambiá la password desde /admin ASAP.');
     }
     // ai es .optional() en el schema (para no romper configs viejos en el
@@ -346,25 +370,27 @@ async function loadFresh(): Promise<Config> {
       // AI: si el partial no incluye `ai`, usar el default (no activado).
       // Si lo incluye pero está parcial, mergear.
       ai: partial.data.ai
-        ? { ...defaults.ai, ...(partial.data.ai as object) }
+        ? { ...defaults.ai!, ...(partial.data.ai as object) }
         : defaults.ai,
       // externalSearch: mismo patrón que ai.
       externalSearch: partial.data.externalSearch
-        ? { ...defaults.externalSearch, ...(partial.data.externalSearch as object) }
+        ? { ...defaults.externalSearch!, ...(partial.data.externalSearch as object) }
         : defaults.externalSearch,
-      auth: partial.data.auth,  // puede ser undefined; lo regeneramos abajo
+      auth: partial.data.auth as Config['auth'], // puede ser undefined; lo regeneramos abajo
       _meta: { ...defaults._meta, ...(partial.data._meta ?? {}), updatedAt: new Date().toISOString() },
     };
     // Regenerar auth si falta, igual que en el camino strict.
     if (!merged.auth) {
       const password = process.env.INITIAL_PASSWORD || 'admin';
-      merged.auth = { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0 };
+      merged.auth = { passwordHash: await hashPassword(password), csrfToken: generateToken(32), authEpoch: 0, users: [], singlePasswordEnabled: true };
       console.warn('[umbral] config migrada sin auth — regenerando. Cambiá la password desde /admin ASAP.');
-    } else if (merged.auth.authEpoch === undefined) {
-      // Auth existe pero no tiene epoch (versión vieja del schema).
-      // Lo agregamos sin invalidar sesiones existentes (epoch=0 matchea
-      // con tokens emitidos bajo el formato viejo que tampoco tienen epoch).
-      merged.auth = { ...merged.auth, authEpoch: 0 };
+    } else {
+      merged.auth = {
+        ...merged.auth,
+        authEpoch: merged.auth.authEpoch ?? 0,
+        users: merged.auth.users ?? [],
+        singlePasswordEnabled: merged.auth.singlePasswordEnabled ?? true,
+      };
     }
     // Re-validate the merged result.
     const revalidated = ConfigSchema.safeParse(merged);
@@ -410,6 +436,7 @@ export async function getConfig(): Promise<Config> {
 }
 
 export async function saveConfig(update: ConfigUpdate): Promise<Config> {
+  const defaults = defaultConfig();
   const current = await getConfig();
   // _meta no se puede actualizar desde el client (se regenera acá).
   // auth SÍ se acepta desde el client a partir de Ola 3.1 (multi-user)
@@ -417,6 +444,17 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
   // (ver el IIFE de auth más abajo). Mantenemos el spread para que el
   // campo llegue a saveConfig.
   const { _meta: _ignoredMeta, ...cleanUpdate } = update;
+
+  // Features: deep-merge igual que security. El client envía sólo los
+  // flags que cambió; el server mergea contra current.features para no
+  // pisar los otros.
+  const currentFeatures = (current.features ?? {}) as Record<string, Record<string, unknown>>;
+  const updateFeatures = (cleanUpdate.features ?? {}) as Record<string, Record<string, unknown>>;
+  const mergedFeatures: Record<string, Record<string, unknown>> = { ...currentFeatures };
+  for (const [key, partialUpdate] of Object.entries(updateFeatures)) {
+    mergedFeatures[key] = { ...(currentFeatures[key] ?? {}), ...partialUpdate };
+  }
+
   const merged = {
     ...current,
     ...cleanUpdate,
@@ -437,63 +475,21 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
       headers: { ...current.security.headers, ...(cleanUpdate.security?.headers ?? {}) },
     },
     ai: cleanUpdate.ai
-      ? { ...(current.ai ?? defaults.ai), ...cleanUpdate.ai }
+      ? { ...(current.ai ?? defaults.ai!), ...cleanUpdate.ai }
       : (current.ai ?? defaults.ai),
     externalSearch: cleanUpdate.externalSearch
-      ? { ...(current.externalSearch ?? defaults.externalSearch), ...cleanUpdate.externalSearch }
+      ? { ...(current.externalSearch ?? defaults.externalSearch!), ...cleanUpdate.externalSearch }
       : (current.externalSearch ?? defaults.externalSearch),
-    // Features: deep-merge igual que security. El client envía sólo los
-    // flags que cambió; el server mergea contra current.features para no
-    // pisar los otros. BUGFIX sin esto: cambiar UN feature reseteaba los
-    // demás (ej: prender tags, después prender metrics borraba el toggle
-    // de tags porque el shallow merge del top-level reemplazaba el objeto
-    // entero).
-    //
-    // Estrategia: tomar current.features y aplicar encima SOLO los
-    // sub-objetos que el client envió. Si el client envió un sub-objeto
-    // de un feature (ej: { enabled: true } para tags), mergearlo con el
-    // current correspondiente para no perder sub-campos como
-    // `metrics.persistToDisk` o `i18n.locale`.
-    features: (() => {
-      const currentFeatures = (current.features ?? {}) as Record<string, Record<string, unknown>>;
-      const updateFeatures = (cleanUpdate.features ?? {}) as Record<string, Record<string, unknown>>;
-      const mergedFeatures: Record<string, Record<string, unknown>> = { ...currentFeatures };
-      for (const [key, partialUpdate] of Object.entries(updateFeatures)) {
-        mergedFeatures[key] = { ...(currentFeatures[key] ?? {}), ...partialUpdate };
-      }
-      return mergedFeatures;
-    })(),
+    features: mergedFeatures,
     categories: cleanUpdate.categories ?? current.categories,
     cards: (() => {
       // Defense-in-depth para el opt-in de markdown: si la feature está
-      // apagada, forzar plain + límite 200 chars en TODAS las cards (el
-      // cliente ya lo hace, pero un request malicioso o un bug del UI
-      // podría saltarse ese paso). Si la feature está activa, respetar
-      // descriptionFormat (200 para plain, 1000 para markdown).
-      //
-      // Mismo principio para tags (opt-in: features.tags): si la feature
-      // está apagada, dropeamos el array completo (defense in depth — el
-      // server no persiste tags si el admin no las activó). El schema
-      // ya sanitiza las tags (normaliza kebab-case + dedup) en su
-      // preprocess, así que acá sólo necesitamos gating.
-      //
-      // Y para pinned (opt-in: features.pinned): si la feature está
-      // apagada, forzar pinned=false. Más simple que tags/markdown porque
-      // es un solo boolean.
-      const baseCards = (cleanUpdate.cards ?? current.cards) as Array<{
-        description?: string;
-        descriptionFormat?: 'plain' | 'markdown';
-        tags?: string[];
-        pinned?: boolean;
-      }>;
-      const features = (current.features ?? {}) as {
-        markdown?: { enabled?: boolean };
-        tags?: { enabled?: boolean };
-        pinned?: { enabled?: boolean };
-      };
-      const markdownOn = features.markdown?.enabled === true;
-      const tagsOn = features.tags?.enabled === true;
-      const pinnedOn = features.pinned?.enabled === true;
+      // apagada, forzar plain + límite 200 chars en TODAS las cards.
+      // Si la feature está activa, respetar descriptionFormat (200 para plain, 1000 para markdown).
+      const baseCards = (cleanUpdate.cards ?? current.cards);
+      const markdownOn = (mergedFeatures.markdown as { enabled?: boolean } | undefined)?.enabled === true;
+      const tagsOn = (mergedFeatures.tags as { enabled?: boolean } | undefined)?.enabled === true;
+      const pinnedOn = (mergedFeatures.pinned as { enabled?: boolean } | undefined)?.enabled === true;
       return baseCards.map((c) => {
         const description = typeof c.description === 'string' ? c.description : '';
         const baseCard = { ...c };
@@ -508,7 +504,7 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
         }
         // Tags gating
         if (!tagsOn) {
-          delete baseCard.tags;
+          delete (baseCard as { tags?: string[] }).tags;
         }
         // Pinned gating
         if (!pinnedOn) {
@@ -517,82 +513,57 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
         return baseCard;
       });
     })(),
-    // Maintenance windows gating: si la feature está apagada, dropear
-    // el array (defense in depth). Mismo patrón que webhooks/tags.
+    // Maintenance windows gating: si la feature está apagada, dropear el array.
     maintenanceWindows: (() => {
       const mw = (cleanUpdate as ConfigUpdate).maintenanceWindows;
-      const base = (current.maintenanceWindows ?? { items: [] }) as { items?: unknown[] };
-      const featuresMaint = (current.features ?? {}) as { maintenanceWindows?: { enabled?: boolean } };
-      if (!featuresMaint.maintenanceWindows?.enabled) {
+      const base = (current.maintenanceWindows ?? { items: [] });
+      const maintOn = (mergedFeatures.maintenanceWindows as { enabled?: boolean } | undefined)?.enabled === true;
+      if (!maintOn) {
         return { items: [] };
       }
       return mw ? { ...base, ...mw } : base;
     })(),
-    // Auth (incluye users[] de multi-user). Si la feature está apagada,
-    // dropear users[] (defense in depth). El password único + csrfToken +
-    // authEpoch siguen siendo válidos.
-    //
-    // IMPORTANTE: usamos `merged.features` (no `current.features`) para
-    // chequear si la feature está activa. Si la prendemos en el mismo
-    // PUT, el merged ya tiene multiUser.enabled=true, pero el current no.
-    // Usar el current nos haría dropear users[] cuando en realidad
-    // queremos aceptarlos.
+    // Auth: si multiUser está activo en mergedFeatures, aceptamos users.
     auth: (() => {
-      const incomingFeatures = (cleanUpdate as ConfigUpdate).features as { multiUser?: { enabled?: boolean } } | undefined;
-      const featureOn = incomingFeatures?.multiUser?.enabled === true;
-      const base = (current.auth ?? { passwordHash: '', csrfToken: '', authEpoch: 0, users: [], singlePasswordEnabled: true }) as { passwordHash: string; csrfToken: string; authEpoch: number; users?: unknown[]; singlePasswordEnabled?: boolean };
-      const incoming = (cleanUpdate as ConfigUpdate).auth as { users?: unknown[]; singlePasswordEnabled?: boolean } | undefined;
+      const featureOn = (mergedFeatures.multiUser as { enabled?: boolean } | undefined)?.enabled === true;
+      const base = (current.auth ?? { passwordHash: '', csrfToken: '', authEpoch: 0, users: [], singlePasswordEnabled: true });
+      const incoming = (cleanUpdate as ConfigUpdate).auth as { users?: typeof base.users; singlePasswordEnabled?: boolean } | undefined;
       if (!featureOn) {
         return { ...base, users: [], singlePasswordEnabled: true };
       }
       if (!incoming) return base;
       return { ...base, ...incoming };
     })(),
+    portals: (cleanUpdate as ConfigUpdate).portals ?? current.portals ?? defaults.portals,
+    oidc: (cleanUpdate as ConfigUpdate).oidc ?? current.oidc ?? defaults.oidc,
+    apiTokens: (cleanUpdate as ConfigUpdate).apiTokens ?? current.apiTokens ?? defaults.apiTokens,
     _meta: { ...current._meta, updatedAt: new Date().toISOString() },
   };
-  // BUGFIX / BUG-PROTECTION: la tarjeta default de docs (id='docs', url='/docs')
-  // es del sistema. La UI no expone Editar/Borrar para esa card, pero el server
-  // es la última línea de defensa: si un request (legítimo del UI roto, o
-  // malicioso que encontró el endpoint) intenta borrarla o modificarla,
-  // rechazamos con 400 claro. Si la card de docs no existe en la config
-  // actual (caso muy raro: alguien la borró por edit manual del JSON antes
-  // de tener esta protección), la restauramos silenciosamente desde el
-  // default — perder el link a la documentación del propio sistema es un
-  // bug peor que restaurarla.
-  //
-  // Reglas de protección (el user pidió "se puede ocultar pero NO eliminar
-  // ni editar"):
-  // - Se puede modificar `enabled` (eso la oculta de la portada sin tocarla)
-  // - NO se puede modificar nada más: title, description, url, icon, color,
-  //   category, order, openInNewTab, healthCheck, kind
-  // - NO se puede borrar (si el user la manda fuera del array, restauramos)
-  // - NO se puede cambiar la url (debe seguir siendo '/docs')
-  // - NO se puede cambiar el id (debe seguir siendo 'docs')
-  // - NO se puede cambiar el kind (debe seguir siendo 'link', no 'note')
-  const mergedCards = merged.cards as Array<{ id: string; title?: string; url?: string; [k: string]: unknown }>;
-  const systemCardDefault = (defaultConfig().cards as Array<{ id: string }>).find((c) => c.id === 'docs');
+
+  if (merged.security?.network) {
+    delete (merged.security.network as { trustedProxiesText?: string }).trustedProxiesText;
+  }
+
+  // Protección de la tarjeta default de docs
+  const mergedCards = [...merged.cards];
+  const systemCardDefault = defaults.cards.find((c) => c.id === 'docs');
   if (systemCardDefault) {
     const existingSystem = mergedCards.find((c) => c.id === 'docs');
     if (!existingSystem) {
-      // Restauramos silenciosamente.
-      mergedCards.push({ ...systemCardDefault } as typeof mergedCards[number]);
+      mergedCards.push({ ...systemCardDefault });
       merged.cards = mergedCards;
     } else {
-      // Comparar contra el original de la config actual (NO contra el default)
-      // para distinguir "cambió respecto al server" de "siempre estuvo así".
-      const originalSystem = (current.cards as Array<{ id: string }>).find((c) => c.id === 'docs');
+      const originalSystem = current.cards.find((c) => c.id === 'docs');
       if (originalSystem) {
-        // Campos que NO se pueden tocar. Comparamos contra el original: si
-        // difieren, rechazamos. El unico cambio permitido es `enabled`.
-        const protectedFields: Array<keyof typeof existingSystem> = [
+        const protectedFields = [
           'title', 'description', 'url', 'icon', 'color', 'category',
           'order', 'openInNewTab', 'healthCheck', 'kind', 'id',
-        ];
+        ] as const;
         const changed: string[] = [];
         for (const f of protectedFields) {
-          const a = (existingSystem as Record<string, unknown>)[f];
-          const b = (originalSystem as Record<string, unknown>)[f];
-          if (JSON.stringify(a) !== JSON.stringify(b)) changed.push(f);
+          const a = existingSystem[f];
+          const b = originalSystem[f];
+          if (JSON.stringify(a) !== JSON.stringify(b)) changed.push(String(f));
         }
         if (changed.length > 0) {
           throw new Error(
@@ -604,6 +575,7 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
       }
     }
   }
+
   // Re-validate the merged result.
   const result = ConfigSchema.parse(merged);
 
@@ -630,6 +602,8 @@ export async function resetConfig(): Promise<Config> {
       passwordHash: await hashPassword(password),
       csrfToken: generateToken(32),
       authEpoch: 0,
+      users: [],
+      singlePasswordEnabled: true,
     };
   }
   await fs.writeFile(_portalConfigPath(activePortalId), JSON.stringify(cfg, null, 2), 'utf8');
@@ -660,13 +634,16 @@ export async function updateAuth(newPasswordHash: string, newCsrf: string): Prom
       passwordHash: newPasswordHash,
       csrfToken: newCsrf,
       authEpoch: (current.auth?.authEpoch ?? 0) + 1,
+      users: current.auth?.users ?? [],
+      singlePasswordEnabled: current.auth?.singlePasswordEnabled ?? true,
     },
     _meta: { ...current._meta, updatedAt: new Date().toISOString() },
   };
   const result = ConfigSchema.parse(merged);
-  const tmp = CONFIG_PATH + '.tmp';
+  const portalCfg = _portalConfigPath(activePortalId);
+  const tmp = portalCfg + '.tmp';
   await fs.writeFile(tmp, JSON.stringify(result, null, 2), 'utf8');
-  await fs.rename(tmp, CONFIG_PATH);
+  await fs.rename(tmp, portalCfg);
   invalidate();
   return result;
 }

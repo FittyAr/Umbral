@@ -98,6 +98,14 @@ export const es = {
   'admin.tab.hardening': 'Hardening',
   'admin.tab.password': 'Password',
   'admin.tab.ai': 'IA',
+  'admin.tab.webhooks': 'Webhooks',
+  'admin.tab.maintenance': 'Mantenimiento',
+  'admin.tab.audit': 'Auditoría',
+  'admin.tab.metrics': 'Métricas',
+  'admin.tab.oidc': 'OIDC / SSO',
+  'admin.tab.tokens': 'Tokens API',
+  'admin.tab.portals': 'Multi-Portal',
+  'admin.tab.iconPacks': 'Íconos Git',
   'admin.tab.advanced': 'Avanzado',
 
   // ── Admin: Features (opt-in) ─────────────────────────────────────
@@ -118,6 +126,7 @@ export const es = {
   'admin.webhooks.title': 'Webhooks',
   'admin.webhooks.intro': 'Notifica a URLs externas cuando una card con health-check cambia de estado (de healthy → failing o vice versa).',
   'admin.webhooks.add': 'Agregar',
+  'admin.webhooks.testNew': 'Probar antes de guardar',
 
   // ── Admin: Maintenance windows (opt-in) ─────────────────────────
   'admin.maintenance.title': 'Mantenimiento',

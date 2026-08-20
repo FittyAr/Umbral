@@ -73,6 +73,7 @@ export async function cmdCardsAdd(client: UmbralClient, args: string[]): Promise
     order: cfg.cards.length,
     enabled: true,
     healthCheck: false,
+    latencyThresholdMs: 0,
     pinned: false,
     tags: [],
   };

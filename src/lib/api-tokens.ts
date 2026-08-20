@@ -9,6 +9,7 @@
  */
 
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { getConfig } from './config';
 import { isFeatureEnabled } from './features';
 import { audit } from './config';

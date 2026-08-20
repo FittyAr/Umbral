@@ -875,6 +875,27 @@ Headers: \`X-Umbral-Event\`, \`X-Umbral-Card\`, \`User-Agent: Umbral-Webhook/1.0
 Si la feature está apagada, esta sección no aparece y el endpoint \`/api/audit\` devuelve 404.`,
   },
 
+  'advanced.multiPortal': {
+    title: 'Multi-Portal',
+    short: 'Permite servir múltiples portales/dashboards desde una misma instancia según dominio o prefijo de ruta.',
+    body: `**Multi-Portal** te permite aislar configuraciones, tarjetas, categorías, assets y logs para diferentes equipos o entornos (ej: "IT", "Marketing", "Dev", "Clientes") en una única instalación de Umbral.
+
+**Cómo funciona el enrutamiento**:
+1. **Por Host (Dominio / Subdominio)**: Podés asociar un portal a un host específico (ej: \`dev.portal.local\` o \`marketing.empresa.com\`). Admite comodines (wildcards) como \`*.empresa.com\`.
+2. **Por Path Prefix (Prefijo de ruta)**: Podés rutear por prefijo (ej: \`/dev\`, \`/marketing\`).
+3. **Portal Default (Fallback)**: Cualquier petición que no coincida con los portales registrados es atendida por el portal default (\`default\`).
+
+**Estructura de datos en disco**:
+Al activar la feature, los datos se auto-migran transparentemente:
+- \`data/portals/default/config.json\`: Configuración del portal por defecto.
+- \`data/portals/<portal-id>/config.json\`: Configuración independiente de cada portal.
+- \`data/portals/<portal-id>/uploads/\`: Assets y logos propios de ese portal.
+- \`data/portals/<portal-id>/audit.log\`: Log de auditoría aislado por portal.
+
+**Gestión de portales**:
+Podés agregar nuevos portales definiendo un ID kebab-case único, un nombre representativo, y opcionalmente su host o pathPrefix.`,
+  },
+
   // ── Seguridad (Password) ─────────────────────────────────────────
   'security.multiUser': {
     title: 'Usuarios (multi-user)',

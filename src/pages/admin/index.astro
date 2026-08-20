@@ -3,7 +3,6 @@ import AdminLayout from '~/layouts/AdminLayout.astro';
 import { getConfig } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
-import { isDefaultPasswordHash } from '~/lib/auth';
 
 const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
 if (isAuthed) {
@@ -25,21 +24,17 @@ const submitLabel = useI18n ? trf('admin.login.submit') : 'Entrar';
 const errorLabel = useI18n ? trf('admin.login.error') : 'Contraseña incorrecta';
 const csrfWarn = useI18n ? trf('admin.login.csrfWarn') : 'Sesión expirada, recargá la página';
 
-// Banner rojo si el password actual es uno de los default inseguros.
-// Mostramos un server-rendered alert (no depende de JS) para que el admin
-// lo vea apenas carga la página, no cuando Alpine termine de inicializar.
-const passwordHash = config.auth?.passwordHash ?? '';
-const isDefaultPassword = passwordHash ? await isDefaultPasswordHash(passwordHash) : false;
-const passwordWarning = useI18n ? trf('admin.login.passwordWarning') : 'Estás usando un password inseguro (admin / changeme / etc). Cambialo desde el panel después de entrar.';
+const multiUserOn = isFeatureEnabled(config, 'multiUser');
+const users = config.auth?.users ?? [];
+const hasUsers = multiUserOn && users.length > 0;
+const singleEnabled = config.auth?.singlePasswordEnabled !== false;
+
+const oidcOn = isFeatureEnabled(config, 'oidc');
+const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers.filter((p) => p.enabled) : [];
 ---
 <AdminLayout title="Login" csrfToken={null} isAuthed={false} showNav={false}>
   <div class="login-wrap">
-    {isDefaultPassword ? (
-      <div class="login-warning" role="alert">
-        ⚠ {passwordWarning}
-      </div>
-    ) : null}
-    <form id="login-form" class="login-card" autocomplete="off">
+    <div class="login-card">
       <div class="login-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#60a5fa">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
@@ -47,32 +42,115 @@ const passwordWarning = useI18n ? trf('admin.login.passwordWarning') : 'Estás u
         <h1>{loginTitle}</h1>
         <p class="muted">Acceso al panel de configuración</p>
       </div>
-      <div class="form-group">
-        <label for="password">{passwordLabel}</label>
-        <input id="password" name="password" type="password" required autofocus autocomplete="current-password" />
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%">{submitLabel}</button>
+
+      <!-- Step 1: Normal login -->
+      <form id="login-form" autocomplete="off">
+        {hasUsers && (
+          <div class="form-group">
+            <label for="username">Usuario {singleEnabled ? '(opcional para admin único)' : ''}</label>
+            <input id="username" name="username" type="text" placeholder={singleEnabled ? 'Dejar vacío para super-admin' : 'tu-usuario'} autocomplete="username" />
+          </div>
+        )}
+        <div class="form-group">
+          <label for="password">{passwordLabel}</label>
+          <input id="password" name="password" type="password" required autofocus autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">{submitLabel}</button>
+      </form>
+
+      <!-- Step 2: TOTP 2FA verification -->
+      <form id="totp-form" autocomplete="off" style="display:none">
+        <div class="form-group">
+          <label for="totpCode">Código 2FA / TOTP (6 dígitos)</label>
+          <input id="totpCode" name="totpCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" autofocus autocomplete="one-time-code" />
+          <small class="muted" style="font-size:0.75rem;margin-top:0.25rem;display:block">Ingresá el código generado por tu app de autenticación.</small>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">Verificar 2FA</button>
+        <button type="button" id="totp-cancel" class="btn btn-ghost" style="width:100%;margin-top:0.5rem">Cancelar</button>
+      </form>
+
+      {oidcProviders.length > 0 && (
+        <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid #334155">
+          <p class="muted" style="text-align:center;font-size:0.8rem;margin-bottom:0.75rem">O continuar con SSO</p>
+          <div style="display:flex;flex-direction:column;gap:0.5rem">
+            {oidcProviders.map((p) => (
+              <a href={`/api/auth/oidc/${encodeURIComponent(p.id)}/start`} class="btn btn-ghost" style="width:100%;display:flex;align-items:center;justify-content:center;gap:0.5rem">
+                <span>🔐</span>
+                <span>Iniciar con {p.name}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       <p id="login-error" class="error" hidden>{errorLabel}</p>
-    </form>
+    </div>
   </div>
 
   <script is:inline define:vars={{ errorLabel, errorFallback: 'Error de red' }}>
     const form = document.getElementById('login-form');
+    const totpForm = document.getElementById('totp-form');
+    const totpCancel = document.getElementById('totp-cancel');
     const err = document.getElementById('login-error');
+    let currentPartialToken = null;
+
+    totpCancel?.addEventListener('click', () => {
+      currentPartialToken = null;
+      totpForm.style.display = 'none';
+      form.style.display = 'block';
+      err.hidden = true;
+    });
+
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
       err.hidden = true;
       const fd = new FormData(form);
+      const username = fd.get('username')?.toString().trim();
       const password = fd.get('password');
+      const payload = { password };
+      if (username) payload.username = username;
+
       try {
         const res = await fetch('/api/login', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ password }),
+          body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           err.textContent = data.error || errorLabel;
+          err.hidden = false;
+          return;
+        }
+        if (data.requiresTotp && data.partialToken) {
+          currentPartialToken = data.partialToken;
+          form.style.display = 'none';
+          totpForm.style.display = 'block';
+          document.getElementById('totpCode')?.focus();
+          return;
+        }
+        window.location.href = '/admin/dashboard';
+      } catch (e) {
+        err.textContent = errorFallback;
+        err.hidden = false;
+      }
+    });
+
+    totpForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.hidden = true;
+      const code = document.getElementById('totpCode')?.value?.trim();
+      if (!code || !currentPartialToken) return;
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ partialToken: currentPartialToken, totpCode: code }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          err.textContent = data.error || 'Código 2FA incorrecto';
           err.hidden = false;
           return;
         }
@@ -115,20 +193,6 @@ const passwordWarning = useI18n ? trf('admin.login.passwordWarning') : 'Estás u
       border-radius: 6px;
       font-size: 0.85rem;
       margin: 0.75rem 0 0;
-    }
-    .login-warning {
-      color: #fca5a5;
-      background: rgba(220, 38, 38, 0.15);
-      border: 2px solid rgba(220, 38, 38, 0.4);
-      padding: 0.75rem 1rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      max-width: 360px;
-      width: 100%;
-      margin-bottom: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
     }
   </style>
 </AdminLayout>

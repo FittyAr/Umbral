@@ -10,7 +10,6 @@
  * Público: no requiere sesión previa (es el momento de crearla).
  */
 import type { APIRoute } from 'astro';
-import { parse as parseCookie } from 'cookie';
 import { getActiveOIDCProvider, consumeStateFlow, exchangeCode, verifyIdToken, resolveRole } from '~/lib/oidc';
 import { getConfig, saveConfig, audit } from '~/lib/config';
 import { createSessionToken, buildSessionCookie } from '~/lib/auth';
@@ -79,7 +78,7 @@ export const GET: APIRoute = async ({ params, request, url }) => {
     // Si el role cambió, persistir
     if (role !== users[existingIdx].role) {
       const newUsers = users.map((u) => u.id === userId ? { ...u, role } : u);
-      await saveConfig({ auth: { ...cfg.auth, users: newUsers, passwordHash: cfg.auth!.passwordHash, csrfToken: cfg.auth!.csrfToken, authEpoch: cfg.auth!.authEpoch, singlePasswordEnabled: cfg.auth!.singlePasswordEnabled } } as any);
+      await saveConfig({ auth: { ...cfg.auth, users: newUsers } });
     }
   } else {
     if (!provider.autoProvision) {
@@ -100,14 +99,8 @@ export const GET: APIRoute = async ({ params, request, url }) => {
       lastLoginAt: new Date().toISOString(),
     };
     const newUsers = [...users, newUser];
-    // No podemos usar saveConfig (que requiere passwordHash como string) sin
-    // re-armar el auth. Lo guardamos vía escritura directa del archivo.
-    // Para simplificar esta v1, sólo logueamos y devolvemos 500 si el
-    // auto-provision no se puede hacer via saveConfig.
-    // TODO v2: armar un endpoint dedicado POST /api/users/{id} que
-    // use saveConfig correctamente.
+    await saveConfig({ auth: { ...cfg.auth, users: newUsers } });
     await audit('oidc_user_provisioned', `username=${username} role=${role} provider=${providerId}`);
-    return new Response(`Auto-provision no implementado en esta v1. Admin debe crear el user "${username}" manualmente primero.`, { status: 501 });
   }
 
   // Iniciar sesión con el userEpoch

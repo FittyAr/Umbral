@@ -51,7 +51,10 @@ export type FeatureName =
   | 'totp2fa'
   | 'oidc'
   | 'apiTokens'
-  | 'multiPortal';
+  | 'multiPortal'
+  | 'status'
+  | 'ai'
+  | 'iconPacks';
 
 /**
  * Metadata para renderizar la sección "Features" del admin.
@@ -181,6 +184,27 @@ export const FEATURE_META: Record<FeatureName, FeatureMeta> = {
     body: 'Cada portal tiene su propio config.json, uploads y audit log. Detección por subdominio o path prefix. **Migra automáticamente** el config legacy al activar la feature por primera vez.',
     wave: 4,
     experimental: true,
+  },
+  status: {
+    label: 'Monitoreo de Estado (Status)',
+    short: 'Pestaña Status para diagnosticar conectividad y health checks en tiempo real.',
+    body: 'Agrega la pestaña "Status" en el panel de administración para ejecutar diagnósticos y chequear en vivo la conectividad y tiempos de respuesta de todas las tarjetas.',
+    wave: 1,
+    experimental: false,
+  },
+  ai: {
+    label: 'Asistente de IA',
+    short: 'Pestaña IA y herramientas para formatear y mejorar tarjetas con LLMs.',
+    body: 'Habilita la pestaña "IA" en el panel de administración y las funciones para mejorar y formatear automáticamente títulos y descripciones de tarjetas con modelos de lenguaje.',
+    wave: 1,
+    experimental: false,
+  },
+  iconPacks: {
+    label: 'Paquetes de Íconos (Icon Packs)',
+    short: 'Descarga e instala miles de íconos SVG desde repositorios Git de código abierto.',
+    body: 'Permite descargar e instalar con un solo clic colecciones completas de miles de íconos SVG (Simple Icons, Dashboard Icons, Lucide, Tabler, etc.) o desde cualquier repositorio Git personalizado, manteniendo las licencias y atribuciones correspondientes.',
+    wave: 2,
+    experimental: false,
   },
 };
 

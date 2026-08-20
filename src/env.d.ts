@@ -2,10 +2,7 @@
 
 declare namespace App {
   interface Locals {
-    auth: {
-      isAuthenticated: boolean;
-      csrfToken: string | null;
-    };
+    auth: import('./lib/auth').AuthContext;
     clientIp: string;
   }
 }

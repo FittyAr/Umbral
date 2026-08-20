@@ -7,31 +7,11 @@ import { verifyApiToken } from '~/lib/api-tokens';
 
 export const prerender = false;
 
-/** GET → returns the full config. Si la request trae Authorization:
- *  Bearer umb_xxx con un API token válido (feature.apiTokens ON),
- *  responde igual. Si no, exige sesión admin. Esto permite que integraciones
- *  externas (CI/CD, scripts, el CLI de Ola 4.2) consuman la API sin
- *  depender de cookies de sesión. */
-export const GET: APIRoute = async ({ request }) => {
-  const auth = await verifyApiToken(request);
-  if (!auth.valid) {
-    // Fallback al flow normal: sesión admin + CSRF.
-    return await getConfigWithSession();
-  }
+/** GET → returns the full config. Authenticated via session cookie or Bearer API token in middleware. */
+export const GET: APIRoute = async () => {
   const cfg = await getConfig();
   return json(cfg);
 };
-
-async function getConfigWithSession() {
-  // Lógica legacy: requiere sesión admin.
-  const { buildAuthContext } = await import('~/lib/auth');
-  const ctx = await buildAuthContext(new Request('http://x/x')); // dummy
-  if (!ctx.isAuthenticated) {
-    return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401, headers: { 'content-type': 'application/json' } });
-  }
-  const cfg = await getConfig();
-  return new Response(JSON.stringify(cfg), { status: 200, headers: { 'content-type': 'application/json' } });
-}
 
 /** Diff entre dos secciones `features` para loguear toggles en el audit
  *  log. Devuelve un array de strings estilo "i18n: false→true" sólo con
@@ -69,6 +49,7 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   const result = ConfigUpdateSchema.safeParse(body);
   if (!result.success) {
+    console.error('[umbral] ConfigUpdateSchema validation failed:', result.error.issues);
     return error(
       `Datos inválidos: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
       400,

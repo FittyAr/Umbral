@@ -68,6 +68,8 @@ export const en = {
   'admin.dashboard.title': 'Settings panel',
   'admin.dashboard.dirty': '● Unsaved changes',
   'admin.dashboard.reload': 'Reload',
+  'admin.dashboard.save': 'Save changes',
+  'admin.dashboard.saving': 'Saving…',
   'admin.dashboard.saved': 'Settings saved',
   'admin.dashboard.savedClamped': 'Settings saved ({n, plural, one {# description} other {# descriptions}} truncated to 200 chars)',
   'admin.dashboard.reloaded': 'Reloaded',
@@ -84,6 +86,14 @@ export const en = {
   'admin.tab.hardening': 'Hardening',
   'admin.tab.password': 'Password',
   'admin.tab.ai': 'AI',
+  'admin.tab.webhooks': 'Webhooks',
+  'admin.tab.maintenance': 'Maintenance',
+  'admin.tab.audit': 'Audit',
+  'admin.tab.metrics': 'Metrics',
+  'admin.tab.oidc': 'OIDC / SSO',
+  'admin.tab.tokens': 'API Tokens',
+  'admin.tab.portals': 'Multi-Portal',
+  'admin.tab.iconPacks': 'Git Icons',
   'admin.tab.advanced': 'Advanced',
 
   // ── Admin: Features (opt-in) ─────────────────────────────────────
@@ -102,8 +112,9 @@ export const en = {
 
   // ── Admin: Webhooks (opt-in) ─────────────────────────────────────
   'admin.webhooks.title': 'Webhooks',
-  'admin.webhooks.intro': 'Notify external URLs when a health-checked card changes state (healthy → failing or vice versa).',
+  'admin.webhooks.intro': 'Notify external URLs when a monitored card changes state (healthy → failing or vice versa).',
   'admin.webhooks.add': 'Add',
+  'admin.webhooks.testNew': 'Test before saving',
 
   // ── Admin: Maintenance windows (opt-in) ─────────────────────────
   'admin.maintenance.title': 'Maintenance',

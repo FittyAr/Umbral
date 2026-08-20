@@ -90,7 +90,7 @@ function deriveKey(passphrase: string): Buffer {
   // Si quisieramos per-user salts, podríamos usar el userId, pero
   // complica el flow de reset de SESSION_SECRET.
   const salt = Buffer.from('umbral-totp-encryption-v1', 'utf8');
-  return crypto.hkdfSync('sha256', Buffer.from(passphrase, 'utf8'), salt, '', KEY_LEN);
+  return Buffer.from(crypto.hkdfSync('sha256', Buffer.from(passphrase, 'utf8'), salt, '', KEY_LEN));
 }
 
 let _key: Buffer | null = null;

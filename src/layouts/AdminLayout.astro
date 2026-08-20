@@ -44,30 +44,41 @@ const theme = {
     <meta name="robots" content="noindex, nofollow" />
   </head>
   <body class="admin-body" data-csrf={csrfToken ?? ''} data-authed={isAuthed ? '1' : '0'}>
-    {showNav && isAuthed && (
-      <nav class="admin-nav">
-        <a href="/" class="nav-home" target="_blank" rel="noopener">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          {useI18n ? trf('admin.nav.home') : 'Ver portada'}
-        </a>
-        <span class="nav-divider"></span>
-        <span class="nav-title">{useI18n ? trf('admin.nav.title') : 'Admin'}</span>
-        <div class="nav-actions">
-          <button
-            data-action="toggle-mode"
-            class="mode-toggle-admin"
-            aria-label={useI18n ? trf('admin.nav.modeToggle') : 'Cambiar modo claro/oscuro'}
-            title={useI18n ? trf('admin.nav.modeToggle') : 'Cambiar modo claro/oscuro'}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
-            </svg>
-          </button>
-          <button data-action="logout" class="btn-ghost">{useI18n ? trf('admin.nav.logout') : 'Cerrar sesión'}</button>
-        </div>
-      </nav>
+    {showNav && isAuthed ? (
+      <div class="admin-shell" x-data="adminApp" x-init="init()">
+        <nav class="admin-nav">
+          <a href="/" class="nav-home" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            {useI18n ? trf('admin.nav.home') : 'Ver portada'}
+          </a>
+          <span class="nav-divider"></span>
+          <span class="nav-title">{useI18n ? trf('admin.nav.title') : 'Admin'}</span>
+          <div class="nav-actions">
+            <span x-show="dirty" class="dirty-badge" x-cloak x-text="dirtyLabel()">● Cambios sin guardar</span>
+            <button type="button" class="btn btn-sm btn-ghost" @click="reloadConfig()" :disabled="busy" x-text="reloadLabel()">Recargar</button>
+            <button type="button" class="btn btn-sm btn-primary" @click="saveAll()" :disabled="busy || !dirty">
+              <span x-show="!busy" x-text="saveLabel()">Guardar cambios</span>
+              <span x-show="busy" x-cloak x-text="savingLabel()">Guardando…</span>
+            </button>
+            <span class="nav-divider"></span>
+            <button
+              data-action="toggle-mode"
+              class="mode-toggle-admin"
+              aria-label={useI18n ? trf('admin.nav.modeToggle') : 'Cambiar modo claro/oscuro'}
+              title={useI18n ? trf('admin.nav.modeToggle') : 'Cambiar modo claro/oscuro'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+              </svg>
+            </button>
+            <button data-action="logout" class="btn btn-sm btn-ghost">{useI18n ? trf('admin.nav.logout') : 'Cerrar sesión'}</button>
+          </div>
+        </nav>
+        <slot />
+      </div>
+    ) : (
+      <slot />
     )}
-    <slot />
 
     {/* Apply the same light/dark toggle the public pages use, so the admin
         follows the user's preference and stays coherent across the platform.

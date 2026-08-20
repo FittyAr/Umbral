@@ -53,5 +53,5 @@ export const POST: APIRoute = async ({ request }) => {
   if (result.ok) {
     return json({ ok: true, status: result.status });
   }
-  return json({ ok: false, status: result.status, error: result.error }, 400);
+  return json({ ok: false, status: result.status, error: result.error }, { status: 400 });
 };

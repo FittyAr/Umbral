@@ -10,6 +10,7 @@ const HOST = process.env.HOST ?? '0.0.0.0';
 export default defineConfig({
   output: 'server',
   adapter: node({ mode: 'standalone' }),
+  devToolbar: { enabled: false },
   server: {
     port: PORT,
     host: HOST,
@@ -19,9 +20,6 @@ export default defineConfig({
     // that the browser shows without any styling. Allow all hosts in dev so the app works
     // however you reach it. CSRF and auth are still enforced by middleware.ts.
     allowedHosts: true,
-    // Vite 8 added a stricter HMR + DNS-rebinding guard that `allowedHosts: true` alone
-    // doesn't bypass for hosts like `host.docker.internal`. We accept it explicitly.
-    hmr: { clientPort: PORT },
   },
   // We implement our own CSRF protection in middleware.ts.
   // Astro's built-in checkOrigin is redundant and rejects legitimate multipart uploads
@@ -29,6 +27,9 @@ export default defineConfig({
   security: { checkOrigin: false },
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      ws: { clientPort: PORT },
+    },
     ssr: {
       noExternal: ['sortablejs', 'alpinejs'],
     },

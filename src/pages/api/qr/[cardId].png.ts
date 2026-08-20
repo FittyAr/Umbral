@@ -38,21 +38,24 @@ export const GET: APIRoute = async ({ params, url }) => {
     return new Response('QR codes no habilitados. Activalos en Admin → Avanzado → Features.', { status: 404 });
   }
 
-  const card = cfg.cards.find((c) => c.id === cardId);
-  if (!card) {
-    return new Response('Card no encontrada', { status: 404 });
-  }
-  if (card.kind === 'note' || !card.url) {
-    return new Response('Esta card no tiene URL para codificar', { status: 400 });
-  }
+  let targetUrl = url.searchParams.get('text') || '';
+  if (!targetUrl) {
+    const card = cfg.cards.find((c) => c.id === cardId);
+    if (!card) {
+      return new Response('Card no encontrada', { status: 404 });
+    }
+    if (card.kind === 'note' || !card.url) {
+      return new Response('Esta card no tiene URL para codificar', { status: 400 });
+    }
 
-  // Resolver URL absoluta. Si la URL es relativa (/docs), pre-pendemos
-  // BASE_URL del request (que el admin seteó via env) o el origin del
-  // request. Así el QR escaneado desde el celular abre la URL correcta.
-  let targetUrl = card.url;
-  if (targetUrl.startsWith('/')) {
-    const base = process.env.BASE_URL || url.origin;
-    targetUrl = new URL(targetUrl, base).toString();
+    // Resolver URL absoluta. Si la URL es relativa (/docs), pre-pendemos
+    // BASE_URL del request (que el admin seteó via env) o el origin del
+    // request. Así el QR escaneado desde el celular abre la URL correcta.
+    targetUrl = card.url;
+    if (targetUrl.startsWith('/')) {
+      const base = process.env.BASE_URL || url.origin;
+      targetUrl = new URL(targetUrl, base).toString();
+    }
   }
 
   const size = Math.max(64, Math.min(1024, Number(url.searchParams.get('size')) || 200));
@@ -68,7 +71,7 @@ export const GET: APIRoute = async ({ params, url }) => {
       });
     }
     const png = await QRCode.toBuffer(targetUrl, { width: size, margin, type: 'png' });
-    return new Response(png, {
+    return new Response(new Uint8Array(png), {
       status: 200,
       headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=300' },
     });

@@ -6,6 +6,7 @@ import { AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, findPresetByBaseUrl } from './a
 import { HELP_TEXTS } from './help-texts';
 import { AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS } from '~/lib/ai-prompts';
 import { FEATURE_META, FEATURE_NAMES, isFeatureEnabled } from '~/lib/features';
+import { APP_PRESETS } from '~/lib/presets';
 import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
 const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
@@ -41,17 +42,9 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
 }));
 ---
 <AdminLayout title="Dashboard" csrfToken={csrfToken} isAuthed={true}>
-  <div class="admin-wrap" x-data="adminApp" x-init="init()">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+  <div class="admin-wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
       <h1 style="margin:0;font-size:1.4rem">{useI18n ? trf('admin.dashboard.title') : 'Panel de configuración'}</h1>
-      <div style="display:flex;gap:0.5rem;align-items:center">
-        <span x-show="dirty" class="dirty-badge" x-cloak x-text="dirtyLabel()">● Cambios sin guardar</span>
-        <button class="btn btn-ghost" @click="reloadConfig()" :disabled="busy" x-text="reloadLabel()">Recargar</button>
-        <button class="btn btn-primary" @click="saveAll()" :disabled="busy || !dirty">
-          <span x-show="!busy" x-text="saveLabel()">Guardar cambios</span>
-          <span x-show="busy" x-cloak x-text="savingLabel()">Guardando…</span>
-        </button>
-      </div>
     </div>
 
     <div class="tabs">
@@ -61,10 +54,21 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
       <button class="tab" :class="tab==='categories' && 'active'" @click="tab='categories'" x-text="tabCategories()">Categorías</button>
       <button class="tab" :class="tab==='cards' && 'active'" @click="tab='cards'" x-text="tabCards()">Tarjetas</button>
       <button class="tab" :class="tab==='assets' && 'active'" @click="tab='assets'" x-text="tabAssets()">Assets</button>
-      <button class="tab" :class="tab==='status' && 'active'" @click="tab='status'" x-text="tabStatus()">Status</button>
       <button class="tab" :class="tab==='hardening' && 'active'" @click="tab='hardening'" x-text="tabHardening()">Hardening</button>
       <button class="tab" :class="tab==='security' && 'active'" @click="tab='security'" x-text="tabPassword()">Password</button>
-      <button class="tab" :class="tab==='ai' && 'active'" @click="tab='ai'" x-text="tabAi()">IA</button>
+
+      <!-- FEATURE TABS (pestañas independientes cuando la feature está habilitada) -->
+      <button class="tab" x-show="isFeatureOn('status')" x-cloak :class="tab==='status' && 'active'" @click="tab='status'" x-text="tabStatus()">Status</button>
+      <button class="tab" x-show="isFeatureOn('ai')" x-cloak :class="tab==='ai' && 'active'" @click="tab='ai'" x-text="tabAi()">IA</button>
+      <button class="tab" x-show="isFeatureOn('webhooks')" x-cloak :class="tab==='webhooks' && 'active'" @click="tab='webhooks'" x-text="tabWebhooks()">Webhooks</button>
+      <button class="tab" x-show="isFeatureOn('maintenanceWindows')" x-cloak :class="tab==='maintenance' && 'active'" @click="tab='maintenance'" x-text="tabMaintenance()">Mantenimiento</button>
+      <button class="tab" x-show="isFeatureOn('auditLogViewer')" x-cloak :class="tab==='audit' && 'active'" @click="tab='audit'" x-text="tabAudit()">Auditoría</button>
+      <button class="tab" x-show="isFeatureOn('metrics')" x-cloak :class="tab==='metrics' && 'active'" @click="tab='metrics'" x-text="tabMetrics()">Métricas</button>
+      <button class="tab" x-show="isFeatureOn('oidc')" x-cloak :class="tab==='oidc' && 'active'" @click="tab='oidc'" x-text="tabOidc()">OIDC / SSO</button>
+      <button class="tab" x-show="isFeatureOn('apiTokens')" x-cloak :class="tab==='tokens' && 'active'" @click="tab='tokens'" x-text="tabTokens()">Tokens API</button>
+      <button class="tab" x-show="isFeatureOn('multiPortal')" x-cloak :class="tab==='portals' && 'active'" @click="tab='portals'" x-text="tabPortals()">Multi-Portal</button>
+      <button class="tab" x-show="isFeatureOn('iconPacks')" x-cloak :class="tab==='iconpacks' && 'active'" @click="tab='iconpacks'; loadIconPacks()" x-text="tabIconPacks()">Íconos Git</button>
+
       <button class="tab" :class="tab==='advanced' && 'active'" @click="tab='advanced'" x-text="tabAdvanced()">Avanzado</button>
     </div>
 
@@ -312,9 +316,10 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
     <!-- CARDS -->
     <div class="panel" :class="tab==='cards' && 'active'">
       <h2 style="margin-top:0">Tarjetas</h2>
-      <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;align-items:center">
+      <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;align-items:center;flex-wrap:wrap">
         <input type="text" x-model="cardFilter" placeholder="Filtrar tarjetas…" style="max-width:280px" />
         <button class="btn btn-primary" @click="addCard()">+ Nueva tarjeta</button>
+        <button type="button" class="btn btn-ghost" x-show="presetsEnabled" @click="openPresetsModal()" x-cloak>+ Desde plantilla</button>
       </div>
       <div class="card-list" id="cards-sortable">
         <template x-for="(card, idx) in filteredCards()" :key="card.id">
@@ -663,9 +668,21 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                     <span x-text="u.displayName || u.username"></span>
                     ·
                     <span class="user-role-badge" :class="'role-' + u.role" x-text="u.role"></span>
+                    <template x-if="totpEnabled">
+                      <span style="margin-left:0.3rem">
+                        <span x-show="u.totpSecret" class="user-role-badge" style="background:#065f46;color:#34d399">2FA ON</span>
+                        <span x-show="!u.totpSecret" class="user-role-badge" style="background:#334155;color:#94a3b8">Sin 2FA</span>
+                      </span>
+                    </template>
                   </div>
                 </div>
-                <div style="display:flex;gap:0.3rem;flex-shrink:0">
+                <div style="display:flex;gap:0.3rem;flex-shrink:0;align-items:center">
+                  <template x-if="totpEnabled">
+                    <span>
+                      <button type="button" class="btn btn-sm btn-ghost" x-show="!u.totpSecret" @click="openTotpSetup(u)" title="Activar 2FA">+ 2FA</button>
+                      <button type="button" class="btn btn-sm btn-ghost" x-show="u.totpSecret" @click="disableTotp(u)" title="Desactivar 2FA">Quitar 2FA</button>
+                    </span>
+                  </template>
                   <button type="button" class="btn btn-sm btn-ghost" @click="cycleUserRole(u)" :title="u.role === 'admin' ? 'Degradar a editor' : 'Promover a admin'">
                     <span x-text="u.role === 'admin' ? '-&gt; editor' : '-&gt; admin'"></span>
                   </button>
@@ -826,301 +843,645 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
       </details>
     </div>
 
+    <!-- WEBHOOKS (opt-in: features.webhooks) -->
+    <div class="panel" :class="tab==='webhooks' && 'active'">
+      <h2 style="margin-top:0" x-text="webhooksTitle()">Webhooks <button type="button" class="help-icon" @click="showHelp('advanced.webhooks')" title="¿Qué hace esto?">?</button></h2>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem" x-html="webhooksIntro()">
+        Notifica a URLs externas cuando una card con health-check cambia de estado (de healthy → failing o vice versa).
+      </p>
+
+      <!-- Lista de webhooks -->
+      <div class="webhooks-list">
+        <template x-for="(wh, idx) in (cfg?.webhooks?.items || [])" :key="wh.id">
+          <div class="webhook-item" :class="!wh.enabled && 'webhook-disabled'">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600" x-text="wh.name"></div>
+                <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="wh.url"></div>
+                <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
+                  <span x-text="`Eventos: ${wh.events.join(', ')}`"></span>
+                  <span x-text="` · threshold: ${wh.minFailures} · cooldown: ${wh.cooldownMin}min`"></span>
+                  <span :style="`color: ${wh.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${wh.enabled ? 'activo' : 'inactivo'}`"></span>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.4rem;flex-shrink:0">
+                <button type="button" class="btn btn-sm btn-ghost" @click="testWebhook(wh)" :disabled="webhookTesting === wh.id" x-text="webhookTestLabel(wh.id)">Probar</button>
+                <button type="button" class="btn btn-sm btn-ghost" @click="removeWebhook(idx)">×</button>
+              </div>
+            </div>
+          </div>
+        </template>
+        <p x-show="!cfg?.webhooks?.items || cfg.webhooks.items.length === 0" class="muted" style="padding:0.5rem 0">
+          No hay webhooks configurados. Agregá uno abajo.
+        </p>
+      </div>
+
+      <!-- Form para agregar -->
+      <details style="margin-top:1rem;background:var(--surface);padding:1rem;border-radius:8px;border:1px solid var(--border)">
+        <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">+ Agregar webhook</summary>
+        <div class="form-group" style="margin-top:0.75rem">
+          <label>Nombre</label>
+          <input type="text" x-model="newWebhook.name" placeholder="Slack #alertas" maxlength="60" />
+        </div>
+        <div class="form-group">
+          <label>URL</label>
+          <input type="url" x-model="newWebhook.url" placeholder="https://hooks.slack.com/..." maxlength="500" />
+          <small style="color:var(--text-faint);font-size:0.72rem">http(s) only. SSRF guard bloquea loopback y private IPs.</small>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label>Eventos</label>
+            <div style="display:flex;gap:0.75rem;font-size:0.85rem">
+              <label><input type="checkbox" x-model="newWebhook.eventFail" /> health_fail</label>
+              <label><input type="checkbox" x-model="newWebhook.eventRecover" /> health_recover</label>
+            </div>
+          </div>
+          <div class="form-group" style="width:100px">
+            <label>Threshold</label>
+            <input type="number" x-model.number="newWebhook.minFailures" min="1" max="20" />
+          </div>
+          <div class="form-group" style="width:120px">
+            <label>Cooldown (min)</label>
+            <input type="number" x-model.number="newWebhook.cooldownMin" min="0" max="1440" />
+          </div>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
+          <button type="button" class="btn btn-primary" @click="addWebhook()" x-text="webhooksAddLabel()">Agregar</button>
+          <button type="button" class="btn btn-ghost" @click="testNewWebhook()" :disabled="!newWebhook.url || webhookTesting === 'new'" x-text="webhookTestNewLabel()">Probar antes de guardar</button>
+        </div>
+      </details>
+    </div>
+
+    <!-- MAINTENANCE WINDOWS (opt-in: features.maintenanceWindows) -->
+    <div class="panel" :class="tab==='maintenance' && 'active'">
+      <h2 style="margin-top:0" x-text="maintenanceTitle()">Mantenimiento <button type="button" class="help-icon" @click="showHelp('advanced.maintenance')" title="¿Qué hace esto?">?</button></h2>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem" x-html="maintenanceIntro()">
+        Programa ventanas donde una (o todas) las cards están en mantenimiento. Durante la ventana, las cards muestran badge ámbar y NO disparan webhooks de health_fail.
+      </p>
+
+      <div class="maintenance-list">
+        <template x-for="(mw, idx) in (cfg?.maintenanceWindows?.items || [])" :key="mw.id">
+          <div class="maintenance-item" :class="isMaintenanceActive(mw) && 'maintenance-active'">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600" x-text="mw.reason || '(sin razón)'"></div>
+              <div style="font-size:0.78rem;color:#94a3b8">
+                <span x-text="formatMwTime(mw.startsAt)"></span> → <span x-text="formatMwTime(mw.endsAt)"></span>
+                <span x-show="isMaintenanceActive(mw)" style="color:#fbbf24;margin-left:0.4rem">⏱ <span x-text="formatMwRemaining(mw.endsAt)"></span></span>
+              </div>
+              <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
+                Cards: <span x-text="mw.cardIds.join(', ')"></span>
+                <span :style="`color: ${mw.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${mw.enabled ? 'activa' : 'deshabilitada'}`"></span>
+              </div>
+            </div>
+            <div style="display:flex;gap:0.4rem;flex-shrink:0">
+              <button type="button" class="btn btn-sm btn-ghost" @click="removeMaintenance(idx)">×</button>
+            </div>
+          </div>
+        </template>
+        <p x-show="!cfg?.maintenanceWindows?.items || cfg.maintenanceWindows.items.length === 0" class="muted" style="padding:0.5rem 0">
+          No hay ventanas programadas.
+        </p>
+      </div>
+
+      <details style="margin-top:1rem;background:var(--surface);padding:1rem;border-radius:8px;border:1px solid var(--border)">
+        <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">+ Programar ventana</summary>
+        <div class="form-row" style="margin-top:0.75rem">
+          <div class="form-group" style="flex:1">
+            <label>Cards afectadas</label>
+            <select x-model="newMaintenance.cardMode" @change="newMaintenance.cardIds = []" style="margin-bottom:0.3rem">
+              <option value="all">Todas las cards (*)</option>
+              <option value="specific">Cards específicas</option>
+            </select>
+            <select x-show="newMaintenance.cardMode === 'specific'" x-model="newMaintenance.cardIds" multiple size="4" style="min-height:5rem">
+              <template x-for="c in cfg?.cards || []" :key="c.id">
+                <option :value="c.id" x-text="c.title || c.id"></option>
+              </template>
+            </select>
+            <small x-show="newMaintenance.cardMode === 'all'" style="color:var(--text-faint);font-size:0.72rem">Aplica a todas las cards activas.</small>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label>Inicio (UTC)</label>
+            <input type="datetime-local" x-model="newMaintenance.startsAt" />
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>Fin (UTC)</label>
+            <input type="datetime-local" x-model="newMaintenance.endsAt" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Razón</label>
+          <input type="text" x-model="newMaintenance.reason" placeholder="Deploy v2.1, migración DB, etc." maxlength="120" />
+        </div>
+        <button type="button" class="btn btn-primary" @click="addMaintenance()" style="margin-top:0.5rem" x-text="maintenanceAddLabel()">Programar</button>
+      </details>
+    </div>
+
+    <!-- AUDIT LOG VIEWER (opt-in: features.auditLogViewer) -->
+    <div class="panel" :class="tab==='audit' && 'active'">
+      <h2 style="margin-top:0" x-text="auditTitle()">Auditoría <button type="button" class="help-icon" @click="showHelp('advanced.audit')" title="¿Qué hace esto?">?</button></h2>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem">
+        Registro cronológico de eventos administrativos de <code>data/audit.log</code>. Filtros: acción, texto en el detalle, rango temporal.
+      </p>
+
+      <div class="audit-toolbar" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:0.75rem">
+        <div class="form-group" style="margin:0;min-width:160px">
+          <label style="font-size:0.78rem;margin-bottom:0.2rem">Acción</label>
+          <select x-model="auditFilter.action" @change="reloadAudit()" style="padding:0.3rem 0.5rem">
+            <option value="">Todas</option>
+            <template x-for="a in auditActions" :key="a">
+              <option :value="a" x-text="a"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:200px">
+          <label style="font-size:0.78rem;margin-bottom:0.2rem">Detalle contiene</label>
+          <input type="text" x-model="auditFilter.detail" @input.debounce.300ms="reloadAudit()" placeholder="substring..." />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:0.78rem;margin-bottom:0.2rem">Desde</label>
+          <input type="datetime-local" x-model="auditFilter.from" @change="reloadAudit()" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:0.78rem;margin-bottom:0.2rem">Hasta</label>
+          <input type="datetime-local" x-model="auditFilter.to" @change="reloadAudit()" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:0.78rem;margin-bottom:0.2rem">Límite</label>
+          <select x-model.number="auditFilter.limit" @change="reloadAudit()">
+            <option value="50">50</option>
+            <option value="200">200</option>
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-ghost" @click="resetAuditFilter()" x-text="auditResetLabel()">Limpiar</button>
+        <button type="button" class="btn btn-ghost" @click="downloadAuditLog()" x-text="auditDownloadLabel()">Descargar log completo</button>
+      </div>
+
+      <div x-show="auditLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="auditLoadingLabel()">Cargando…</div>
+      <div x-show="auditError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="auditError"></div>
+
+      <div x-show="!auditLoading && !auditError" x-cloak>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;font-size:0.78rem;color:#94a3b8">
+          <span>
+            <span x-text="auditEntries.length"></span> entradas
+            <span x-show="auditResult && auditResult.hasMore" x-text="` (hay más — aumentá el límite)`"></span>
+            <span x-show="auditResult" x-text="` · ${(auditResult?.sizeBytes ?? 0)} bytes`"></span>
+          </span>
+          <span x-text="auditResult?.path"></span>
+        </div>
+        <div class="audit-table-wrap" style="max-height:480px;overflow:auto;border:1px solid var(--border);border-radius:6px">
+          <table class="audit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;font-family:ui-monospace,Menlo,Consolas,monospace">
+            <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
+              <tr>
+                <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Fecha</th>
+                <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Acción</th>
+                <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Detalle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="(entry, idx) in auditEntries" :key="entry.ts + '-' + idx">
+                <tr>
+                  <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap" x-text="formatAuditTs(entry.ts)"></td>
+                  <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap">
+                    <span class="audit-action-badge" :data-action="entry.action" x-text="entry.action"></span>
+                  </td>
+                  <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);word-break:break-all" x-text="entry.detail"></td>
+                </tr>
+              </template>
+              <tr x-show="auditEntries.length === 0">
+                <td colspan="3" style="padding:1rem;text-align:center;color:#94a3b8" x-text="auditEmptyLabel()">No hay entradas que coincidan con los filtros.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- METRICS (opt-in: features.metrics) -->
+    <div class="panel" :class="tab==='metrics' && 'active'">
+      <h2 style="margin-top:0" x-text="metricsTitle()">Métricas <button type="button" class="help-icon" @click="showHelp('advanced.metrics')" title="¿Qué hace esto?">?</button></h2>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem" x-html="metricsIntro()">
+        Sparklines + resumen (avg, p95, max) por card con health-check. Datos en memoria (últimas 100 muestras = ~1.5h con check cada 60s).
+      </p>
+
+      <div class="metrics-toolbar" style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.75rem">
+        <div class="form-group" style="margin:0">
+          <label style="font-size:0.78rem;margin-bottom:0.2rem">Rango</label>
+          <select x-model.number="metricsRange" @change="loadMetrics()">
+            <option value="600000">Últimos 10 min</option>
+            <option value="3600000">Última hora</option>
+            <option value="86400000">Últimas 24h</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:0.78rem;margin-bottom:0.2rem">Límite samples</label>
+          <select x-model.number="metricsLimit" @change="loadMetrics()">
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-ghost" @click="loadMetrics()" :disabled="metricsLoading" x-text="metricsReloadLabel()">Recargar</button>
+      </div>
+
+      <div x-show="metricsLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="metricsLoadingLabel()">Cargando…</div>
+      <div x-show="metricsError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="metricsError"></div>
+
+      <div x-show="!metricsLoading && !metricsError" x-cloak>
+        <div style="overflow:auto">
+          <table class="metrics-table" style="width:100%;border-collapse:collapse;font-size:0.82rem">
+            <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
+              <tr>
+                <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Card</th>
+                <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Avg</th>
+                <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">P95</th>
+                <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Max</th>
+                <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Último</th>
+                <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border);width:140px">Sparkline</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="row in metricsRows" :key="row.cardId">
+                <tr>
+                  <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-text="cardTitleForId(row.cardId)"></td>
+                  <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.avgMs + 'ms'"></td>
+                  <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.p95Ms + 'ms'"></td>
+                  <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.maxMs + 'ms'"></td>
+                  <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);font-family:ui-monospace,Menlo,Consolas,monospace">
+                    <span x-text="formatRelativeTime(row.lastTs)" :class="row.lastOk === false ? 'metric-bad' : (row.lastOk ? 'metric-ok' : 'metric-pending')"></span>
+                  </td>
+                  <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-html="row.sparkline"></td>
+                </tr>
+              </template>
+              <tr x-show="metricsRows.length === 0">
+                <td colspan="6" style="padding:1rem;text-align:center;color:#94a3b8">Sin datos. Activá health-check en alguna card y esperá a que se ejecuten los checks.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- OIDC SSO (opt-in: features.oidc) -->
+    <div class="panel" :class="tab==='oidc' && 'active'">
+      <h2 style="margin-top:0" x-text="tabOidc()">OIDC / SSO Providers <button type="button" class="help-icon" @click="showHelp('advanced.oidc')" title="¿Qué hace esto?">?</button></h2>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
+        Configurá proveedores de identidad OpenID Connect (Google, Keycloak, Authentik, etc.) para Single Sign-On.
+      </p>
+
+      <div class="oidc-list">
+        <template x-for="(p, idx) in (cfg?.oidc?.providers || [])" :key="p.id">
+          <div class="webhook-item" :class="!p.enabled && 'webhook-disabled'">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600" x-text="p.name"></div>
+                <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="p.issuer"></div>
+                <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
+                  <span x-text="`ID: ${p.id} · Client: ${p.clientId} · Rol: ${p.defaultRole || 'viewer'}`"></span>
+                  <span :style="`color: ${p.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${p.enabled ? 'activo' : 'inactivo'}`"></span>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.4rem;flex-shrink:0">
+                <button type="button" class="btn btn-sm btn-ghost" @click="p.enabled = !p.enabled; markDirty()" x-text="p.enabled ? 'Desactivar' : 'Activar'"></button>
+                <button type="button" class="btn btn-sm btn-ghost" @click="removeOidcProvider(idx)">×</button>
+              </div>
+            </div>
+          </div>
+        </template>
+        <p x-show="!cfg?.oidc?.providers || cfg.oidc.providers.length === 0" class="muted" style="padding:0.5rem 0">
+          No hay providers configurados. Agregá uno abajo.
+        </p>
+      </div>
+
+      <details style="margin-top:1rem;background:var(--surface);padding:1rem;border-radius:8px;border:1px solid var(--border)">
+        <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">+ Agregar provider OIDC</summary>
+        <div class="form-row" style="margin-top:0.75rem">
+          <div class="form-group" style="flex:1">
+            <label>Nombre</label>
+            <input type="text" x-model="newOidc.name" placeholder="Google / Keycloak" maxlength="60" />
+          </div>
+          <div class="form-group" style="width:140px">
+            <label>ID (kebab-case)</label>
+            <input type="text" x-model="newOidc.id" placeholder="google" maxlength="40" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Issuer URL</label>
+          <input type="url" x-model="newOidc.issuer" placeholder="https://accounts.google.com o https://keycloak.example.com/realms/master" />
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label>Client ID</label>
+            <input type="text" x-model="newOidc.clientId" placeholder="umbral-client" />
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>Client Secret</label>
+            <input type="password" x-model="newOidc.clientSecret" placeholder="••••••••" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label>Scopes</label>
+            <input type="text" x-model="newOidc.scopes" placeholder="openid profile email" />
+          </div>
+          <div class="form-group" style="width:140px">
+            <label>Rol default</label>
+            <select x-model="newOidc.defaultRole">
+              <option value="viewer">viewer</option>
+              <option value="editor">editor</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" x-model="newOidc.autoProvision" /> Auto-crear usuario en primer login si no existe</label>
+        </div>
+        <button type="button" class="btn btn-primary" @click="addOidcProvider()" style="margin-top:0.5rem">Agregar provider</button>
+      </details>
+    </div>
+
+    <!-- API TOKENS (opt-in: features.apiTokens) -->
+    <div class="panel" :class="tab==='tokens' && 'active'">
+      <h2 style="margin-top:0" x-text="tabTokens()">Tokens API <button type="button" class="help-icon" @click="showHelp('advanced.apiTokens')" title="¿Qué hace esto?">?</button></h2>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
+        Tokens Bearer para el CLI companion, scripts o integraciones de CI/CD. El token plano solo se muestra una vez al generarlo.
+      </p>
+
+      <div class="api-tokens-list">
+        <template x-for="tok in (cfg?.apiTokens?.items || [])" :key="tok.id">
+          <div class="webhook-item">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600" x-text="tok.name"></div>
+                <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace">
+                  <span x-text="`•••• •••• •••• ${tok.tokenLast4}`"></span>
+                  <span :class="tok.scope === 'write' ? 'user-role-badge role-admin' : 'user-role-badge role-viewer'" x-text="tok.scope"></span>
+                </div>
+                <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
+                  <span x-text="`Creado: ${new Date(tok.createdAt).toLocaleDateString()}`"></span>
+                  <span x-show="tok.expiresAt" x-text="` · Expira: ${new Date(tok.expiresAt).toLocaleDateString()}`"></span>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.4rem;flex-shrink:0">
+                <button type="button" class="btn btn-sm btn-danger" @click="revokeToken(tok.id)">Revocar</button>
+              </div>
+            </div>
+          </div>
+        </template>
+        <p x-show="!cfg?.apiTokens?.items || cfg.apiTokens.items.length === 0" class="muted" style="padding:0.5rem 0">
+          No hay tokens generados.
+        </p>
+      </div>
+
+      <details style="margin-top:1rem;background:var(--surface);padding:1rem;border-radius:8px;border:1px solid var(--border)">
+        <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">+ Generar nuevo token</summary>
+        <div class="form-row" style="margin-top:0.75rem">
+          <div class="form-group" style="flex:1">
+            <label>Nombre o propósito</label>
+            <input type="text" x-model="newToken.name" placeholder="CLI deploy / Script backup" maxlength="60" />
+          </div>
+          <div class="form-group" style="width:120px">
+            <label>Permiso</label>
+            <select x-model="newToken.scope">
+              <option value="read">Lectura</option>
+              <option value="write">Escritura</option>
+            </select>
+          </div>
+          <div class="form-group" style="width:140px">
+            <label>Expira en</label>
+            <select x-model.number="newToken.expiresInDays">
+              <option value="0">Nunca</option>
+              <option value="30">30 días</option>
+              <option value="90">90 días</option>
+              <option value="365">1 año</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" @click="generateToken()" :disabled="!newToken.name" style="margin-top:0.5rem">Generar token</button>
+      </details>
+    </div>
+
+    <!-- MULTI-PORTAL (opt-in: features.multiPortal) -->
+    <div class="panel" :class="tab==='portals' && 'active'">
+      <h2 style="margin-top:0" x-text="tabPortals()">Multi-Portal <button type="button" class="help-icon" @click="showHelp('advanced.multiPortal')" title="¿Qué hace esto?">?</button></h2>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
+        Permite servir distintos dashboards según el dominio (Host header) o el prefijo de ruta.
+      </p>
+
+      <div class="portals-list">
+        <div class="form-group" style="max-width:300px;margin-bottom:0.75rem">
+          <label>Portal default</label>
+          <input type="text" x-model="cfg.portals.defaultPortal" @change="markDirty()" placeholder="default" />
+        </div>
+
+        <template x-for="(p, idx) in (cfg?.portals?.items || [])" :key="p.id">
+          <div class="webhook-item">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600" x-text="p.name || p.id"></div>
+                <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace">
+                  <span x-text="`Host: ${p.host || '*'} · Prefix: ${p.pathPrefix || '/'}`"></span>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.4rem;flex-shrink:0">
+                <button type="button" class="btn btn-sm btn-ghost" @click="removePortal(idx)">×</button>
+              </div>
+            </div>
+          </div>
+        </template>
+        <p x-show="!cfg?.portals?.items || cfg.portals.items.length === 0" class="muted" style="padding:0.5rem 0">
+          No hay portales adicionales configurados.
+        </p>
+      </div>
+
+      <details style="margin-top:1rem;background:var(--surface);padding:1rem;border-radius:8px;border:1px solid var(--border)">
+        <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">+ Agregar portal</summary>
+        <div class="form-row" style="margin-top:0.75rem">
+          <div class="form-group" style="width:140px">
+            <label>ID</label>
+            <input type="text" x-model="newPortal.id" placeholder="dev" maxlength="30" pattern="[a-z0-9_-]+" />
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>Nombre</label>
+            <input type="text" x-model="newPortal.name" placeholder="Portal Dev" maxlength="60" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label>Host (opcional)</label>
+            <input type="text" x-model="newPortal.host" placeholder="dev.portal.local" />
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>Path Prefix (opcional)</label>
+            <input type="text" x-model="newPortal.pathPrefix" placeholder="/dev" />
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" @click="addPortal()" style="margin-top:0.5rem">Agregar portal</button>
+      </details>
+    </div>
+
+    <!-- ICON PACKS (opt-in: features.iconPacks) -->
+    <div class="panel" :class="tab==='iconpacks' && 'active'">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0 0 0.25rem" x-text="tabIconPacks()">Paquetes de Íconos (Icon Packs)</h2>
+          <p style="color:var(--text-subtle);font-size:0.85rem;margin:0">
+            Descargá e instalá colecciones completas de miles de íconos SVG desde repositorios Git de código abierto con un solo clic.
+          </p>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <span style="font-size:0.85rem;color:var(--text-subtle);background:var(--surface);padding:0.4rem 0.75rem;border:1px solid var(--border);border-radius:6px">
+            Íconos disponibles en Umbral: <strong style="color:var(--text)" x-text="iconPacksTotal"></strong>
+          </span>
+          <button type="button" class="btn btn-sm btn-ghost" @click="loadIconPacks()" :disabled="iconPacksLoading">
+            <span x-show="!iconPacksLoading">🔄 Actualizar</span>
+            <span x-show="iconPacksLoading" x-cloak>Cargando…</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mensaje / Toast de Estado -->
+      <div x-show="iconPackMsg.text" class="alert" :class="iconPackMsg.error ? 'alert-error' : 'alert-success'" style="margin-bottom:1rem" x-cloak>
+        <span x-text="iconPackMsg.text"></span>
+      </div>
+
+      <!-- Cuadrícula de Paquetes Predefinidos -->
+      <h3 style="margin:1rem 0 0.75rem">Paquetes Populares de Código Abierto</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:1rem;margin-bottom:2rem">
+        <template x-for="pack in iconPacks" :key="pack.id">
+          <div class="card-item" style="display:flex;flex-direction:column;justify-content:space-between;padding:1rem;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
+            <div>
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem">
+                <div>
+                  <h4 style="margin:0;font-size:1rem" x-text="pack.name"></h4>
+                  <div style="font-size:0.75rem;color:var(--text-faint)" x-text="'Por ' + pack.author"></div>
+                </div>
+                <span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:10px;background:rgba(255,255,255,0.08);color:var(--text-subtle);white-space:nowrap" x-text="pack.estimatedCount"></span>
+              </div>
+              <p style="font-size:0.82rem;color:var(--text-subtle);margin:0.5rem 0 0.75rem;line-height:1.4" x-text="pack.description"></p>
+              
+              <!-- Licencia y Repositorio -->
+              <div style="display:flex;flex-wrap:wrap;gap:0.5rem;font-size:0.75rem;color:var(--text-faint);margin-bottom:1rem">
+                <span>
+                  Licencia: 
+                  <a :href="pack.licenseUrl" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline" x-text="pack.license"></a>
+                </span>
+                <span>•</span>
+                <a :href="pack.repoUrl" target="_blank" rel="noopener" style="color:var(--text-subtle);text-decoration:underline">Ver repositorio Git ↗</a>
+              </div>
+            </div>
+
+            <!-- Acciones -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding-top:0.75rem;border-top:1px solid var(--border)">
+              <div style="font-size:0.78rem">
+                <template x-if="pack.installed">
+                  <span style="color:#10b981;font-weight:600">✓ Instalado (<span x-text="pack.installedCount"></span> íconos)</span>
+                </template>
+                <template x-if="!pack.installed">
+                  <span style="color:var(--text-faint)">No instalado</span>
+                </template>
+              </div>
+              <div style="display:flex;gap:0.4rem">
+                <template x-if="pack.installed">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-ghost"
+                    style="color:#ef4444"
+                    @click="uninstallPack(pack.id)"
+                    :disabled="iconPacksInstalling[pack.id]"
+                  >
+                    Desinstalar
+                  </button>
+                </template>
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  :class="pack.installed ? 'btn-ghost' : 'btn-primary'"
+                  @click="installPack(pack.id)"
+                  :disabled="iconPacksInstalling[pack.id]"
+                >
+                  <span x-show="!iconPacksInstalling[pack.id]" x-text="pack.installed ? 'Reinstalar' : 'Instalar paquete'"></span>
+                  <span x-show="iconPacksInstalling[pack.id]" x-cloak>Descargando…</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Instalar desde repositorio Git personalizado -->
+      <div style="padding:1.25rem;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
+        <h3 style="margin:0 0 0.5rem">Instalar desde Repositorio Git Personalizado</h3>
+        <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem">
+          Ingresá la URL de cualquier repositorio público de Git (GitHub, GitLab, Gitea, etc.). Umbral clonará o descargará el repositorio y extraerá automáticamente todos los archivos SVG encontrados.
+        </p>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:0.75rem;margin-bottom:1rem">
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-size:0.8rem;margin-bottom:0.25rem">URL del Repositorio Git (HTTPS)</label>
+            <input type="text" x-model="customPack.repoUrl" placeholder="https://github.com/usuario/mi-pack-iconos.git" style="width:100%" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;margin-bottom:0.25rem">Rama (opcional)</label>
+            <input type="text" x-model="customPack.branch" placeholder="main o master" style="width:100%" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;margin-bottom:0.25rem">Carpeta interna / Subpath (opcional)</label>
+            <input type="text" x-model="customPack.subpath" placeholder="ej: svg/ o icons/" style="width:100%" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;margin-bottom:0.25rem">Prefijo de nombres (opcional)</label>
+            <input type="text" x-model="customPack.prefix" placeholder="ej: custom (para custom-nombre.svg)" style="width:100%" />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-primary"
+          @click="installCustomPack()"
+          :disabled="!customPack.repoUrl || customPackInstalling"
+        >
+          <span x-show="!customPackInstalling">Clonar e Instalar Íconos</span>
+          <span x-show="customPackInstalling" x-cloak>Clonando y Extrayendo…</span>
+        </button>
+      </div>
+    </div>
+
     <!-- ADVANCED -->
     <div class="panel" :class="tab==='advanced' && 'active'">
-      <h2 style="margin-top:0">Avanzado</h2>
+      <h2 style="margin-top:0" x-text="tabAdvanced()">Avanzado</h2>
 
-      <!-- WEBHOOKS (opt-in: features.webhooks) -->
-      <template x-if="webhooksEnabled">
-        <section class="webhooks-section">
-          <h3 x-text="webhooksTitle()">Webhooks <button type="button" class="help-icon" @click="showHelp('advanced.webhooks')" title="¿Qué hace esto?">?</button></h3>
-          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="webhooksIntro()">
-            Notifica a URLs externas cuando una card con health-check cambia de estado (de healthy → failing o vice versa).
-          </p>
-
-          <!-- Lista de webhooks -->
-          <div class="webhooks-list">
-            <template x-for="(wh, idx) in (cfg.webhooks?.items || [])" :key="wh.id">
-              <div class="webhook-item" :class="!wh.enabled && 'webhook-disabled'">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
-                  <div style="flex:1;min-width:0">
-                    <div style="font-weight:600" x-text="wh.name"></div>
-                    <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="wh.url"></div>
-                    <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
-                      <span x-text="`Eventos: ${wh.events.join(', ')}`"></span>
-                      <span x-text="` · threshold: ${wh.minFailures} · cooldown: ${wh.cooldownMin}min`"></span>
-                      <span :style="`color: ${wh.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${wh.enabled ? 'activo' : 'inactivo'}`"></span>
-                    </div>
-                  </div>
-                  <div style="display:flex;gap:0.4rem;flex-shrink:0">
-                    <button type="button" class="btn btn-sm btn-ghost" @click="testWebhook(wh)" :disabled="webhookTesting === wh.id" x-text="webhookTestLabel(wh.id)">Probar</button>
-                    <button type="button" class="btn btn-sm btn-ghost" @click="removeWebhook(idx)">×</button>
-                  </div>
+      <h3 style="margin-top:1.5rem" x-text="featuresTitle()">Features (opt-in) <button type="button" class="help-icon" @click="showHelp('advanced.features')" title="¿Qué hace esto?">?</button></h3>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem" x-html="featuresIntro()">
+        Cada feature nueva arranca <strong>apagada</strong> por default. Si no la activás, ni se ejecuta, ni se carga su dependencia, ni aparece en la UI. Al encender una feature, aparecerá automáticamente su pestaña correspondiente en la barra superior.
+      </p>
+      <div class="features-grid">
+        <template x-for="f in featureList" :key="f.name">
+          <div class="feature-card" :class="isFeatureOn(f.name) && 'feature-on'">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+              <div style="min-width:0">
+                <div style="font-weight:600" x-text="f.label"></div>
+                <div style="font-size:0.8rem;color:#94a3b8" x-text="f.short"></div>
+                <div x-show="f.experimental" style="font-size:0.7rem;color:#f59e0b;margin-top:0.25rem" x-cloak>
+                  ⚠ experimental
                 </div>
               </div>
-            </template>
-            <p x-show="!cfg.webhooks?.items || cfg.webhooks.items.length === 0" class="muted" style="padding:0.5rem 0">
-              No hay webhooks configurados. Agregá uno abajo.
-            </p>
-          </div>
-
-          <!-- Form para agregar -->
-          <details style="margin-top:0.75rem">
-            <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.85rem">+ Agregar webhook</summary>
-            <div class="form-group" style="margin-top:0.5rem">
-              <label>Nombre</label>
-              <input type="text" x-model="newWebhook.name" placeholder="Slack #alertas" maxlength="60" />
+              <label class="switch" style="flex-shrink:0">
+                <input type="checkbox" :checked="isFeatureOn(f.name)" @change="toggleFeature(f.name, $event.target.checked)" />
+                <span class="slider"></span>
+              </label>
             </div>
-            <div class="form-group">
-              <label>URL</label>
-              <input type="url" x-model="newWebhook.url" placeholder="https://hooks.slack.com/..." maxlength="500" />
-              <small style="color:var(--text-faint);font-size:0.72rem">http(s) only. SSRF guard bloquea loopback y private IPs.</small>
-            </div>
-            <div class="form-row">
-              <div class="form-group" style="flex:1">
-                <label>Eventos</label>
-                <div style="display:flex;gap:0.75rem;font-size:0.85rem">
-                  <label><input type="checkbox" x-model="newWebhook.eventFail" /> health_fail</label>
-                  <label><input type="checkbox" x-model="newWebhook.eventRecover" /> health_recover</label>
-                </div>
-              </div>
-              <div class="form-group" style="width:100px">
-                <label>Threshold</label>
-                <input type="number" x-model.number="newWebhook.minFailures" min="1" max="20" />
-              </div>
-              <div class="form-group" style="width:120px">
-                <label>Cooldown (min)</label>
-                <input type="number" x-model.number="newWebhook.cooldownMin" min="0" max="1440" />
-              </div>
-            </div>
-            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
-              <button type="button" class="btn btn-primary" @click="addWebhook()" x-text="webhooksAddLabel()">Agregar</button>
-              <button type="button" class="btn btn-ghost" @click="testNewWebhook()" :disabled="!newWebhook.url || webhookTesting === 'new'" x-text="webhookTestNewLabel()">Probar antes de guardar</button>
-            </div>
-          </details>
-        </section>
-      </template>
-
-      <!-- MAINTENANCE WINDOWS (opt-in: features.maintenanceWindows) -->
-      <template x-if="maintenanceWindowsEnabled">
-        <section class="maintenance-section">
-          <h3 x-text="maintenanceTitle()">Mantenimiento <button type="button" class="help-icon" @click="showHelp('advanced.maintenance')" title="¿Qué hace esto?">?</button></h3>
-          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="maintenanceIntro()">
-            Programa ventanas donde una (o todas) las cards están en mantenimiento. Durante la ventana, las cards muestran badge ámbar y NO disparan webhooks de health_fail.
-          </p>
-
-          <div class="maintenance-list">
-            <template x-for="(mw, idx) in (cfg.maintenanceWindows?.items || [])" :key="mw.id">
-              <div class="maintenance-item" :class="isMaintenanceActive(mw) && 'maintenance-active'">
-                <div style="flex:1;min-width:0">
-                  <div style="font-weight:600" x-text="mw.reason || '(sin razón)'"></div>
-                  <div style="font-size:0.78rem;color:#94a3b8">
-                    <span x-text="formatMwTime(mw.startsAt)"></span> → <span x-text="formatMwTime(mw.endsAt)"></span>
-                    <span x-show="isMaintenanceActive(mw)" style="color:#fbbf24;margin-left:0.4rem">⏱ <span x-text="formatMwRemaining(mw.endsAt)"></span></span>
-                  </div>
-                  <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
-                    Cards: <span x-text="mw.cardIds.join(', ')"></span>
-                    <span :style="`color: ${mw.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${mw.enabled ? 'activa' : 'deshabilitada'}`"></span>
-                  </div>
-                </div>
-                <div style="display:flex;gap:0.4rem;flex-shrink:0">
-                  <button type="button" class="btn btn-sm btn-ghost" @click="removeMaintenance(idx)">×</button>
-                </div>
-              </div>
-            </template>
-            <p x-show="!cfg.maintenanceWindows?.items || cfg.maintenanceWindows.items.length === 0" class="muted" style="padding:0.5rem 0">
-              No hay ventanas programadas.
-            </p>
-          </div>
-
-          <details style="margin-top:0.75rem">
-            <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.85rem">+ Programar ventana</summary>
-            <div class="form-row" style="margin-top:0.5rem">
-              <div class="form-group" style="flex:1">
-                <label>Cards afectadas</label>
-                <select x-model="newMaintenance.cardMode" @change="newMaintenance.cardIds = []" style="margin-bottom:0.3rem">
-                  <option value="all">Todas las cards (*)</option>
-                  <option value="specific">Cards específicas</option>
-                </select>
-                <select x-show="newMaintenance.cardMode === 'specific'" x-model="newMaintenance.cardIds" multiple size="4" style="min-height:5rem">
-                  <template x-for="c in cfg.cards" :key="c.id">
-                    <option :value="c.id" x-text="c.title || c.id"></option>
-                  </template>
-                </select>
-                <small x-show="newMaintenance.cardMode === 'all'" style="color:var(--text-faint);font-size:0.72rem">Aplica a todas las cards activas.</small>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group" style="flex:1">
-                <label>Inicio (UTC)</label>
-                <input type="datetime-local" x-model="newMaintenance.startsAt" />
-              </div>
-              <div class="form-group" style="flex:1">
-                <label>Fin (UTC)</label>
-                <input type="datetime-local" x-model="newMaintenance.endsAt" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Razón</label>
-              <input type="text" x-model="newMaintenance.reason" placeholder="Deploy v2.1, migración DB, etc." maxlength="120" />
-            </div>
-            <button type="button" class="btn btn-primary" @click="addMaintenance()" style="margin-top:0.5rem" x-text="maintenanceAddLabel()">Programar</button>
-          </details>
-        </section>
-      </template>
-
-      <!-- AUDIT LOG VIEWER (opt-in: features.auditLogViewer) -->
-      <template x-if="auditLogEnabled">
-        <section class="audit-section">
-          <h3 x-text="auditTitle()">Auditoría <button type="button" class="help-icon" @click="showHelp('advanced.audit')" title="¿Qué hace esto?">?</button></h3>
-      <!-- METRICS (opt-in: features.metrics) -->
-      <template x-if="metricsEnabled">
-        <section class="metrics-section">
-          <h3 x-text="metricsTitle()">Métricas <button type="button" class="help-icon" @click="showHelp('advanced.metrics')" title="¿Qué hace esto?">?</button></h3>
-          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="metricsIntro()">
-            Sparklines + resumen (avg, p95, max) por card con health-check. Datos en memoria (últimas 100 muestras = ~1.5h con check cada 60s).
-          </p>
-
-          <div class="metrics-toolbar" style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.75rem">
-            <div class="form-group" style="margin:0">
-              <label style="font-size:0.78rem;margin-bottom:0.2rem">Rango</label>
-              <select x-model.number="metricsRange" @change="loadMetrics()">
-                <option value="600000">Últimos 10 min</option>
-                <option value="3600000">Última hora</option>
-                <option value="86400000">Últimas 24h</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin:0">
-              <label style="font-size:0.78rem;margin-bottom:0.2rem">Límite samples</label>
-              <select x-model.number="metricsLimit" @change="loadMetrics()">
-                <option value="20">20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
-            <button type="button" class="btn btn-ghost" @click="loadMetrics()" :disabled="metricsLoading" x-text="metricsReloadLabel()">Recargar</button>
-          </div>
-
-          <div x-show="metricsLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="metricsLoadingLabel()">Cargando…</div>
-          <div x-show="metricsError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="metricsError"></div>
-
-          <div x-show="!metricsLoading && !metricsError" x-cloak>
-            <div style="overflow:auto">
-              <table class="metrics-table" style="width:100%;border-collapse:collapse;font-size:0.82rem">
-                <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
-                  <tr>
-                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Card</th>
-                    <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Avg</th>
-                    <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">P95</th>
-                    <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Max</th>
-                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Último</th>
-                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border);width:140px">Sparkline</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template x-for="row in metricsRows" :key="row.cardId">
-                    <tr>
-                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-text="cardTitleForId(row.cardId)"></td>
-                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.avgMs + 'ms'"></td>
-                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.p95Ms + 'ms'"></td>
-                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.maxMs + 'ms'"></td>
-                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);font-family:ui-monospace,Menlo,Consolas,monospace">
-                        <span x-text="formatRelativeTime(row.lastTs)" :class="row.lastOk === false ? 'metric-bad' : (row.lastOk ? 'metric-ok' : 'metric-pending')"></span>
-                      </td>
-                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-html="row.sparkline"></td>
-                    </tr>
-                  </template>
-                  <tr x-show="metricsRows.length === 0">
-                    <td colspan="6" style="padding:1rem;text-align:center;color:#94a3b8">Sin datos. Activá health-check en alguna card y esperá a que se ejecuten los checks.</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div x-show="isFeatureOn(f.name)" style="margin-top:0.5rem" x-cloak>
+              <div style="font-size:0.75rem;color:#94a3b8" x-text="f.body"></div>
             </div>
           </div>
-        </section>
-      </template>
+        </template>
+      </div>
 
-          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem">
-            Lee <code>data/audit.log</code> desde el navegador. Filtros: acción, texto en el detalle, rango temporal.
-          </p>
-
-          <div class="audit-toolbar" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:0.75rem">
-            <div class="form-group" style="margin:0;min-width:160px">
-              <label style="font-size:0.78rem;margin-bottom:0.2rem">Acción</label>
-              <select x-model="auditFilter.action" @change="reloadAudit()" style="padding:0.3rem 0.5rem">
-                <option value="">Todas</option>
-                <template x-for="a in auditActions" :key="a">
-                  <option :value="a" x-text="a"></option>
-                </template>
-              </select>
-            </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:200px">
-              <label style="font-size:0.78rem;margin-bottom:0.2rem">Detalle contiene</label>
-              <input type="text" x-model="auditFilter.detail" @input.debounce.300ms="reloadAudit()" placeholder="substring..." />
-            </div>
-            <div class="form-group" style="margin:0">
-              <label style="font-size:0.78rem;margin-bottom:0.2rem">Desde</label>
-              <input type="datetime-local" x-model="auditFilter.from" @change="reloadAudit()" />
-            </div>
-            <div class="form-group" style="margin:0">
-              <label style="font-size:0.78rem;margin-bottom:0.2rem">Hasta</label>
-              <input type="datetime-local" x-model="auditFilter.to" @change="reloadAudit()" />
-            </div>
-            <div class="form-group" style="margin:0">
-              <label style="font-size:0.78rem;margin-bottom:0.2rem">Límite</label>
-              <select x-model.number="auditFilter.limit" @change="reloadAudit()">
-                <option value="50">50</option>
-                <option value="200">200</option>
-                <option value="500">500</option>
-                <option value="1000">1000</option>
-              </select>
-            </div>
-            <button type="button" class="btn btn-ghost" @click="resetAuditFilter()" x-text="auditResetLabel()">Limpiar</button>
-            <button type="button" class="btn btn-ghost" @click="downloadAuditLog()" x-text="auditDownloadLabel()">Descargar log completo</button>
-          </div>
-
-          <div x-show="auditLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="auditLoadingLabel()">Cargando…</div>
-          <div x-show="auditError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="auditError"></div>
-
-          <div x-show="!auditLoading && !auditError" x-cloak>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;font-size:0.78rem;color:#94a3b8">
-              <span>
-                <span x-text="auditEntries.length"></span> entradas
-                <span x-show="auditResult && auditResult.hasMore" x-text="` (hay más — aumentá el límite)`"></span>
-                <span x-show="auditResult" x-text="` · ${(auditResult?.sizeBytes ?? 0)} bytes`"></span>
-              </span>
-              <span x-text="auditResult?.path"></span>
-            </div>
-            <div class="audit-table-wrap" style="max-height:480px;overflow:auto;border:1px solid var(--border);border-radius:6px">
-              <table class="audit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;font-family:ui-monospace,Menlo,Consolas,monospace">
-                <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
-                  <tr>
-                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Fecha</th>
-                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Acción</th>
-                    <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Detalle</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template x-for="(entry, idx) in auditEntries" :key="entry.ts + '-' + idx">
-                    <tr>
-                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap" x-text="formatAuditTs(entry.ts)"></td>
-                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap">
-                        <span class="audit-action-badge" :data-action="entry.action" x-text="entry.action"></span>
-                      </td>
-                      <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);word-break:break-all" x-text="entry.detail"></td>
-                    </tr>
-                  </template>
-                  <tr x-show="auditEntries.length === 0">
-                    <td colspan="3" style="padding:1rem;text-align:center;color:#94a3b8" x-text="auditEmptyLabel()">No hay entradas que coincidan con los filtros.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      </template>
-
-      <h3>Export / Import <button type="button" class="help-icon" @click="showHelp('advanced.export')" title="¿Qué hace esto?">?</button></h3>
+      <h3 style="margin-top:2rem">Export / Import <button type="button" class="help-icon" @click="showHelp('advanced.export')" title="¿Qué hace esto?">?</button></h3>
       <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
         <button class="btn btn-ghost" @click="exportConfig()">Descargar config.json</button>
         <span style="color:#94a3b8;font-size:0.85rem">backup / migración / versionar</span>
@@ -1136,40 +1497,11 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
 
       <h3>Healthcheck <button type="button" class="help-icon" @click="showHelp('advanced.healthcheck')" title="¿Qué hace esto?">?</button></h3>
       <button class="btn btn-ghost" @click="checkHealth()">Probar /api/health</button>
-      <pre x-show="healthInfo" x-text="JSON.stringify(healthInfo, null, 2)" style="background:#0f172a;padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
+      <pre x-show="healthInfo" x-text="JSON.stringify(healthInfo, null, 2)" style="background:var(--code-bg, #0f172a);color:var(--code-fg, #38bdf8);border:1px solid var(--border);padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
 
       <h3 style="margin-top:2rem">Reset <button type="button" class="help-icon" @click="showHelp('advanced.reset')" title="¿Qué hace esto?">?</button></h3>
       <p style="color:#94a3b8;font-size:0.85rem">Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).</p>
       <button class="btn btn-danger" @click="resetConfig()">Reset a defaults</button>
-
-      <h3 style="margin-top:2rem" x-text="featuresTitle()">Features (opt-in) <button type="button" class="help-icon" @click="showHelp('advanced.features')" title="¿Qué hace esto?">?</button></h3>
-      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="featuresIntro()">
-        Cada feature nueva arranca <strong>apagada</strong> por default. Si no la activás, ni se ejecuta, ni se carga su dependencia, ni aparece en la UI. Prendé las que necesitás.
-      </p>
-      <div class="features-grid">
-        <template x-for="f in featureList" :key="f.name">
-          <div class="feature-card" :class="isFeatureOn(f.name) && 'feature-on'">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
-              <div style="min-width:0">
-                <div style="font-weight:600" x-text="f.label"></div>
-                <div style="font-size:0.8rem;color:#94a3b8" x-text="f.short"></div>
-                <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
-                  <span x-text="`Ola ${f.wave}`"></span>
-                  <span x-show="f.experimental" style="color:#f59e0b;margin-left:0.4rem">⚠ experimental</span>
-                  <span x-show="f.deps && f.deps.length" style="margin-left:0.4rem" x-text="`+ ${f.deps.join(', ')}`"></span>
-                </div>
-              </div>
-              <label class="switch" style="flex-shrink:0">
-                <input type="checkbox" :checked="isFeatureOn(f.name)" @change="toggleFeature(f.name, $event.target.checked)" />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div x-show="isFeatureOn(f.name)" style="margin-top:0.5rem" x-cloak>
-              <div style="font-size:0.75rem;color:#94a3b8" x-text="f.body"></div>
-            </div>
-          </div>
-        </template>
-      </div>
     </div>
 
     <!-- Card editor modal -->
@@ -1348,8 +1680,8 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
               </div>
               <!-- Autocomplete: muestra hasta 8 sugerencias de tags que ya
                    existen en otras cards. Click selecciona. -->
-              <div x-show="tagSuggestions.length > 0 && tagInput.length > 0" x-cloak class="tag-suggestions">
-                <template x-for="s in tagSuggestions" :key="s">
+              <div x-show="tagSuggestions().length > 0 && tagInput.length > 0" x-cloak class="tag-suggestions">
+                <template x-for="s in tagSuggestions()" :key="s">
                   <button type="button" class="tag-suggestion" @click="addTag(s)">
                     <span x-text="s"></span>
                     <span class="tag-suggestion-add" x-text="tagsAddLabel()">+ agregar</span>
@@ -1361,7 +1693,27 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
               </small>
             </div>
             <div class="form-group">
-              <label>Ícono <button type="button" class="help-icon" @click="showHelp('card.icon')" title="¿Qué hace esto?">?</button></label>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.35rem">
+                <label style="margin:0">Ícono <button type="button" class="help-icon" @click="showHelp('card.icon')" title="¿Qué hace esto?">?</button></label>
+                <div style="display:flex;gap:0.4rem;align-items:center">
+                  <input
+                    type="text"
+                    x-model="iconPickerSearch"
+                    placeholder="Filtrar íconos…"
+                    style="font-size:0.75rem;padding:0.15rem 0.4rem;width:130px;border-radius:4px"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-ghost"
+                    style="font-size:0.72rem;padding:0.15rem 0.4rem;color:var(--accent)"
+                    @click="tab = 'iconpacks'; loadIconPacks()"
+                    x-show="isFeatureOn('iconPacks')"
+                    x-cloak
+                  >
+                    📦 Packs Git
+                  </button>
+                </div>
+              </div>
               <!-- Picker visual: cada fila es un ícono + nombre, click selecciona.
                    El user pidió "listbox que muestre los íconos junto al nombre de
                    cada uno" — esto es exactamente eso. El input de texto de abajo
@@ -1377,7 +1729,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                   <span class="icon-picker-img" aria-hidden="true">🚫</span>
                   <span class="icon-picker-name">Sin ícono</span>
                 </button>
-                <template x-for="i in builtinIcons" :key="i">
+                <template x-for="i in filteredBuiltinIcons()" :key="i">
                   <button
                     type="button"
                     class="icon-picker-item"
@@ -1464,18 +1816,169 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         </div>
       </div>
     </template>
+
+    <!-- Presets Modal (opt-in: features.presets) -->
+    <template x-if="showPresetsModal">
+      <div class="modal-backdrop" @click.self="showPresetsModal = false" @keydown.escape.window="showPresetsModal = false">
+        <div class="modal" style="max-width:820px;max-height:88vh;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+            <h2 style="margin:0">Agregar desde plantilla</h2>
+            <button type="button" class="btn btn-ghost btn-sm" @click="showPresetsModal = false">✕</button>
+          </div>
+          <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 0.75rem">
+            Elegí una plantilla de las aplicaciones más populares autohospedadas. Pre-rellena título, ícono, categoría y descripción.
+          </p>
+
+          <!-- Filtros de búsqueda y categorías -->
+          <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem">
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <input
+                type="text"
+                x-model="presetFilter"
+                placeholder="Buscar app (Grafana, Ollama, Nextcloud, GitLab...)"
+                style="width:100%"
+                autofocus
+              />
+              <button
+                type="button"
+                class="btn btn-sm btn-ghost"
+                x-show="presetFilter || presetCategoryFilter"
+                @click="presetFilter=''; presetCategoryFilter=''"
+                style="white-space:nowrap"
+                x-cloak
+              >
+                Limpiar filtros
+              </button>
+            </div>
+
+            <!-- Chips de categorías -->
+            <div style="display:flex;flex-wrap:wrap;gap:0.35rem;max-height:80px;overflow-y:auto;padding-bottom:0.25rem">
+              <button
+                type="button"
+                class="btn btn-sm"
+                :class="!presetCategoryFilter ? 'btn-primary' : 'btn-ghost'"
+                style="padding:0.2rem 0.6rem;font-size:0.78rem;border-radius:12px"
+                @click="presetCategoryFilter = ''"
+              >
+                Todas (<span x-text="appPresets.length"></span>)
+              </button>
+              <template x-for="cat in presetCategories()" :key="cat.id">
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  :class="presetCategoryFilter === cat.id ? 'btn-primary' : 'btn-ghost'"
+                  style="padding:0.2rem 0.6rem;font-size:0.78rem;border-radius:12px;border:1px solid var(--border)"
+                  @click="presetCategoryFilter = (presetCategoryFilter === cat.id ? '' : cat.id)"
+                >
+                  <span x-text="cat.name"></span>
+                  <span style="opacity:0.7;margin-left:0.2rem;font-size:0.72rem" x-text="'(' + cat.count + ')'"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- Cuadrícula de plantillas filtradas -->
+          <div style="overflow:auto;flex:1;display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:0.75rem;padding-right:0.25rem;align-content:start">
+            <template x-for="p in filteredAppPresets()" :key="p.id">
+              <button
+                type="button"
+                class="card-item"
+                style="display:flex;flex-direction:column;align-items:flex-start;padding:0.75rem;cursor:pointer;text-align:left;border:1px solid var(--border);border-radius:6px;background:var(--surface);transition:border-color 0.15s, transform 0.15s"
+                @click="applyAppPreset(p)"
+              >
+                <div style="display:flex;align-items:center;gap:0.5rem;width:100%;margin-bottom:0.4rem">
+                  <div class="icon-preview" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">
+                    <img :src="'/icons/' + p.icon + '.svg'" style="max-width:20px;max-height:20px" />
+                  </div>
+                  <strong style="font-size:0.9rem;flex:1" x-text="p.name"></strong>
+                  <span class="color-dot" :style="`background:${p.color}`"></span>
+                </div>
+                <div style="font-size:0.75rem;color:#94a3b8;line-height:1.3;flex:1" x-text="p.description"></div>
+                <div style="margin-top:0.4rem;font-size:0.7rem;color:var(--text-faint);background:rgba(255,255,255,0.05);padding:0.1rem 0.4rem;border-radius:4px" x-text="p.defaultCategoryName || p.category"></div>
+              </button>
+            </template>
+
+            <template x-if="filteredAppPresets().length === 0">
+              <div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-subtle)">
+                No se encontraron plantillas para los filtros seleccionados.
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- TOTP Setup Modal -->
+    <template x-if="showTotpSetupModal && totpSetupData">
+      <div class="modal-backdrop" @click.self="showTotpSetupModal = false" @keydown.escape.window="showTotpSetupModal = false">
+        <div class="modal" style="max-width:440px">
+          <h2 style="margin-top:0">Configurar 2FA (TOTP)</h2>
+          <p style="color:var(--text-subtle);font-size:0.85rem">
+            Escaneá el código QR con Google Authenticator, Authy, 1Password o tu gestor favorito, o ingresá el secret manualmente:
+          </p>
+
+          <div style="display:flex;justify-content:center;margin:1rem 0;background:white;padding:1rem;border-radius:8px">
+            <img :src="totpSetupData.qrDataUrl || (`/api/qr/custom.png?text=${encodeURIComponent(totpSetupData.otpauthUrl)}&size=200`)" alt="QR Code 2FA" style="width:200px;height:200px" />
+          </div>
+
+          <div style="margin-bottom:1rem;text-align:center">
+            <code style="display:inline-block;padding:0.4rem 0.75rem;background:#0f172a;border-radius:4px;font-size:0.85rem;letter-spacing:0.1em;word-break:break-all" x-text="totpSetupData.secret"></code>
+          </div>
+
+          <form @submit.prevent="verifyAndSaveTotp()">
+            <div class="form-group">
+              <label>Código de verificación (6 dígitos)</label>
+              <input type="text" x-model="totpVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autofocus autocomplete="one-time-code" />
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+              <button type="button" class="btn btn-ghost" @click="showTotpSetupModal = false">Cancelar</button>
+              <button type="submit" class="btn btn-primary" :disabled="totpSaving">
+                <span x-show="!totpSaving">Activar 2FA</span>
+                <span x-show="totpSaving" x-cloak>Verificando…</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </template>
+
+    <!-- Token Created Modal -->
+    <template x-if="showTokenModal && generatedTokenPlain">
+      <div class="modal-backdrop" @click.self="showTokenModal = false" @keydown.escape.window="showTokenModal = false">
+        <div class="modal" style="max-width:500px">
+          <h2 style="margin-top:0">Token API Generado</h2>
+          <div class="login-warning" style="margin-bottom:1rem">
+            ⚠ Copiá este token ahora. Por seguridad, no se guardará en texto plano y no vas a poder verlo de nuevo.
+          </div>
+          <div class="form-group">
+            <label>Token Bearer</label>
+            <div style="display:flex;gap:0.5rem">
+              <input type="text" readonly :value="generatedTokenPlain" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.85rem;flex:1" id="generated-token-input" />
+              <button type="button" class="btn btn-primary" @click="navigator.clipboard.writeText(generatedTokenPlain); window.umbralAdmin.toast('Token copiado al portapapeles', 'info')">Copiar</button>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:1rem">
+            <button type="button" class="btn btn-ghost" @click="showTokenModal = false">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 
   <!-- Alpine.js + Sortable + dashboard logic -->
-  <script is:inline define:vars={{ initialConfig: config, builtinIcons, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS, FEATURE_LIST, I18N: useI18n ? { dirty: trf('admin.dashboard.dirty'), reload: trf('admin.dashboard.reload'), save: trf('admin.dashboard.save'), saving: trf('admin.dashboard.saving'), saved: trf('admin.dashboard.saved'), savedClamped: trf('admin.dashboard.savedClamped'), reloaded: trf('admin.dashboard.reloaded'), error: trf('admin.dashboard.error'), tabs: { branding: trf('admin.tab.branding'), theme: trf('admin.tab.theme'), layout: trf('admin.tab.layout'), categories: trf('admin.tab.categories'), cards: trf('admin.tab.cards'), assets: trf('admin.tab.assets'), status: trf('admin.tab.status'), hardening: trf('admin.tab.hardening'), password: trf('admin.tab.password'), ai: trf('admin.tab.ai'), advanced: trf('admin.tab.advanced'), }, featuresTitle: trf('admin.features.title'), featuresIntro: trf('admin.features.intro'), audit: { title: trf('admin.audit.title'), reset: trf('admin.audit.reset'), download: trf('admin.audit.download'), loading: trf('admin.audit.loading'), empty: trf('admin.audit.empty'), downloadError: trf('admin.audit.downloadError'), }, card: { markdown: trf('admin.card.markdown'), refreshPreview: trf('admin.card.refreshPreview'), previewLabel: trf('admin.card.previewLabel'), tags: trf('admin.card.tags'), tagsPlaceholder: trf('admin.card.tagsPlaceholder'), tagsHelp: trf('admin.card.tagsHelp'), tagsAdd: trf('admin.card.tagsAdd'), pinned: trf('admin.card.pinned'), }, } : null }}>
+  <script is:inline define:vars={{ initialConfig: config, builtinIcons, appPresets: APP_PRESETS, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS, FEATURE_LIST, I18N: useI18n ? { dirty: trf('admin.dashboard.dirty'), reload: trf('admin.dashboard.reload'), save: trf('admin.dashboard.save'), saving: trf('admin.dashboard.saving'), saved: trf('admin.dashboard.saved'), savedClamped: trf('admin.dashboard.savedClamped'), reloaded: trf('admin.dashboard.reloaded'), error: trf('admin.dashboard.error'), tabs: { branding: trf('admin.tab.branding'), theme: trf('admin.tab.theme'), layout: trf('admin.tab.layout'), categories: trf('admin.tab.categories'), cards: trf('admin.tab.cards'), assets: trf('admin.tab.assets'), status: trf('admin.tab.status'), hardening: trf('admin.tab.hardening'), password: trf('admin.tab.password'), ai: trf('admin.tab.ai'), webhooks: trf('admin.tab.webhooks'), maintenance: trf('admin.tab.maintenance'), audit: trf('admin.tab.audit'), metrics: trf('admin.tab.metrics'), oidc: trf('admin.tab.oidc'), tokens: trf('admin.tab.tokens'), portals: trf('admin.tab.portals'), advanced: trf('admin.tab.advanced'), }, featuresTitle: trf('admin.features.title'), featuresIntro: trf('admin.features.intro'), webhooks: { title: trf('admin.webhooks.title'), intro: trf('admin.webhooks.intro'), add: trf('admin.webhooks.add'), testNew: trf('admin.webhooks.testNew'), }, maintenance: { title: trf('admin.maintenance.title'), intro: trf('admin.maintenance.intro'), add: trf('admin.maintenance.add'), }, audit: { title: trf('admin.audit.title'), reset: trf('admin.audit.reset'), download: trf('admin.audit.download'), loading: trf('admin.audit.loading'), empty: trf('admin.audit.empty'), downloadError: trf('admin.audit.downloadError'), }, metrics: { title: trf('admin.metrics.title'), intro: trf('admin.metrics.intro'), reload: trf('admin.metrics.reload'), loading: trf('admin.metrics.loading'), }, users: { intro: trf('admin.users.intro'), accessModeHelp: trf('admin.users.accessModeHelp'), }, card: { markdown: trf('admin.card.markdown'), refreshPreview: trf('admin.card.refreshPreview'), previewLabel: trf('admin.card.previewLabel'), tags: trf('admin.card.tags'), tagsPlaceholder: trf('admin.card.tagsPlaceholder'), tagsHelp: trf('admin.card.tagsHelp'), tagsAdd: trf('admin.card.tagsAdd'), pinned: trf('admin.card.pinned'), }, } : null }}>
     // Mirror trustedProxies (array) into a text form so the textarea can edit it.
     initialConfig.security.network.trustedProxiesText = (initialConfig.security.network.trustedProxies || []).join('\n');
     // Si el config legacy no tiene `features`, lo inicializamos como objeto
     // vacío (cada feature tendrá default {enabled:false} al renderizar).
     if (!initialConfig.features) initialConfig.features = {};
+    if (!initialConfig.oidc) initialConfig.oidc = { providers: [] };
+    if (!initialConfig.apiTokens) initialConfig.apiTokens = { items: [] };
+    if (!initialConfig.portals) initialConfig.portals = { defaultPortal: 'default', items: [] };
     // expose config to adminApp data
     window.__initialConfig = initialConfig;
     window.__builtinIcons = builtinIcons;
+    window.__appPresets = appPresets;
     window.__aiProviders = AI_PROVIDERS;
     window.__defaultAiSystemPrompt = DEFAULT_AI_SYSTEM_PROMPT;
     window.__helpTexts = HELP_TEXTS;
@@ -1513,20 +2016,9 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         markdownLabel() { return this.i18n?.card?.markdown || 'Markdown'; },
         refreshPreviewLabel() { return this.i18n?.card?.refreshPreview || 'Refresh preview'; },
         previewLabel() { return this.i18n?.card?.previewLabel || 'Preview'; },
-        // BUGFIX: se incrementa en cada editCard() para forzar re-mount del
-        // form via :key="editingKey". Sin esto, Alpine puede mantener
-        // bindings stale cuando se cambia de una tarjeta a otra rápido,
-        // y el form muestra los datos de la anterior o valores vacíos.
         editingKey: 0,
-        // `true` cuando el user modificó algo en el form del modal de tarjeta.
-        // Usado por tryCancelEdit para confirmar antes de descartar. NO es
-        // lo mismo que `dirty` (que es el flag global de "cambios sin guardar
-        // en el config"): cardFormDirty es local al modal.
         cardFormDirty: false,
-        // Para el botón "Auto-completar" del modal: bloquea el botón mientras
-        // se hace el fetch al sitio externo.
         autofillBusy: false,
-        // Para el botón "Probar conexión" en la tab IA.
         aiBusy: false,
         aiTestResult: '',
         aiTestOk: false,
@@ -1535,14 +2027,13 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         healthInfo: null,
         selectedAsset: null,
         builtinIcons: window.__builtinIcons || [],
-        // Metadata de features (inyectada desde el server). Cada item tiene
-        // `name`, `label`, `short`, `body`, `wave`, `experimental`, `deps`,
-        // `enabled` (estado actual). La UI del tab Avanzado renderiza los
-        // switches con esta lista.
+        iconPickerSearch: '',
+        filteredBuiltinIcons() {
+          if (!this.iconPickerSearch) return this.builtinIcons;
+          const q = this.iconPickerSearch.toLowerCase().trim();
+          return this.builtinIcons.filter(i => i.toLowerCase().includes(q));
+        },
         featureList: window.__featureList || [],
-        // i18n: si está habilitada, todos los strings de UI del admin
-        // vienen traducidos vía trf(). Si está apagada, fallback a los
-        // defaults históricos (los strings que ya estaban hardcoded).
         i18n: window.__i18n || null,
         dirtyLabel() { return this.i18n?.dirty || '● Cambios sin guardar'; },
         reloadLabel() { return this.i18n?.reload || 'Recargar'; },
@@ -1558,6 +2049,14 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         tabHardening() { return this.i18n?.tabs?.hardening || 'Hardening'; },
         tabPassword() { return this.i18n?.tabs?.password || 'Password'; },
         tabAi() { return this.i18n?.tabs?.ai || 'IA'; },
+        tabWebhooks() { return this.i18n?.tabs?.webhooks || 'Webhooks'; },
+        tabMaintenance() { return this.i18n?.tabs?.maintenance || 'Mantenimiento'; },
+        tabAudit() { return this.i18n?.tabs?.audit || 'Auditoría'; },
+        tabMetrics() { return this.i18n?.tabs?.metrics || 'Métricas'; },
+        tabOidc() { return this.i18n?.tabs?.oidc || 'OIDC / SSO'; },
+        tabTokens() { return this.i18n?.tabs?.tokens || 'Tokens API'; },
+        tabPortals() { return this.i18n?.tabs?.portals || 'Multi-Portal'; },
+        tabIconPacks() { return this.i18n?.tabs?.iconPacks || 'Íconos Git'; },
         tabAdvanced() { return this.i18n?.tabs?.advanced || 'Avanzado'; },
         // Tags (opt-in: features.tags). El server dropea el array si la
         // feature está apagada. Acá solo manejamos el chip input + autocomplete.
@@ -1568,9 +2067,213 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         tagsHelp() { return this.i18n?.card?.tagsHelp || 'Tags kebab-case. Enter/coma/espacio para agregar. Backspace borra el último.'; },
         tagsAddLabel() { return this.i18n?.card?.tagsAdd || '+ agregar'; },
         // Pinned (opt-in: features.pinned). El server fuerza pinned=false
-        // si la feature está apagada. Acá solo decidimos si mostrar el
-        // toggle en el form + el indicador en la card list.
+        // si la feature está apagada.
         pinnedEnabled: window.__featureList?.find?.((f) => f.name === 'pinned')?.enabled === true,
+        // Presets (opt-in: features.presets)
+        presetsEnabled: window.__featureList?.find?.((f) => f.name === 'presets')?.enabled === true,
+        appPresets: window.__appPresets || [],
+        showPresetsModal: false,
+        presetFilter: '',
+        presetCategoryFilter: '',
+        presetCategories() {
+          const map = new Map();
+          for (const p of this.appPresets) {
+            const catId = p.category;
+            const catName = p.defaultCategoryName || p.category;
+            if (!map.has(catId)) {
+              map.set(catId, { id: catId, name: catName, count: 1 });
+            } else {
+              map.get(catId).count++;
+            }
+          }
+          return Array.from(map.values());
+        },
+        filteredAppPresets() {
+          let list = this.appPresets;
+          if (this.presetCategoryFilter) {
+            list = list.filter((p) => p.category === this.presetCategoryFilter);
+          }
+          if (this.presetFilter) {
+            const q = this.presetFilter.toLowerCase().trim();
+            list = list.filter((p) =>
+              p.name.toLowerCase().includes(q) ||
+              p.description.toLowerCase().includes(q) ||
+              p.category.toLowerCase().includes(q) ||
+              (p.defaultCategoryName && p.defaultCategoryName.toLowerCase().includes(q))
+            );
+          }
+          return list;
+        },
+        openPresetsModal() {
+          this.presetFilter = '';
+          this.presetCategoryFilter = '';
+          this.showPresetsModal = true;
+        },
+        applyAppPreset(p) {
+          this.showPresetsModal = false;
+          let cat = this.cfg.categories.find((c) => c.name.toLowerCase() === (p.defaultCategoryName || '').toLowerCase() || c.id === p.category);
+          if (!cat && this.cfg.categories.length > 0) cat = this.cfg.categories[0];
+          const newCard = {
+            id: 'card-' + Date.now().toString(36),
+            title: p.name,
+            kind: 'link',
+            description: p.description,
+            descriptionFormat: 'plain',
+            url: '',
+            icon: p.icon,
+            category: cat ? cat.id : '',
+            openInNewTab: true,
+            color: p.color || this.cfg.theme.accentColor,
+            order: this.cfg.cards.length,
+            enabled: true,
+            healthCheck: false,
+            pinned: false,
+            tags: [p.category],
+          };
+          this.editingCard = newCard;
+          this.editingIndex = -1;
+          this.editingKey++;
+          this.cardFormDirty = true;
+        },
+        // OIDC (opt-in: features.oidc)
+        oidcEnabled: window.__featureList?.find?.((f) => f.name === 'oidc')?.enabled === true,
+        newOidc: { id: '', name: '', issuer: '', clientId: '', clientSecret: '', scopes: 'openid profile email', defaultRole: 'viewer', autoProvision: false },
+        addOidcProvider() {
+          if (!this.cfg.oidc) this.cfg.oidc = { providers: [] };
+          if (!Array.isArray(this.cfg.oidc.providers)) this.cfg.oidc.providers = [];
+          const o = this.newOidc;
+          if (!o.name || !o.id || !o.issuer || !o.clientId || !o.clientSecret) {
+            window.umbralAdmin.toast('Completá todos los campos obligatorios del provider', 'error');
+            return;
+          }
+          this.cfg.oidc.providers.push({
+            id: o.id.trim(),
+            name: o.name.trim(),
+            issuer: o.issuer.trim(),
+            clientId: o.clientId.trim(),
+            clientSecret: o.clientSecret.trim(),
+            scopes: (o.scopes || 'openid profile email').split(' ').filter(Boolean),
+            redirectPath: '/',
+            autoProvision: Boolean(o.autoProvision),
+            defaultRole: o.defaultRole || 'viewer',
+            enabled: true,
+          });
+          this.newOidc = { id: '', name: '', issuer: '', clientId: '', clientSecret: '', scopes: 'openid profile email', defaultRole: 'viewer', autoProvision: false };
+          this.markDirty();
+          window.umbralAdmin.toast('Provider OIDC agregado', 'success');
+        },
+        removeOidcProvider(idx) {
+          if (!this.cfg.oidc?.providers) return;
+          this.cfg.oidc.providers.splice(idx, 1);
+          this.markDirty();
+          window.umbralAdmin.toast('Provider OIDC eliminado', 'success');
+        },
+        // API Tokens (opt-in: features.apiTokens)
+        apiTokensEnabled: window.__featureList?.find?.((f) => f.name === 'apiTokens')?.enabled === true,
+        newToken: { name: '', scope: 'read', expiresInDays: 0 },
+        showTokenModal: false,
+        generatedTokenPlain: '',
+        async generateToken() {
+          if (!this.newToken.name) return;
+          try {
+            const res = await window.umbralAdmin.api('POST', '/api/tokens', this.newToken);
+            if (res.ok && res.token) {
+              this.generatedTokenPlain = res.token;
+              this.showTokenModal = true;
+              if (!this.cfg.apiTokens) this.cfg.apiTokens = { items: [] };
+              this.cfg.apiTokens.items.push(res.item);
+              this.newToken = { name: '', scope: 'read', expiresInDays: 0 };
+              window.umbralAdmin.toast('Token generado con éxito', 'success');
+            }
+          } catch (e) {
+            window.umbralAdmin.toast(e.message, 'error');
+          }
+        },
+        async revokeToken(id) {
+          if (!confirm('¿Revocar este token API? Las integraciones que lo usen dejarán de funcionar.')) return;
+          try {
+            await window.umbralAdmin.api('DELETE', '/api/tokens', { id });
+            if (this.cfg.apiTokens?.items) {
+              this.cfg.apiTokens.items = this.cfg.apiTokens.items.filter((t) => t.id !== id);
+            }
+            window.umbralAdmin.toast('Token revocado', 'success');
+          } catch (e) {
+            window.umbralAdmin.toast(e.message, 'error');
+          }
+        },
+        // Multi-Portal (opt-in: features.multiPortal)
+        multiPortalEnabled: window.__featureList?.find?.((f) => f.name === 'multiPortal')?.enabled === true,
+        newPortal: { id: '', name: '', host: '', pathPrefix: '' },
+        addPortal() {
+          if (!this.cfg.portals) this.cfg.portals = { defaultPortal: 'default', items: [] };
+          if (!Array.isArray(this.cfg.portals.items)) this.cfg.portals.items = [];
+          const p = this.newPortal;
+          if (!p.id || !p.name) {
+            window.umbralAdmin.toast('ID y Nombre son obligatorios', 'error');
+            return;
+          }
+          this.cfg.portals.items.push({
+            id: p.id.trim(),
+            name: p.name.trim(),
+            host: p.host.trim() || undefined,
+            pathPrefix: p.pathPrefix.trim() || undefined,
+          });
+          this.newPortal = { id: '', name: '', host: '', pathPrefix: '' };
+          this.markDirty();
+          window.umbralAdmin.toast('Portal agregado', 'success');
+        },
+        removePortal(idx) {
+          if (!this.cfg.portals?.items) return;
+          this.cfg.portals.items.splice(idx, 1);
+          this.markDirty();
+          window.umbralAdmin.toast('Portal eliminado', 'success');
+        },
+        // TOTP 2FA (opt-in: features.totp2fa)
+        totpEnabled: window.__featureList?.find?.((f) => f.name === 'totp2fa')?.enabled === true,
+        showTotpSetupModal: false,
+        totpSetupUser: null,
+        totpSetupData: null,
+        totpVerificationCode: '',
+        totpSaving: false,
+        async openTotpSetup(u) {
+          try {
+            const data = await window.umbralAdmin.api('POST', '/api/auth/totp/setup', { userId: u.id });
+            this.totpSetupUser = u;
+            this.totpSetupData = data;
+            this.totpVerificationCode = '';
+            this.showTotpSetupModal = true;
+          } catch (e) {
+            window.umbralAdmin.toast('Error generando 2FA: ' + e.message, 'error');
+          }
+        },
+        async verifyAndSaveTotp() {
+          if (!this.totpSetupUser || !this.totpSetupData || !this.totpVerificationCode) return;
+          this.totpSaving = true;
+          try {
+            await window.umbralAdmin.api('POST', '/api/auth/totp/verify', {
+              userId: this.totpSetupUser.id,
+              secret: this.totpSetupData.secret,
+              code: this.totpVerificationCode,
+            });
+            this.totpSetupUser.totpSecret = 'active';
+            this.showTotpSetupModal = false;
+            window.umbralAdmin.toast('2FA activado con éxito para ' + this.totpSetupUser.username, 'success');
+          } catch (e) {
+            window.umbralAdmin.toast(e.message, 'error');
+          } finally {
+            this.totpSaving = false;
+          }
+        },
+        async disableTotp(u) {
+          if (!confirm(`¿Desactivar 2FA para ${u.username}?`)) return;
+          try {
+            await window.umbralAdmin.api('POST', '/api/auth/totp/disable', { userId: u.id });
+            u.totpSecret = null;
+            window.umbralAdmin.toast('2FA desactivado', 'success');
+          } catch (e) {
+            window.umbralAdmin.toast(e.message, 'error');
+          }
+        },
         // Métricas (opt-in: features.metrics). El server registra samples
         // en /api/status. La UI carga el summary + sparkline via /api/metrics.
         metricsEnabled: window.__featureList?.find?.((f) => f.name === 'metrics')?.enabled === true,
@@ -1580,10 +2283,10 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         // menos un user (rechaza saveConfig si quedás sin acceso).
         multiUserEnabled: window.__featureList?.find?.((f) => f.name === 'multiUser')?.enabled === true,
         newUser: { username: '', displayName: '', password: '', role: 'viewer' },
-        get metricsTitle() { return this.i18n?.metrics?.title || 'Métricas'; },
-        get metricsIntro() { return this.i18n?.metrics?.intro || 'Sparklines + resumen (avg, p95, max) por card.'; },
-        get metricsReloadLabel() { return this.i18n?.metrics?.reload || 'Recargar'; },
-        get metricsLoadingLabel() { return this.i18n?.metrics?.loading || 'Cargando…'; },
+        metricsTitle() { return this.i18n?.metrics?.title || 'Métricas'; },
+        metricsIntro() { return this.i18n?.metrics?.intro || 'Sparklines + resumen (avg, p95, max) por card.'; },
+        metricsReloadLabel() { return this.i18n?.metrics?.reload || 'Recargar'; },
+        metricsLoadingLabel() { return this.i18n?.metrics?.loading || 'Cargando…'; },
         metricsRange: 3600000, // 1h default
         metricsLimit: 50,
         metricsRows: [],
@@ -1593,19 +2296,19 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         // Webhooks (opt-in: features.webhooks). Engine se ejecuta en
         // server; acá solo manejamos la UI de la lista + form de alta.
         webhooksEnabled: window.__featureList?.find?.((f) => f.name === 'webhooks')?.enabled === true,
-        get webhooksTitle() { return this.i18n?.webhooks?.title || 'Webhooks'; },
-        get webhooksIntro() { return this.i18n?.webhooks?.intro || 'Notifica a URLs externas cuando una card con health-check cambia de estado.'; },
-        get webhooksAddLabel() { return this.i18n?.webhooks?.add || 'Agregar'; },
-        get webhookTestNewLabel() { return this.i18n?.webhooks?.testNew || 'Probar antes de guardar'; },
+        webhooksTitle() { return this.i18n?.webhooks?.title || 'Webhooks'; },
+        webhooksIntro() { return this.i18n?.webhooks?.intro || 'Notifica a URLs externas cuando una card con health-check cambia de estado.'; },
+        webhooksAddLabel() { return this.i18n?.webhooks?.add || 'Agregar'; },
+        webhookTestNewLabel() { return this.i18n?.webhooks?.testNew || 'Probar antes de guardar'; },
         newWebhook: { name: '', url: '', eventFail: true, eventRecover: false, minFailures: 3, cooldownMin: 30 },
         webhookTesting: null,
         // Maintenance windows (opt-in: features.maintenanceWindows).
         // El server valida + sanitiza via Zod al guardar; nosotros sólo
         // construimos el objeto y manejamos active/remaining en el cliente.
         maintenanceWindowsEnabled: window.__featureList?.find?.((f) => f.name === 'maintenanceWindows')?.enabled === true,
-        get maintenanceTitle() { return this.i18n?.maintenance?.title || 'Mantenimiento'; },
-        get maintenanceIntro() { return this.i18n?.maintenance?.intro || 'Programa ventanas donde una (o todas) las cards están en mantenimiento.'; },
-        get maintenanceAddLabel() { return this.i18n?.maintenance?.add || 'Programar'; },
+        maintenanceTitle() { return this.i18n?.maintenance?.title || 'Mantenimiento'; },
+        maintenanceIntro() { return this.i18n?.maintenance?.intro || 'Programa ventanas donde una (o todas) las cards están en mantenimiento.'; },
+        maintenanceAddLabel() { return this.i18n?.maintenance?.add || 'Programar'; },
         newMaintenance: { cardMode: 'all', cardIds: [], startsAt: '', endsAt: '', reason: '' },
         isMaintenanceActive(mw) {
           if (!mw.enabled) return false;
@@ -1667,13 +2370,13 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           this.cfg.maintenanceWindows.items.splice(idx, 1);
           this.markDirty();
         },
-        get tagSuggestions() {
+        tagSuggestions() {
           // Tags que ya existen en otras cards, filtradas por lo que el
           // user está tipeando. Limit 8.
           if (!this.tagInput) return [];
           const q = this.tagInput.toLowerCase();
           const current = new Set((this.editingCard?.tags || []).map(t => t.toLowerCase()));
-          const allTags = new Set<string>();
+          const allTags = new Set();
           for (const c of (this.cfg?.cards || [])) {
             for (const t of (c.tags || [])) {
               const norm = String(t).toLowerCase().trim();
@@ -1693,11 +2396,11 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         auditResult: null,
         auditFilter: { action: '', detail: '', from: '', to: '', limit: 200 },
         // i18n getters para los labels de la sección Auditoría.
-        get auditTitle() { return this.i18n?.audit?.title || 'Auditoría'; },
-        get auditResetLabel() { return this.i18n?.audit?.reset || 'Limpiar'; },
-        get auditDownloadLabel() { return this.i18n?.audit?.download || 'Descargar log completo'; },
-        get auditLoadingLabel() { return this.i18n?.audit?.loading || 'Cargando…'; },
-        get auditEmptyLabel() { return this.i18n?.audit?.empty || 'No hay entradas que coincidan con los filtros.'; },
+        auditTitle() { return this.i18n?.audit?.title || 'Auditoría'; },
+        auditResetLabel() { return this.i18n?.audit?.reset || 'Limpiar'; },
+        auditDownloadLabel() { return this.i18n?.audit?.download || 'Descargar log completo'; },
+        auditLoadingLabel() { return this.i18n?.audit?.loading || 'Cargando…'; },
+        auditEmptyLabel() { return this.i18n?.audit?.empty || 'No hay entradas que coincidan con los filtros.'; },
         csrfToken: (document.body.dataset.csrf || ''),
         pwForm: { current: '', next: '', confirm: '' },
         // AI provider presets (cargados desde src/pages/admin/ai-providers.ts).
@@ -1720,8 +2423,8 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         helpModalKey: null,
 
         async init() {
-          this.cfg = structuredClone(window.__initialConfig);
-          this.original = structuredClone(window.__initialConfig);
+          this.cfg = JSON.parse(JSON.stringify(window.__initialConfig));
+          this.original = JSON.parse(JSON.stringify(window.__initialConfig));
           // Banner de password inseguro (default). Llamamos al endpoint
           // /api/auth/check-default-password; si isDefault=true, mostramos
           // un banner rojo en la parte superior del dashboard con un link
@@ -1792,25 +2495,18 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             });
             this.$watch('editingCard.descriptionFormat', () => schedule());
           }
-          // Audit log: cargar cuando el user abre el tab Avanzado y la
+          // Audit log: cargar cuando el user abre el tab Auditoría y la
           // feature está activa. Una sola carga — el user puede refrescar
           // manualmente con los filtros.
-          if (this.auditLogEnabled) {
-            this.$watch('tab', (t) => {
-              if (t === 'advanced' && this.auditEntries.length === 0 && !this.auditLoading) {
-                this.loadAuditActions();
-                this.reloadAudit();
-              }
-            });
-          }
-          // Metrics: idem — cargar al abrir Avanzado si la feature está activa.
-          if (this.metricsEnabled) {
-            this.$watch('tab', (t) => {
-              if (t === 'advanced' && this.metricsRows.length === 0 && !this.metricsLoading) {
-                this.loadMetrics();
-              }
-            });
-          }
+          this.$watch('tab', (t) => {
+            if (t === 'audit' && this.auditEntries.length === 0 && !this.auditLoading) {
+              this.loadAuditActions();
+              this.reloadAudit();
+            }
+            if (t === 'metrics' && this.metricsRows.length === 0 && !this.metricsLoading) {
+              this.loadMetrics();
+            }
+          });
         },
 
         markDirty() { this.dirty = JSON.stringify(this.cfg) !== JSON.stringify(this.original); },
@@ -1948,7 +2644,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
               this.aiTestResult = `✓ Conectado. Respuesta: "${data.title}" / "${data.description}"`;
               // refrescamos la config en memoria (PUT exitoso la devuelve)
               const updated = await window.umbralAdmin.api('GET', '/api/config').catch(() => null);
-              if (updated) { this.cfg = structuredClone(updated); this.original = structuredClone(updated); this.dirty = false; }
+              if (updated) { this.cfg = JSON.parse(JSON.stringify(updated)); this.original = JSON.parse(JSON.stringify(updated)); this.dirty = false; }
             } else {
               const err = await res.json().catch(() => ({}));
               this.aiTestResult = `✗ ${res.status}: ${err.error || res.statusText}`;
@@ -2428,27 +3124,21 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         async saveAll() {
           this.busy = true;
           try {
-            // Sync textarea → array before sending.
-            this.cfg.security.network.trustedProxies = (this.cfg.security.network.trustedProxiesText || '')
-              .split('\n').map((s) => s.trim()).filter(Boolean);
-            // BUGFIX (PUT 400 reportado por el user): defense-in-depth para
-            // descripciones de tarjetas largas. El server ya clampea en el
-            // schema, pero hacerlo acá también evita que un save "limpio" del
-            // cliente termine con la descripción truncada silenciosamente.
-            // Mostramos un toast informativo si truncamos algo, así
-            // el user sabe que el server le acortó la descripción y puede
-            // revisarla.
-            //
-            // Límites: 200 para plain, 1000 para markdown. Si la feature
-            // features.markdown está apagada, forzamos plain (y el límite
-            // 200). Si está activa, respetamos el descriptionFormat del
-            // card.
+            const payload = JSON.parse(JSON.stringify(this.cfg));
+            if (payload.security?.network) {
+              payload.security.network.trustedProxies = (payload.security.network.trustedProxiesText || '')
+                .split('\n').map((s) => s.trim()).filter(Boolean);
+              delete payload.security.network.trustedProxiesText;
+            }
+            if (this.cfg.security?.network) {
+              this.cfg.security.network.trustedProxies = (this.cfg.security.network.trustedProxiesText || '')
+                .split('\n').map((s) => s.trim()).filter(Boolean);
+            }
             const markdownOn = this.i18n?.features?.markdown === true || this.cfg?.features?.markdown?.enabled === true;
             let clampedCount = 0;
-            for (const card of this.cfg.cards) {
+            for (const card of payload.cards || []) {
               if (typeof card.description !== 'string') continue;
               if (!markdownOn) {
-                // Feature apagada → forzar plain + límite 200
                 if (card.descriptionFormat !== 'plain') {
                   card.descriptionFormat = 'plain';
                 }
@@ -2457,7 +3147,6 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                   clampedCount++;
                 }
               } else {
-                // Feature activa → respetar descriptionFormat
                 const limit = card.descriptionFormat === 'markdown' ? 1000 : 200;
                 if (card.description.length > limit) {
                   card.description = card.description.slice(0, limit);
@@ -2465,9 +3154,12 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                 }
               }
             }
-            const updated = await window.umbralAdmin.api('PUT', '/api/config', this.cfg);
-            this.cfg = structuredClone(updated);
-            this.original = structuredClone(updated);
+            const updated = await window.umbralAdmin.api('PUT', '/api/config', payload);
+            if (updated.security?.network) {
+              updated.security.network.trustedProxiesText = (updated.security.network.trustedProxies || []).join('\n');
+            }
+            this.cfg = JSON.parse(JSON.stringify(updated));
+            this.original = JSON.parse(JSON.stringify(updated));
             this.dirty = false;
             if (clampedCount > 0) {
               const tmpl = this.i18n?.savedClamped || 'Configuración guardada ({n} descripción(es) truncada(s) a 200 chars)';
@@ -2488,8 +3180,8 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           if (this.dirty && !confirm('Hay cambios sin guardar. ¿Recargar igual?')) return;
           try {
             const cfg = await window.umbralAdmin.api('GET', '/api/config');
-            this.cfg = structuredClone(cfg);
-            this.original = structuredClone(cfg);
+            this.cfg = JSON.parse(JSON.stringify(cfg));
+            this.original = JSON.parse(JSON.stringify(cfg));
             this.dirty = false;
             window.umbralAdmin.toast(this.i18n?.reloaded || 'Recargado', 'success');
           } catch (e) {
@@ -2642,18 +3334,15 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         },
 
         async toggleFeature(name, enabled) {
-          // Inicializamos `features` si el cfg legacy no la tiene. El server
-          // también lo va a mergear con defaults, pero acá lo hacemos local
-          // para que la UI no quede inconsistente.
           if (!this.cfg.features) this.cfg.features = {};
           if (!this.cfg.features[name]) {
-            // Default shape: {enabled: false}. Sub-features con campos extra
-            // (i18n.locale, metrics.persistToDisk) se inicializan cuando el
-            // user los edite explícitamente — el server completa con defaults.
             this.cfg.features[name] = { enabled: false };
           }
           this.cfg.features[name].enabled = enabled;
-          // Marcamos dirty. El PUT /api/config se encarga de mandar el subset.
+          if (name === 'ai') {
+            if (!this.cfg.ai) this.cfg.ai = { enabled, provider: 'openai-compatible', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini', systemPrompt: '', language: 'es' };
+            else this.cfg.ai.enabled = enabled;
+          }
           this.dirty = true;
         },
 
@@ -2763,9 +3452,8 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           });
         },
         async hashPasswordClientSide(password) {
-          // bcryptjs corre en browser. Lo importamos dinámicamente.
-          const bcrypt = (await import('bcryptjs')).default;
-          return bcrypt.hash(password, 12);
+          const res = await window.umbralAdmin.api('POST', '/api/auth/hash-password', { password });
+          return res.hash;
         },
         removeUser(id) {
           if (!confirm('Borrar este usuario? Sus sesiones seran invalidadas (userEpoch + 1).')) return;
@@ -2804,7 +3492,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           this.markDirty();
           window.umbralAdmin.toast('Password reseteado. El user debe volver a loguearse.', 'success');
         },
-        get multiUserIntro() {
+        multiUserIntro() {
           return this.i18n?.users?.intro || 'Crea usuarios con roles. El password unico sigue siendo valido como rescue path.';
         },
         // Features section labels (i18n top-level)
@@ -2879,8 +3567,8 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           if (confirmText !== 'RESET') return;
           try {
             const cfg = await window.umbralAdmin.api('DELETE', '/api/config');
-            this.cfg = structuredClone(cfg);
-            this.original = structuredClone(cfg);
+            this.cfg = JSON.parse(JSON.stringify(cfg));
+            this.original = JSON.parse(JSON.stringify(cfg));
             this.dirty = false;
             window.umbralAdmin.toast('Reseteado', 'success');
             await this.refreshAssets();
@@ -2905,6 +3593,83 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             return `background-image:url('${t.background.value}');background-size:cover;${t.background.blur>0?`filter:blur(${t.background.blur}px)`:''}`;
           }
           return `background:${t.background.value};${t.background.blur>0?`filter:blur(${t.background.blur}px)`:''}`;
+        },
+
+        // Icon Packs (opt-in: features.iconPacks)
+        iconPacks: [],
+        iconPacksTotal: 0,
+        iconPacksLoading: false,
+        iconPacksInstalling: {},
+        customPack: { repoUrl: '', branch: 'main', subpath: '', prefix: '' },
+        customPackInstalling: false,
+        iconPackMsg: { text: '', error: false },
+
+        async loadIconPacks() {
+          this.iconPacksLoading = true;
+          try {
+            const res = await window.umbralAdmin.api('GET', '/api/icon-packs');
+            this.iconPacks = res.packs || [];
+            this.iconPacksTotal = res.totalInstalledIcons || 0;
+          } catch (e) {
+            this.iconPackMsg = { text: 'Error al cargar paquetes: ' + e.message, error: true };
+          } finally {
+            this.iconPacksLoading = false;
+          }
+        },
+
+        async installPack(packId) {
+          this.iconPacksInstalling[packId] = true;
+          this.iconPackMsg = { text: 'Descargando e instalando paquete…', error: false };
+          try {
+            const res = await window.umbralAdmin.api('POST', '/api/icon-packs', { packId });
+            this.iconPackMsg = { text: res.message || 'Paquete instalado correctamente.', error: false };
+            window.umbralAdmin.toast(this.iconPackMsg.text, 'success');
+            await this.loadIconPacks();
+            await this.refreshAssets();
+          } catch (e) {
+            this.iconPackMsg = { text: 'Error al instalar paquete: ' + e.message, error: true };
+            window.umbralAdmin.toast(this.iconPackMsg.text, 'error');
+          } finally {
+            this.iconPacksInstalling[packId] = false;
+          }
+        },
+
+        async uninstallPack(packId) {
+          if (!confirm('¿Desinstalar los íconos de este paquete?')) return;
+          this.iconPacksInstalling[packId] = true;
+          try {
+            const res = await window.umbralAdmin.api('POST', '/api/icon-packs/uninstall', { packId });
+            this.iconPackMsg = { text: res.message || 'Paquete desinstalado.', error: false };
+            window.umbralAdmin.toast(this.iconPackMsg.text, 'success');
+            await this.loadIconPacks();
+            await this.refreshAssets();
+          } catch (e) {
+            this.iconPackMsg = { text: 'Error al desinstalar: ' + e.message, error: true };
+            window.umbralAdmin.toast(this.iconPackMsg.text, 'error');
+          } finally {
+            this.iconPacksInstalling[packId] = false;
+          }
+        },
+
+        async installCustomPack() {
+          if (!this.customPack.repoUrl) return;
+          this.customPackInstalling = true;
+          this.iconPackMsg = { text: 'Clonando repositorio y extrayendo íconos…', error: false };
+          try {
+            const res = await window.umbralAdmin.api('POST', '/api/icon-packs', this.customPack);
+            this.iconPackMsg = { text: res.message || 'Íconos instalados correctamente.', error: false };
+            window.umbralAdmin.toast(this.iconPackMsg.text, 'success');
+            this.customPack.repoUrl = '';
+            this.customPack.subpath = '';
+            this.customPack.prefix = '';
+            await this.loadIconPacks();
+            await this.refreshAssets();
+          } catch (e) {
+            this.iconPackMsg = { text: 'Error al instalar desde repositorio: ' + e.message, error: true };
+            window.umbralAdmin.toast(this.iconPackMsg.text, 'error');
+          } finally {
+            this.customPackInstalling = false;
+          }
         },
 
         resolveIcon(icon) {
@@ -2954,9 +3719,43 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
       display: flex; align-items: center; justify-content: center; z-index: 100;
       padding: 1rem; overflow-y: auto;
     }
-    .modal {
-      background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; color: var(--text);
-      padding: 1.5rem; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+    .admin-warning {
+      color: #fecaca;
+      background: rgba(220, 38, 38, 0.22);
+      border: 1px solid #ef4444;
+      border-left: 5px solid #ef4444;
+      padding: 0.85rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    :global(html[data-mode="light"]) .admin-warning {
+      color: #991b1b;
+      background: #fef2f2;
+      border: 1px solid #f87171;
+      border-left: 5px solid #dc2626;
+      box-shadow: 0 1px 3px rgba(220, 38, 38, 0.12);
+    }
+    .btn-warning-action {
+      background: #dc2626 !important;
+      border: 1px solid #b91c1c !important;
+      color: #ffffff !important;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+    .btn-warning-action:hover {
+      background: #b91c1c !important;
     }
   </style>
 </AdminLayout>

@@ -166,11 +166,10 @@ const descriptionHtml = await renderDescription(card.description, card.descripti
         absolute top-right para no interferir con el ícono. El user hace
         click → abre el PNG en una nueva tab (más simple que un modal). */}
     {qrEnabled && card.kind === 'link' ? (
-      <a
+      <button
+        type="button"
         class="card-qr-btn"
-        href={`/api/qr/${card.id}.png?size=240`}
-        target="_blank"
-        rel="noopener noreferrer"
+        onclick={`event.preventDefault(); event.stopPropagation(); window.open('/api/qr/${encodeURIComponent(card.id)}.png?size=240', '_blank', 'noopener,noreferrer')`}
         title="Ver QR de esta card"
         aria-label="Ver QR"
       >
@@ -184,7 +183,7 @@ const descriptionHtml = await renderDescription(card.description, card.descripti
           <line x1="20" y1="14" x2="20" y2="17"/>
           <line x1="20" y1="20" x2="20" y2="20"/>
         </svg>
-      </a>
+      </button>
     ) : null}
     {/* Badge ámbar de mantenimiento (opt-in: features.maintenanceWindows).
         Render condicional — si maintenanceReason es '' (default), no aparece. */}

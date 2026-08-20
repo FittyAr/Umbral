@@ -141,6 +141,8 @@ export interface AuthContext {
   isAdmin: boolean;
   /** username del user actual, o null. Útil para el audit log. */
   username: string | null;
+  /** true si la autenticación provino de un Bearer API token. */
+  isApiToken?: boolean;
 }
 
 /** Loads the current config (with auth) and returns the auth state for the request. */
@@ -148,6 +150,25 @@ export async function buildAuthContext(request: Request): Promise<AuthContext> {
   const cookie = parseCookie(request.headers.get('cookie') || '');
   const token = cookie[SESSION_COOKIE];
   const cfg = await getConfig();
+
+  // Si no hay cookie pero hay Authorization header y apiTokens está activo:
+  if (!token && (request.headers.has('authorization') || request.headers.has('Authorization'))) {
+    const { verifyApiToken } = await import('./api-tokens');
+    const apiAuth = await verifyApiToken(request);
+    if (apiAuth.valid && apiAuth.token) {
+      const isWrite = apiAuth.token.scope === 'write';
+      return {
+        isAuthenticated: true,
+        csrfToken: null,
+        actor: `token:${apiAuth.token.name}`,
+        role: isWrite ? 'admin' : 'viewer',
+        isAdmin: isWrite,
+        username: null,
+        isApiToken: true,
+      };
+    }
+  }
+
   const authEpoch = cfg.auth?.authEpoch ?? 0;
 
   // Si no hay users[] en config, modo legacy — verificamos sólo con

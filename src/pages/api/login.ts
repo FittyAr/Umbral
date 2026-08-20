@@ -73,7 +73,7 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   const singleEnabled = cfg.auth.singlePasswordEnabled !== false;
 
   let userEpoch = 0;
-  let matchedUser: { id: string; username: string; role: 'admin' | 'editor' | 'viewer' } | null = null;
+  let matchedUser: { id: string; username: string; role: 'admin' | 'editor' | 'viewer'; totpSecret?: string | null } | null = null;
   let isLegacy = false;
 
   if (body.username && hasUsers) {
@@ -89,7 +89,7 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
       await audit('login_fail', `ip=${ip} user=${target}`);
       return error('Usuario o password incorrecto', 401);
     }
-    matchedUser = { id: found.id, username: found.username, role: found.role };
+    matchedUser = { id: found.id, username: found.username, role: found.role, totpSecret: found.totpSecret };
     userEpoch = found.userEpoch;
   } else if (!body.username) {
     // Modo legacy / super-admin

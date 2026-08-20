@@ -360,6 +360,7 @@ export const NetworkSecuritySchema = z.object({
   trustForwardedFor: z.boolean().default(false),
   // Lista de IPs/CIDRs confiables (para logging/auditoría). Hoy es informativo.
   trustedProxies: z.array(z.string()).default([]),
+  trustedProxiesText: z.string().optional(),
   // Dominio al que se emite la cookie (default: hostname del request).
   // Útil si querés compartir sesión entre subdominios ('.example.com').
   cookieDomain: z.string().nullable().default(null),
@@ -598,8 +599,8 @@ export const FeaturesSchema = z.object({
   markdown: FeatureFlagSchema.default({ enabled: false }),
   tags: FeatureFlagSchema.default({ enabled: false }),
   pinned: FeatureFlagSchema.default({ enabled: false }),
-  presets: FeatureFlagSchema.default({ enabled: false }),
-  auditLogViewer: FeatureFlagSchema.default({ enabled: false }),
+  presets: FeatureFlagSchema.default({ enabled: true }),
+  auditLogViewer: FeatureFlagSchema.default({ enabled: true }),
   qr: FeatureFlagSchema.default({ enabled: false }),
   metrics: z
     .object({
@@ -615,6 +616,9 @@ export const FeaturesSchema = z.object({
   oidc: FeatureFlagSchema.default({ enabled: false }),
   apiTokens: FeatureFlagSchema.default({ enabled: false }),
   multiPortal: FeatureFlagSchema.default({ enabled: false }),
+  status: FeatureFlagSchema.default({ enabled: false }),
+  ai: FeatureFlagSchema.default({ enabled: false }),
+  iconPacks: FeatureFlagSchema.default({ enabled: false }),
 });
 // NOTA: NO usamos `.default({})` en el outer schema. Si lo hacemos,
 // FeaturesSchema se convierte en un ZodDefault que no tiene `.partial()`.
@@ -645,7 +649,7 @@ export const PortalSchema = z.object({
   pathPrefix: z.string().max(20).regex(/^[/a-z*0-9-]*$/, 'pathPrefix debe empezar con / y solo letras/digitos/guiones/asterisco').default('/'),
 });
 export const PortalsSchema = z.object({
-  items: z.array(PortalSchema).min(1, 'Al menos un portal requerido cuando multiPortal esta activo').default([]),
+  items: z.array(PortalSchema).default([]),
   defaultPortal: z.string().min(1).max(40).default('default'),
 });
 export type Portal = z.infer<typeof PortalSchema>;
@@ -750,6 +754,8 @@ export const ConfigSchema = z.object({
   // External search (Brave / Tavily / etc) — opcional, también.
   // Default vacío → auto-completar usa sólo Wikipedia + DuckDuckGo (sin key).
   externalSearch: ExternalSearchSchema.optional(),
+  // Multi-portal (opt-in: features.multiPortal). Lista de portales adicionales.
+  portals: PortalsSchema.optional(),
   // Features flags: sistema unificado de opt-in. Ver FeaturesSchema arriba
   // y src/lib/features.ts para el helper `isFeatureEnabled()`. Cada ola
   // del roadmap (markdown, tags, webhooks, multi-portal, ...) se registra

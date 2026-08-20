@@ -7,10 +7,12 @@ import Logo from '~/components/Logo.astro';
 import Clock from '~/components/Clock.astro';
 import RefreshButton from '~/components/RefreshButton.astro';
 import StatusBar from '~/components/StatusBar.astro';
+import LanguageSwitcher from '~/components/LanguageSwitcher.astro';
 import { getConfig } from '~/lib/config';
 import { resolveIconUrl } from '~/lib/icons';
 import { isFeatureEnabled } from '~/lib/features';
 import { getActiveWindowsForCard } from '~/lib/maintenance';
+import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
 export const prerender = false;
 
@@ -19,10 +21,16 @@ const config = await getConfig();
 const t = config.theme;
 const l = config.layout;
 
+const useI18n = isFeatureEnabled(config, 'i18n');
+const locale: Locale = useI18n
+  ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
+  : 'es';
+const trf = tr(locale);
+
 // Check if this category exists and is designated as a subpage
 const cat = config.categories.find((c) => c.id === category && c.isSubpage);
 if (!cat) {
-  return Astro.redirect('/404');
+  return new Response(null, { status: 404 });
 }
 
 const cards = config.cards
@@ -38,6 +46,7 @@ const cards = config.cards
 // Maintenance windows: idem index.astro. Misma resolución (id → reason)
 // que pasamos a Card.astro para mostrar el badge ámbar.
 const cardMaintenance = new Map<string, string>();
+const qrEnabled = isFeatureEnabled(config, 'qr');
 if (isFeatureEnabled(config, 'maintenanceWindows')) {
   for (const c of cards) {
     const ws = await getActiveWindowsForCard(c.id);
@@ -54,9 +63,9 @@ const pageTitle = `${cat.name} — ${config.branding.companyName}`;
   <main class="page-wrap">
     <header class="header">
       <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
-        <a href="/" class="subpage-back-link" title="Volver a la portada principal">
+        <a href="/" class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Volver a la portada principal'}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          <span>Portada principal</span>
+          <span>{useI18n ? trf('home.subpage.back') : 'Portada principal'}</span>
         </a>
         <span style="color:var(--border-strong);user-select:none">|</span>
         <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
@@ -66,11 +75,12 @@ const pageTitle = `${cat.name} — ${config.branding.companyName}`;
       {t.showClock && <Clock config={config} request={Astro.request} />}
       <Search config={config} request={Astro.request} />
       {t.showRefresh && <RefreshButton config={config} request={Astro.request} />}
+      {useI18n && <LanguageSwitcher config={config} current={locale} />}
       <button
         data-action="toggle-mode"
         class="mode-toggle"
-        aria-label="Cambiar modo claro/oscuro"
-        title="Cambiar modo claro/oscuro"
+        aria-label={useI18n ? trf('home.modeToggle') : 'Cambiar modo claro/oscuro'}
+        title={useI18n ? trf('home.modeToggleTitle') : 'Cambiar modo claro/oscuro'}
       >
         <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
@@ -79,7 +89,7 @@ const pageTitle = `${cat.name} — ${config.branding.companyName}`;
     </header>
 
     <div class="subpage-breadcrumb">
-      <a href="/">Inicio</a>
+      <a href="/">{useI18n ? trf('home.subpage.home') : 'Inicio'}</a>
       <span>/</span>
       <span>{cat.name}</span>
     </div>
@@ -96,13 +106,13 @@ const pageTitle = `${cat.name} — ${config.branding.companyName}`;
         </h2>
         {isLocked && (
           <div class="cat-lock-status">
-            <span class="cat-lock-badge badge-locked" title="Categoría protegida con contraseña">
+            <span class="cat-lock-badge badge-locked" title={useI18n ? trf('home.locked.title') : 'Categoría protegida con contraseña'}>
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span>Protegida</span>
+              <span>{useI18n ? trf('home.locked.badge') : 'Protegida'}</span>
             </span>
-            <button type="button" class="cat-relock-btn" style="display: none;" title="Volver a bloquear categoría">
+            <button type="button" class="cat-relock-btn" style="display: none;" title={useI18n ? trf('home.locked.relockTitle') : 'Volver a bloquear categoría'}>
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span>Bloquear</span>
+              <span>{useI18n ? trf('home.locked.relock') : 'Bloquear'}</span>
             </button>
           </div>
         )}
@@ -116,22 +126,22 @@ const pageTitle = `${cat.name} — ${config.branding.companyName}`;
               <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
           </div>
-          <p class="lock-title">Categoría bloqueada</p>
-          <p class="lock-subtitle">Ingresá la contraseña para ver los enlaces</p>
+          <p class="lock-title">{useI18n ? trf('home.locked.title') : 'Categoría bloqueada'}</p>
+          <p class="lock-subtitle">{useI18n ? trf('home.locked.subtitle') : 'Ingresá la contraseña para ver los enlaces'}</p>
           <form class="lock-form" onsubmit="return false;">
             <div class="lock-input-group">
               <input
                 type="password"
                 class="lock-input"
-                placeholder="Contraseña…"
+                placeholder={useI18n ? trf('home.locked.unlockPlaceholder') : 'Contraseña…'}
                 autocomplete="current-password"
                 required
               />
               <button type="submit" class="lock-submit-btn">
-                Desbloquear
+                {useI18n ? trf('home.locked.unlockButton') : 'Desbloquear'}
               </button>
             </div>
-            <p class="lock-error" style="display: none;">Contraseña incorrecta</p>
+            <p class="lock-error" style="display: none;">{useI18n ? trf('home.locked.unlockError') : 'Contraseña incorrecta'}</p>
           </form>
         </div>
       )}
