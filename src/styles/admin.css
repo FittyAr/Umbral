@@ -464,6 +464,14 @@ textarea { resize: vertical; min-height: 60px; }
 .switch input:checked + .slider::before {
   transform: translateX(16px);
 }
+/* Switch deshabilitado (feature bloqueada en el build actual — ej: QR
+   requiere Node y no funciona en el demo de GitHub Pages). Lo apagamos
+   visualmente para que se note que no se puede tocar. */
+.switch input:disabled + .slider {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.switch input:disabled + .slider::before { background-color: #cbd5e1; }
 
 /* ── Audit log viewer ───────────────────────────────────────── */
 .audit-section { margin-top: 1.5rem; }

@@ -16,6 +16,16 @@ const l = config.layout;
 const logoUrl = resolveIconUrl(config.branding.logo);
 const faviconUrl = resolveIconUrl(config.branding.favicon);
 
+// `base` respeta el subpath del deploy (ej: /umbral/) y se expone en el
+// cliente como window.__BASE_URL__. En el demo de GitHub Pages base = '/'.
+const base = import.meta.env.BASE_URL || '/';
+
+// UMBRAL_DEMO=true → build de GitHub Pages. En ese caso, cargamos
+// demo-runtime.js (interceptor de fetch que simula el backend en
+// localStorage) y exponemos la config inicial en window.__INITIAL_DEMO_CONFIG__.
+// En producción real, este flag queda en false y no se carga el runtime.
+const isDemoBuild = import.meta.env.UMBRAL_DEMO === 'true' || import.meta.env.UMBRAL_DEMO === '1';
+
 // Feature i18n: si está activa, resolvemos el locale para este request.
 // Si está apagada, todo el UI permanece en español (locale histórico).
 const useI18n = isFeatureEnabled(config, 'i18n');
@@ -49,7 +59,7 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
     <meta name="theme-color" content={t.accentColor} />
 
     {faviconUrl && <link rel="icon" href={faviconUrl} />}
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="manifest" href={`${base}manifest.webmanifest`} />
 
     {/* Open Graph / Twitter */}
     <meta property="og:title" content={config.branding.companyName} />
@@ -62,7 +72,7 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
     <style is:inline set:html={`:root{${themeVars}}`}></style>
     <style is:inline set:html={`.page-wrap{${gridStyle}}`}></style>
   </head>
-  <body>
+  <body data-demo={isDemoBuild ? '1' : '0'}>
     <slot />
 
     {/* Background as last child so it sits behind everything via fixed positioning */}
@@ -73,5 +83,10 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
 
     {/* Inline JS: color mode, search, keyboard shortcuts */}
     <ThemeScript theme={t} config={config} request={Astro.request} />
+
+    {/* Demo runtime: sólo en builds de GitHub Pages (UMBRAL_DEMO=true).
+        Intercepta window.fetch y simula el backend con localStorage. */}
+    <script is:inline set:html={`window.__BASE_URL__ = ${JSON.stringify(base)}; window.__INITIAL_DEMO_CONFIG__ = ${JSON.stringify(config)}; window.__UMBRAL_DEMO__ = ${isDemoBuild ? 'true' : 'false'};`}></script>
+    {isDemoBuild && <script is:inline src={`${base}demo-runtime.js`}></script>}
   </body>
 </html>

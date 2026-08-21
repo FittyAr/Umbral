@@ -14,6 +14,22 @@ interface Props {
 }
 const { title, csrfToken, isAuthed, showNav = true } = Astro.props;
 
+// `base` viene de Astro (process.env.ASTRO_BASE / config base). En producción
+// con deploy en subpath se setea vía env. En demo estática (GitHub Pages)
+// suele ser "/" o el subpath del repo. Lo exponemos en window.__BASE_URL__
+// para que el client lo use al construir URLs de fetch (ej: /api/...).
+const base = import.meta.env.BASE_URL || '/';
+
+// Modo demo: cuando UMBRAL_DEMO=true (build estático de GitHub Pages), el
+// dashboard se renderiza siempre "logueado" y se carga el demo-runtime.js
+// (un interceptor de window.fetch que simula el backend en localStorage).
+// La página de login NO entra en demo (así el visitante puede ver el form).
+const isDemoBuild = import.meta.env.UMBRAL_DEMO === 'true' || import.meta.env.UMBRAL_DEMO === '1';
+// Si la prop `isAuthed` viene como true pero estamos en el form de login
+// (showNav=false), respetamos la prop. Si showNav=true y la prop es false,
+// en demo build forzamos isAuthed=true para que se vea el dashboard.
+const effectiveAuthed = isDemoBuild && showNav ? true : isAuthed;
+
 // i18n: resolvemos el locale para este admin render. El admin también
 // se traduce — si el admin está navegando en inglés, todo el panel se
 // ve en inglés. Si la feature está apagada, queda en español.
@@ -40,14 +56,14 @@ const theme = {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title} — Admin</title>
-    <link rel="icon" href="/favicon.svg" />
+    <link rel="icon" href={`${base}favicon.svg`} />
     <meta name="robots" content="noindex, nofollow" />
   </head>
-  <body class="admin-body" data-csrf={csrfToken ?? ''} data-authed={isAuthed ? '1' : '0'}>
-    {showNav && isAuthed ? (
+  <body class="admin-body" data-csrf={csrfToken ?? ''} data-authed={effectiveAuthed ? '1' : '0'} data-demo={isDemoBuild ? '1' : '0'}>
+    {showNav && effectiveAuthed ? (
       <div class="admin-shell" x-data="adminApp" x-init="init()">
         <nav class="admin-nav">
-          <a href="/" class="nav-home" target="_blank" rel="noopener">
+          <a href={base} class="nav-home" target="_blank" rel="noopener">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             {useI18n ? trf('admin.nav.home') : 'Ver portada'}
           </a>
@@ -74,7 +90,9 @@ const theme = {
             <button data-action="logout" class="btn btn-sm btn-ghost">{useI18n ? trf('admin.nav.logout') : 'Cerrar sesión'}</button>
           </div>
         </nav>
-        <slot />
+        <main class="admin-main">
+          <slot />
+        </main>
       </div>
     ) : (
       <slot />
@@ -85,27 +103,33 @@ const theme = {
         Pasamos config + request para que el toggle use el locale correcto. */}
     <ThemeScript theme={theme} config={config} request={Astro.request} />
 
-    {/* Global admin helpers (Alpine.js, fetch wrapper, toast) */}
-    <script is:inline>
-      // Define window.umbralAdmin BEFORE any module scripts run.
-      // Using is:inline so Vite doesn't bundle/move this — guarantees it executes
-      // synchronously during HTML parsing, before the page's module script imports.
+    {/* Global admin helpers (Alpine.js, fetch wrapper, toast).
+        En builds de demo (GitHub Pages), también cargamos demo-runtime.js
+        que intercepta window.fetch y simula el backend. */}
+    <script is:inline define:vars={{ csrfToken, baseUrl: base, isDemo: isDemoBuild }}>
       window.umbralAdmin = {
-        csrf: document.body.dataset.csrf || '',
-        authed: document.body.dataset.authed === '1',
-        async api(method, url, body) {
-          const csrf = this.csrf;
-          const headers = { 'content-type': 'application/json', 'x-csrf-token': csrf };
-          const res = await fetch(url, {
-            method,
-            headers,
-            body: body ? JSON.stringify(body) : undefined,
-          });
-          if (res.status === 401) { window.location.href = '/admin'; return null; }
-          if (res.status === 204) return null;
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-          return data;
+        csrf: csrfToken,
+        baseUrl: baseUrl,
+        async api(method, endpoint, body) {
+          const headers = { 'x-csrf-token': this.csrf };
+          let b = undefined;
+          if (body && !(body instanceof FormData)) {
+            headers['content-type'] = 'application/json';
+            b = JSON.stringify(body);
+          } else if (body) {
+            b = body;
+          }
+          // Si el endpoint ya es absoluto, lo usamos tal cual. Si es relativo,
+          // le anteponemos el base (respetando el subpath del deploy).
+          const targetUrl = endpoint.startsWith('http')
+            ? endpoint
+            : (this.baseUrl + (endpoint.startsWith('/') ? endpoint.slice(1) : endpoint));
+          const res = await fetch(targetUrl, { method, headers, body: b });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          return res.json().catch(() => ({}));
         },
         toast(message, type = 'info') {
           let host = document.getElementById('toast-host');
@@ -129,10 +153,13 @@ const theme = {
       document.addEventListener('click', async (e) => {
         const target = e.target;
         if (target && target instanceof Element && target.closest('[data-action="logout"]')) {
-          await fetch('/api/logout', { method: 'POST', headers: { 'x-csrf-token': window.umbralAdmin.csrf } });
-          window.location.href = '/admin';
+          await fetch(window.umbralAdmin.baseUrl + 'api/logout', { method: 'POST', headers: { 'x-csrf-token': window.umbralAdmin.csrf } });
+          window.location.href = window.umbralAdmin.baseUrl + 'admin';
         }
       });
     </script>
+    <script is:inline set:html={`window.__BASE_URL__ = ${JSON.stringify(base)}; window.__INITIAL_DEMO_CONFIG__ = ${JSON.stringify(config)}; window.__UMBRAL_DEMO__ = ${isDemoBuild ? 'true' : 'false'};`}></script>
+    {isDemoBuild && <script is:inline src={`${base}demo-runtime.js`}></script>}
   </body>
 </html>
+
