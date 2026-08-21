@@ -17,7 +17,7 @@
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import type { Config, Portal } from './schema';
-import { getConfig } from './config';
+import { getConfig, audit } from './config';
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 
@@ -84,31 +84,37 @@ function matchesPath(prefix: string, pathname: string): boolean {
   return pathname === prefix || pathname.startsWith(prefix + '/');
 }
 
-/** Auto-migración: data/ → data/portals/default/. Se ejecuta una vez,
- *  cuando se prende la feature y data/portals/default/ no existe.
- *  Es idempotente. */
+/** Auto-migración: data/ → data/portals/default/. Se ejecuta una vez
+ *  por cold boot (vía seedIfMissing en config.ts). Es idempotente:
+ *  si no hay legacy data/config.json, sale inmediatamente con
+ *  { migrated: false }.
+ *
+ *  POR QUÉ SE LLAMA DESDE seedIfMissing (no desde loadFresh ni desde
+ *  el toggle de multiPortal): el código v2.x lee y escribe SIEMPRE en
+ *  data/portals/<id>/config.json (vía portalConfigPath), independientemente
+ *  del flag features.multiPortal. Esto significa que un upgrade desde
+ *  v1.x (que usaba data/config.json) "pierde" sus datos en el primer
+ *  boot del server v2.x — el código lee de data/portals/default/ que no
+ *  existe, seedIfMissing crea uno FRESCO, y la legacy data/config.json
+ *  queda huérfana. Llamando a esta función en seedIfMissing ANTES del
+ *  check "existe portal default", garantizamos que la legacy data se
+ *  mueva al nuevo path en el primer boot del upgrade. Si no hay legacy,
+ *  la función es no-op y el seed continúa normalmente. */
 export async function migrateLegacyToMultiPortal(): Promise<{ migrated: boolean; reason?: string }> {
-  const defaultPath = portalConfigPath('default');
-  // Si ya existe el portal default migrado, no hacer nada
-  try {
-    await fs.access(defaultPath);
-    return { migrated: false, reason: 'default portal ya existe' };
-  } catch {
-    // No existe, sigamos
-  }
-  // Verificar que el legacy data/ existe
   const legacyConfig = path.join(DATA_DIR, 'config.json');
+  // Verificar que el legacy data/config.json existe. Si no, no hay nada
+  // que migrar (fresh install o ya migrado).
   let legacyStat;
   try {
     legacyStat = await fs.stat(legacyConfig);
   } catch {
-    // No hay config legacy → crear portal default vacío
-    await fs.mkdir(path.join(DATA_DIR, 'portals', 'default'), { recursive: true });
-    await fs.writeFile(defaultPath, JSON.stringify({ version: 1, _meta: { createdAt: new Date().toISOString(), updatedAt: null, migratedFrom: 'fresh' } }, null, 2));
-    return { migrated: true, reason: 'fresh install, no legacy data' };
+    return { migrated: false, reason: 'no legacy data/config.json (fresh install or already migrated)' };
   }
   // Mover data/ a data/portals/default/
-  // Renombramos archivos uno por uno para preservar atomicidad.
+  // Renombramos archivos uno por uno para preservar atomicidad. Esta
+  // función se llama desde seedIfMissing() ANTES de que el portal default
+  // exista, por lo que no hay riesgo de pisar un portal default recién
+  // creado por el seed.
   await fs.mkdir(path.join(DATA_DIR, 'portals', 'default'), { recursive: true });
   const filesToMove = ['config.json'];
   for (const f of filesToMove) {
@@ -132,6 +138,23 @@ export async function migrateLegacyToMultiPortal(): Promise<{ migrated: boolean;
     await fs.rename(path.join(DATA_DIR, 'audit.log'), path.join(DATA_DIR, 'portals', 'default', 'audit.log'));
   } catch {
     // No hay audit.log
+  }
+  // Audit log del reshuffle filesystem — sin esto, el cambio de
+  // features.multiPortal.enabled en el config es visible en el log pero
+  // la consecuencia (data → data/portals/default/) no. En incident response
+  // un admin buscando 'qué pasó con mi data' no encuentra la migración.
+  // NOTA: NO usamos `audit()` (que escribe a AUDIT_LOG_PATH legacy) sino
+  // escritura directa a la nueva ubicación de audit del portal migrado.
+  // El primer write crea el archivo. La migración es atómica: si falla
+  // el append, no hay otra fuente de verdad.
+  try {
+    const newAuditPath = path.join(DATA_DIR, 'portals', 'default', 'audit.log');
+    const line = `${new Date().toISOString()}\tmulti_portal_migration\tdata/ → data/portals/default/\n`;
+    await fs.appendFile(newAuditPath, line, 'utf8');
+  } catch {
+    // Si falla (permisos, disco lleno), la migración ya se hizo en
+    // filesystem. El admin puede buscar 'multi_portal_migration' o
+    // 'data → data/portals' en logs externos. No es crítico.
   }
   return { migrated: true, reason: `migrated ${filesToMove.length}+ files from data/ to data/portals/default/` };
 }

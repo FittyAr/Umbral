@@ -235,6 +235,25 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
   // para que ambos esperen el mismo resultado.
   if (seedPromise) return seedPromise;
   seedPromise = (async () => {
+    // Auto-migración de legacy data/ → data/portals/default/ si existe.
+    // Esto cubre el upgrade de v1.x → v2.x: el código v2.x siempre lee
+    // y escribe en data/portals/default/ (vía portalConfigPath), por
+    // lo que si data/config.json legacy queda intacto, el server ve
+    // un config fresco vacío y el usuario "pierde" sus datos en el
+    // primer boot. La función es idempotente: si no hay legacy data,
+    // sale inmediatamente con { migrated: false }. El costo es 1
+    // fs.stat por seed (no por request — sólo en cold boot o tras
+    // invalidación del cache).
+    //
+    // IMPORTANTE: corre ANTES de ensureDirs. Si ensureDirs crea
+    // data/portals/default/uploads primero, el fs.rename de
+    // data/uploads → data/portals/default/uploads falla en Windows
+    // porque Windows no permite rename sobre un directorio destino
+    // existente. Migrando primero, el destino está limpio y el rename
+    // funciona en cualquier OS.
+    const mig = await migrateLegacyToMultiPortal();
+    if (mig.migrated) console.log(`[umbral] multi-portal auto-migration: ${mig.reason}`);
+
     await ensureDirs();
     const portalCfgPath = _portalConfigPath(activePortalId);
     try {

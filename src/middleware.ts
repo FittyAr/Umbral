@@ -26,14 +26,17 @@ function isPublic(pathname: string): boolean {
   return false;
 }
 
-function clientIp(request: Request, trustForwarded: boolean): string {
+function clientIp(request: Request, trustForwarded: boolean, socketIp: string): string {
   if (trustForwarded) {
     const xff = request.headers.get('x-forwarded-for');
     if (xff) return xff.split(',')[0].trim();
     const xri = request.headers.get('x-real-ip');
     if (xri) return xri;
   }
-  return 'unknown';
+  // Sin proxy confiable: usamos la IP del socket TCP directamente.
+  // Si no está disponible (test, edge), caemos a 'unknown' para
+  // debuggear (mejor que inventar).
+  return socketIp || 'unknown';
 }
 
 /** Detecta HTTPS: BASE_URL en env o X-Forwarded-Proto si el admin confió
@@ -77,7 +80,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const auth = await buildAuthContext(request);
   context.locals.auth = auth;
-  context.locals.clientIp = clientIp(request, netCfg.trustForwardedFor);
+  context.locals.clientIp = clientIp(request, netCfg.trustForwardedFor, context.clientAddress);
 
   // Body size cap para endpoints que aceptan JSON grande. Si el cliente
   // declara Content-Length mayor al cap, rechazamos sin leer el body

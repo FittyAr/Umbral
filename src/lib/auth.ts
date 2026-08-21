@@ -305,7 +305,11 @@ export function checkRateLimit(
   }
   entry.count++;
   const resetInSec = Math.max(0, Math.ceil((entry.resetAt - now) / 1000));
-  if (entry.count > max) {
+  // Usamos >= (no >) para que el count = max bloquee: el límite documentado
+  // es "max attempts" — el maxth request debe ser el que falla, no el
+  // (max+1)th. Antes > 30 dejaba pasar el 30th, contaba el 31th como
+  // primer fallido. Ahora > = 30 bloquea el 30th.
+  if (entry.count >= max) {
     return { ok: false, remaining: 0, resetInSec };
   }
   return { ok: true, remaining: max - entry.count, resetInSec };
