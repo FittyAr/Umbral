@@ -4,7 +4,8 @@ import { getConfig } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
-const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
+const isDemoBuild = import.meta.env.UMBRAL_DEMO === 'true' || import.meta.env.UMBRAL_DEMO === '1';
+const isAuthed = isDemoBuild ? true : (Astro.locals.auth?.isAuthenticated ?? false);
 if (isAuthed) {
   return Astro.redirect('/admin/dashboard');
 }
@@ -54,6 +55,9 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
         <div class="form-group">
           <label for="password">{passwordLabel}</label>
           <input id="password" name="password" type="password" required autofocus autocomplete="current-password" />
+          {isDemoBuild ? (
+            <small style="color:#06b6d4;display:block;margin-top:0.5rem;text-align:center">💡 Modo Demo: Podés ingresar con cualquier contraseña para probar el panel.</small>
+          ) : null}
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%">{submitLabel}</button>
       </form>
@@ -129,7 +133,8 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
           document.getElementById('totpCode')?.focus();
           return;
         }
-        window.location.href = '/admin/dashboard';
+        const base = window.__BASE_URL__ || '/';
+        window.location.href = base + 'admin/dashboard';
       } catch (e) {
         err.textContent = errorFallback;
         err.hidden = false;
@@ -154,7 +159,8 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
           err.hidden = false;
           return;
         }
-        window.location.href = '/admin/dashboard';
+        const base = window.__BASE_URL__ || '/';
+        window.location.href = base + 'admin/dashboard';
       } catch (e) {
         err.textContent = errorFallback;
         err.hidden = false;

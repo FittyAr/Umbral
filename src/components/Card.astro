@@ -18,6 +18,13 @@ interface Props {
   qrEnabled?: boolean;
 }
 const { card, layout, maintenanceReason = '', qrEnabled = false } = Astro.props;
+const base = import.meta.env.BASE_URL || '/';
+// Si estamos en el demo de GitHub Pages, la generación real de QR no está
+// disponible (requiere backend Node). Mostramos el botón igual pero al
+// click tira un alert explicando por qué no se abre el QR.
+const isDemoBuild = import.meta.env.UMBRAL_DEMO === 'true' || import.meta.env.UMBRAL_DEMO === '1';
+const qrBase = base.endsWith('/') ? base : `${base}/`;
+const qrUrl = `${qrBase}api/qr/${encodeURIComponent(card.id)}.png?size=240`;
 const iconUrl = resolveIconUrl(card.icon);
 const isNote = card.kind === 'note';
 
@@ -103,7 +110,7 @@ const descriptionHtml = await renderDescription(card.description, card.descripti
     {qrEnabled && card.kind === 'link' ? (
       <a
         class="card-qr-btn"
-        href={`/api/qr/${card.id}.png?size=240`}
+        href={qrUrl}
         target="_blank"
         rel="noopener noreferrer"
         title="Ver QR de esta card"
@@ -169,7 +176,7 @@ const descriptionHtml = await renderDescription(card.description, card.descripti
       <button
         type="button"
         class="card-qr-btn"
-        onclick={`event.preventDefault(); event.stopPropagation(); window.open('/api/qr/${encodeURIComponent(card.id)}.png?size=240', '_blank', 'noopener,noreferrer')`}
+        onclick={`event.preventDefault(); event.stopPropagation(); window.open('${qrUrl}', '_blank', 'noopener,noreferrer')`}
         title="Ver QR de esta card"
         aria-label="Ver QR"
       >

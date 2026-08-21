@@ -17,6 +17,7 @@ import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 const purifyWindow = new JSDOM('').window;
 const DOMPurify = createDOMPurify(purifyWindow as unknown as Window);
 
+// docs/[...slug] lee archivos del filesystem en cada request.
 export const prerender = false;
 
 const DOCS_DIR = path.join(process.cwd(), 'docs');
@@ -104,6 +105,7 @@ const finalBody = cleanBody.replace(
 
 const config = await getConfig();
 const logoUrl = resolveIconUrl(config.branding.logo);
+const base = import.meta.env.BASE_URL || '/';
 
 const useI18n = isFeatureEnabled(config, 'i18n');
 const locale: Locale = useI18n
@@ -124,7 +126,7 @@ const sectionLabels: Record<string, string> = {
   <main class="page-wrap docs-page">
     <header class="header">
       <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
-        <a href="/" class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Portada principal'}>
+        <a href={base} class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Portada principal'}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           <span>{useI18n ? trf('home.subpage.back') : 'Portada principal'}</span>
         </a>
@@ -134,7 +136,7 @@ const sectionLabels: Record<string, string> = {
       </div>
 
       <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem">
-        <a href="/admin" class="subpage-back-link" title="Panel de administración">
+        <a href={`${base}admin`} class="subpage-back-link" title="Panel de administración">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
           <span>Admin</span>
         </a>
@@ -153,11 +155,11 @@ const sectionLabels: Record<string, string> = {
     </header>
 
     <nav class="docs-breadcrumb" aria-label="breadcrumb">
-      <a href="/docs">← Índice</a>
+      <a href={`${base}docs`}>← Índice</a>
       {crumbs.map((c, i) => {
         const isLast = i === crumbs.length - 1;
         const label = sectionLabels[c] ?? c;
-        const href = i === 0 && crumbs.length > 1 ? `/docs#${c}` : `/docs/${crumbs.slice(0, i + 1).join('/')}`;
+        const href = i === 0 && crumbs.length > 1 ? `${base}docs#${c}` : `${base}docs/${crumbs.slice(0, i + 1).join('/')}`;
         return (
           <>
             <span class="sep">/</span>
@@ -175,9 +177,9 @@ const sectionLabels: Record<string, string> = {
     </article>
 
     <footer style="margin-top:3rem;padding:1.5rem 0;border-top:1px solid var(--border);display:flex;justify-content:center;gap:1.5rem;font-size:0.85rem;color:var(--text-faint);flex-wrap:wrap">
-      <a href="/docs" style="color:var(--accent);text-decoration:none;font-weight:500">← Volver al índice</a>
+      <a href={`${base}docs`} style="color:var(--accent);text-decoration:none;font-weight:500">← Volver al índice</a>
       <span style="color:var(--text-faint)">•</span>
-      <a href="/" style="color:var(--accent);text-decoration:none;font-weight:500">← Volver a la portada principal</a>
+      <a href={base} style="color:var(--accent);text-decoration:none;font-weight:500">← Volver a la portada principal</a>
     </footer>
   </main>
 </PublicLayout>

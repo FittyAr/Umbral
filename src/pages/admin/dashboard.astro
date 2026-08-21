@@ -9,11 +9,15 @@ import { FEATURE_META, FEATURE_NAMES, isFeatureEnabled } from '~/lib/features';
 import { APP_PRESETS } from '~/lib/presets';
 import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
-const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
+// Modo demo (UMBRAL_DEMO=true en build): el visitor del demo entra directo
+// al dashboard. El AdminLayout ya respeta esta flag y forwardea isAuthed=true.
+// En producción real, el middleware exige autenticación.
+const isDemoBuild = import.meta.env.UMBRAL_DEMO === 'true' || import.meta.env.UMBRAL_DEMO === '1';
+const isAuthed = isDemoBuild ? true : (Astro.locals.auth?.isAuthenticated ?? false);
 if (!isAuthed) {
   return Astro.redirect('/admin');
 }
-const csrfToken = Astro.locals.auth?.csrfToken ?? '';
+const csrfToken = isDemoBuild ? 'demo-csrf-token' : (Astro.locals.auth?.csrfToken ?? '');
 const config = await getConfig();
 const builtinIcons = await getBuiltinIconNames();
 
@@ -326,11 +330,8 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           <div class="card-item" :data-id="card.id" :class="isSystemCard(card) && 'card-system'">
             <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
             <div class="icon-preview">
-              <template x-if="card.icon && (card.icon.includes('/') || card.icon.includes('.'))">
-                <img :src="resolveIcon(card.icon)" />
-              </template>
-              <template x-if="card.icon && !card.icon.includes('/') && !card.icon.includes('.')">
-                <img :src="'/icons/' + card.icon + '.svg'" />
+              <template x-if="card.icon">
+                <img :src="resolveIcon(card.icon)" :alt="card.icon" />
               </template>
             </div>
             <div class="info">
@@ -1469,13 +1470,35 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                   ⚠ experimental
                 </div>
               </div>
-              <label class="switch" style="flex-shrink:0">
-                <input type="checkbox" :checked="isFeatureOn(f.name)" @change="toggleFeature(f.name, $event.target.checked)" />
+              <label class="switch" style="flex-shrink:0" :title="(isDemoMode && f.name === 'qr') ? 'La generación de QR requiere el backend Node.js. No se puede activar en este build demo (GitHub Pages).' : ''">
+                <input
+                  type="checkbox"
+                  :checked="isFeatureOn(f.name)"
+                  :disabled="isDemoMode && f.name === 'qr'"
+                  @change="toggleFeature(f.name, $event.target.checked)"
+                />
                 <span class="slider"></span>
               </label>
             </div>
             <div x-show="isFeatureOn(f.name)" style="margin-top:0.5rem" x-cloak>
               <div style="font-size:0.75rem;color:#94a3b8" x-text="f.body"></div>
+            </div>
+            <!-- Alerta de compatibilidad para el feature QR en modo demo.
+                 La generación dinámica de QRs en el server requiere el
+                 backend Node.js / Docker de Umbral. En GitHub Pages sólo
+                 se sirve estático, así que dejamos la feature apagada por
+                 default y explicamos por qué. -->
+            <div
+              x-show="f.name === 'qr' && isDemoMode"
+              x-cloak
+              style="font-size:0.75rem;color:#fbbf24;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:6px;padding:0.4rem 0.6rem;margin-top:0.5rem;display:flex;gap:0.4rem;align-items:flex-start"
+            >
+              <span style="flex-shrink:0">⚠️</span>
+              <span>
+                <strong>Desactivada en este build (GitHub Pages / demo):</strong>
+                la generación dinámica de códigos QR requiere el backend Node.js / Docker de Umbral.
+                En este despliegue estático el switch queda bloqueado abajo; usá el build real de Node para habilitarla.
+              </span>
             </div>
           </div>
         </template>
@@ -1738,7 +1761,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                     :title="i"
                   >
                     <span class="icon-picker-img">
-                      <img :src="'/icons/' + i + '.svg'" :alt="i" />
+                      <img :src="resolveIcon(i)" :alt="i" />
                     </span>
                     <span class="icon-picker-name" x-text="i"></span>
                   </button>
@@ -1888,7 +1911,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
               >
                 <div style="display:flex;align-items:center;gap:0.5rem;width:100%;margin-bottom:0.4rem">
                   <div class="icon-preview" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">
-                    <img :src="'/icons/' + p.icon + '.svg'" style="max-width:20px;max-height:20px" />
+                    <img :src="resolveIcon(p.icon)" style="max-width:20px;max-height:20px" :alt="p.name" />
                   </div>
                   <strong style="font-size:0.9rem;flex:1" x-text="p.name"></strong>
                   <span class="color-dot" :style="`background:${p.color}`"></span>
@@ -2010,6 +2033,11 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         // form sólo si la feature está activa. descriptionFormat default
         // a 'plain' para cards nuevos; el user puede flippearlo.
         markdownEnabled: window.__featureList?.find?.((f) => f.name === 'markdown')?.enabled === true,
+        // isDemoMode: el build se hizo con UMBRAL_DEMO=true (GitHub Pages).
+        // Lo usamos para condicionar UI: el switch de QR queda bloqueado
+        // (porque requiere el backend Node) y se muestra un banner
+        // explicativo al lado de la feature.
+        isDemoMode: typeof window !== 'undefined' && window.__UMBRAL_DEMO__ === true,
         markdownPreview: '',
         markdownPreviewDirty: true,
         // i18n methods (Alpine 3: se llaman con `()` en el HTML)
@@ -3674,9 +3702,16 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
 
         resolveIcon(icon) {
           if (!icon) return '';
-          if (icon.startsWith('/') || icon.startsWith('http')) return icon;
-          if (icon.includes('.')) return '/api/assets/' + icon;
-          return '/icons/' + icon + '.svg';
+          if (icon.startsWith('http://') || icon.startsWith('https://') || icon.startsWith('data:')) return icon;
+          const base = window.__BASE_URL__ || '/';
+          const prefix = base.endsWith('/') ? base : base + '/';
+          if (icon.startsWith('/')) {
+            // Si el icon ya incluye el prefix, lo devolvemos tal cual.
+            if (icon.startsWith(prefix)) return icon;
+            return prefix + icon.slice(1);
+          }
+          if (icon.includes('.')) return prefix + 'api/assets/' + icon;
+          return prefix + 'icons/' + icon + '.svg';
         },
       }));
     });

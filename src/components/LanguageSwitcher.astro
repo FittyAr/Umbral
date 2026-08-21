@@ -55,8 +55,16 @@ const labels: Record<Locale, string> = LOCALE_NAMES;
       const loc = sel.value;
       // 1. Guardar cookie para SSR / backend
       document.cookie = `umbral_locale=${loc};path=/;max-age=2592000;SameSite=Lax`;
-      
-      // 2. Enviar via fetch en vez de form submit nativo
+
+      // 2. Persistir también en localStorage para el demo de GitHub Pages
+      // (el runtime intercepta y lee de acá si la cookie no está).
+      try {
+        localStorage.setItem('umbral_demo_locale', loc);
+      } catch {}
+
+      // 3. Enviar via fetch en vez de form submit nativo (evita 405 en
+      // GitHub Pages, donde el endpoint no existe y el server rechaza
+      // el POST del form nativo).
       try {
         const base = window.__BASE_URL__ || '/';
         const endpoint = base.endsWith('/') ? `${base}api/locale` : `${base}/api/locale`;
@@ -68,8 +76,8 @@ const labels: Record<Locale, string> = LOCALE_NAMES;
       } catch (err) {
         console.warn('Locale fetch error:', err);
       }
-      
-      // 3. Recargar
+
+      // 4. Recargar para que el server lea la cookie nueva.
       window.location.reload();
     });
   })();

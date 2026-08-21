@@ -457,7 +457,9 @@ const isHorizontal = t.groupLayout === 'horizontal';
         d.title = healthCheckingLabel;
       });
       try {
-        const res = await fetch('/api/status', {
+        const base = window.__BASE_URL__ || '/';
+        const statusUrl = base.endsWith('/') ? `${base}api/status` : `${base}/api/status`;
+        const res = await fetch(statusUrl, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ ids: Array.from(dots.keys()) }),
@@ -501,7 +503,9 @@ const isHorizontal = t.groupLayout === 'horizontal';
         const id = c.getAttribute('data-card-id');
         if (!id) continue;
         try {
-          const res = await fetch(`/api/metrics?id=${encodeURIComponent(id)}&svg=1&range=1h&limit=40`, { credentials: 'same-origin' });
+          const base = window.__BASE_URL__ || '/';
+          const metricsBase = base.endsWith('/') ? base : base + '/';
+          const res = await fetch(`${metricsBase}api/metrics?id=${encodeURIComponent(id)}&svg=1&range=1h&limit=40`, { credentials: 'same-origin' });
           if (!res.ok) continue;
           const svg = await res.text();
           if (!svg) continue;
@@ -526,7 +530,9 @@ const isHorizontal = t.groupLayout === 'horizontal';
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async () => {
       try {
-        await fetch('/api/config', { cache: 'no-store' });
+        const base = window.__BASE_URL__ || '/';
+        const cfgUrl = base.endsWith('/') ? `${base}api/config` : `${base}/api/config`;
+        await fetch(cfgUrl, { cache: 'no-store' });
       } catch { /* ignorar — igual recargamos */ }
       window.location.reload();
     });

@@ -3,6 +3,9 @@ import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
 import tailwindcss from '@tailwindcss/vite';
 
+// Build de producción: server-rendered con el adapter de Node.
+// El deploy demo de GitHub Pages (rama gh-pages) usa un astro.config.mjs
+// propio con output='static' — ver .github/workflows/deploy-pages.yml.
 const PORT = Number(process.env.PORT ?? 4321);
 const HOST = process.env.HOST ?? '0.0.0.0';
 
