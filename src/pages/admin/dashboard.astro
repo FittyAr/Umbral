@@ -1471,6 +1471,9 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             <div x-show="isFeatureOn(f.name)" style="margin-top:0.5rem" x-cloak>
               <div style="font-size:0.75rem;color:#94a3b8" x-text="f.body"></div>
             </div>
+            <div x-show="f.name === 'qr'" style="font-size:0.75rem;color:#38bdf8;background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:6px;padding:0.4rem 0.6rem;margin-top:0.5rem" x-cloak>
+              ℹ️ <strong>Nota de Compatibilidad:</strong> La generación dinámica de códigos QR en servidor requiere el backend Node.js / Docker de Umbral. En este despliegue estático de GitHub Actions / Pages está desactivada por defecto y se simula en el cliente.
+            </div>
           </div>
         </template>
       </div>

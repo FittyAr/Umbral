@@ -5,9 +5,12 @@
 (function () {
   const STORAGE_KEY = 'umbral_demo_config';
   const STORAGE_TS_KEY = 'umbral_demo_ts';
+  const STORAGE_AUDIT_KEY = 'umbral_demo_audit';
+  const STORAGE_PACKS_KEY = 'umbral_demo_icon_packs';
+  const STORAGE_TOKENS_KEY = 'umbral_demo_tokens';
   const TTL_MS = 15 * 60 * 1000; // 15 minutos
 
-  // Cargar o Inicializar Configuración
+  // ── Configuración inicial y persistencia ───────────────────
   function getInitialConfig() {
     return window.__INITIAL_DEMO_CONFIG__ || null;
   }
@@ -16,9 +19,7 @@
     try {
       const ts = Number(localStorage.getItem(STORAGE_TS_KEY) || 0);
       if (ts && Date.now() - ts > TTL_MS) {
-        // Expiró el TTL -> Reset
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(STORAGE_TS_KEY);
+        resetStoredConfig();
         return null;
       }
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -41,6 +42,9 @@
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_TS_KEY);
+      localStorage.removeItem(STORAGE_AUDIT_KEY);
+      localStorage.removeItem(STORAGE_PACKS_KEY);
+      localStorage.removeItem(STORAGE_TOKENS_KEY);
       const init = getInitialConfig();
       if (init) saveStoredConfig(init);
     } catch (e) {
@@ -48,14 +52,211 @@
     }
   }
 
-  // Interceptar window.fetch
+  // ── Audit Log Mock Storage ─────────────────────────────────
+  function getStoredAuditLog() {
+    try {
+      const raw = localStorage.getItem(STORAGE_AUDIT_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    // Seed con entradas realistas
+    const now = Date.now();
+    const initialLog = [
+      { ts: new Date(now - 1000 * 60 * 18).toISOString(), action: 'login_ok', detail: 'ip=192.168.1.100 user=admin' },
+      { ts: new Date(now - 1000 * 60 * 15).toISOString(), action: 'config_update', detail: 'branding: companyName="Umbral Portal"' },
+      { ts: new Date(now - 1000 * 60 * 12).toISOString(), action: 'feature_toggle', detail: 'features.metrics: false→true' },
+      { ts: new Date(now - 1000 * 60 * 8).toISOString(), action: 'service_check', detail: 'chequeados=14 ok=14 fallidos=0 latencia_promedio=22ms' },
+      { ts: new Date(now - 1000 * 60 * 3).toISOString(), action: 'config_update', detail: 'categories: orden y visibilidad actualizados' },
+    ];
+    try {
+      localStorage.setItem(STORAGE_AUDIT_KEY, JSON.stringify(initialLog));
+    } catch {}
+    return initialLog;
+  }
+
+  function logAudit(action, detail) {
+    try {
+      const log = getStoredAuditLog();
+      log.unshift({
+        ts: new Date().toISOString(),
+        action: String(action || 'action'),
+        detail: String(detail || ''),
+      });
+      if (log.length > 500) log.length = 500;
+      localStorage.setItem(STORAGE_AUDIT_KEY, JSON.stringify(log));
+    } catch (e) {
+      console.warn('[Demo] Could not write to audit log', e);
+    }
+  }
+
+  // ── Icon Packs Mock Storage ────────────────────────────────
+  const DEFAULT_PACKS = [
+    {
+      id: 'simple-icons',
+      name: 'Simple Icons',
+      description: '3.100+ marcas, tecnologías y servicios web',
+      repoUrl: 'https://github.com/simple-icons/simple-icons',
+      license: 'CC0 1.0',
+      author: 'Simple Icons',
+      estimatedCount: '3.100+',
+      estimatedCountNum: 3100,
+      installed: false,
+      installedCount: 0,
+    },
+    {
+      id: 'dashboard-icons',
+      name: 'Dashboard Icons',
+      description: '1.000+ aplicaciones homelab y self-hosted',
+      repoUrl: 'https://github.com/walkxcode/dashboard-icons',
+      license: 'MIT',
+      author: 'Walkx',
+      estimatedCount: '1.000+',
+      estimatedCountNum: 1000,
+      installed: false,
+      installedCount: 0,
+    },
+    {
+      id: 'lucide',
+      name: 'Lucide Icons',
+      description: '1.500+ íconos limpios y consistentes de UI',
+      repoUrl: 'https://github.com/lucide-icons/lucide',
+      license: 'ISC',
+      author: 'Lucide',
+      estimatedCount: '1.500+',
+      estimatedCountNum: 1500,
+      installed: false,
+      installedCount: 0,
+    },
+    {
+      id: 'tabler-icons',
+      name: 'Tabler Icons',
+      description: '5.800+ íconos vectoriales modernos de alta resolución',
+      repoUrl: 'https://github.com/tabler/tabler-icons',
+      license: 'MIT',
+      author: 'Tabler',
+      estimatedCount: '5.800+',
+      estimatedCountNum: 5800,
+      installed: false,
+      installedCount: 0,
+    },
+  ];
+
+  function getStoredIconPacks() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PACKS_KEY);
+      if (raw) {
+        const stored = JSON.parse(raw);
+        if (Array.isArray(stored) && stored.length > 0) return stored;
+      }
+    } catch {}
+    try {
+      localStorage.setItem(STORAGE_PACKS_KEY, JSON.stringify(DEFAULT_PACKS));
+    } catch {}
+    return DEFAULT_PACKS;
+  }
+
+  function saveStoredIconPacks(packs) {
+    try {
+      localStorage.setItem(STORAGE_PACKS_KEY, JSON.stringify(packs));
+    } catch (e) {
+      console.warn('[Demo] Could not save icon packs', e);
+    }
+  }
+
+  // ── Tokens Mock Storage ────────────────────────────────────
+  function getStoredTokens() {
+    try {
+      const raw = localStorage.getItem(STORAGE_TOKENS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveStoredTokens(tokens) {
+    try {
+      localStorage.setItem(STORAGE_TOKENS_KEY, JSON.stringify(tokens));
+    } catch {}
+  }
+
+  // ── Generador de Sparkline SVG ─────────────────────────────
+  function generateSparklineSvg(color = '#06b6d4') {
+    const points = [
+      [0, 15],
+      [15, 12],
+      [30, 8],
+      [45, 14],
+      [60, 6],
+      [75, 10],
+      [80, 8],
+    ];
+    const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ');
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="20" viewBox="0 0 80 20" fill="none">
+      <path d="${d}" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="80" cy="8" r="2.5" fill="${color}" />
+    </svg>`;
+  }
+
+  // ── Generador de QR SVG Mock ───────────────────────────────
+  function generateQrSvg(text = 'https://fitty.ar/Umbral') {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" fill="#0f172a">
+      <rect width="200" height="200" fill="#ffffff" rx="8" />
+      <!-- Posicionadores QR -->
+      <rect x="20" y="20" width="45" height="45" fill="#0f172a" rx="4" />
+      <rect x="27" y="27" width="31" height="31" fill="#ffffff" rx="2" />
+      <rect x="34" y="34" width="17" height="17" fill="#06b6d4" rx="2" />
+
+      <rect x="135" y="20" width="45" height="45" fill="#0f172a" rx="4" />
+      <rect x="142" y="27" width="31" height="31" fill="#ffffff" rx="2" />
+      <rect x="149" y="34" width="17" height="17" fill="#06b6d4" rx="2" />
+
+      <rect x="20" y="135" width="45" height="45" fill="#0f172a" rx="4" />
+      <rect x="27" y="142" width="31" height="31" fill="#ffffff" rx="2" />
+      <rect x="34" y="149" width="17" height="17" fill="#06b6d4" rx="2" />
+
+      <!-- Patrón de datos simulado -->
+      <rect x="80" y="25" width="12" height="12" fill="#0f172a" />
+      <rect x="100" y="25" width="12" height="12" fill="#0f172a" />
+      <rect x="80" y="45" width="12" height="12" fill="#0f172a" />
+      <rect x="100" y="55" width="12" height="12" fill="#06b6d4" />
+      
+      <rect x="25" y="80" width="12" height="12" fill="#0f172a" />
+      <rect x="45" y="80" width="12" height="12" fill="#0f172a" />
+      <rect x="75" y="80" width="12" height="12" fill="#0f172a" />
+      <rect x="95" y="80" width="12" height="12" fill="#0f172a" />
+      <rect x="120" y="80" width="12" height="12" fill="#06b6d4" />
+      <rect x="145" y="80" width="12" height="12" fill="#0f172a" />
+      <rect x="165" y="80" width="12" height="12" fill="#0f172a" />
+
+      <rect x="75" y="105" width="12" height="12" fill="#0f172a" />
+      <rect x="95" y="105" width="12" height="12" fill="#0f172a" />
+      <rect x="135" y="105" width="12" height="12" fill="#0f172a" />
+      <rect x="155" y="105" width="12" height="12" fill="#06b6d4" />
+
+      <rect x="80" y="135" width="12" height="12" fill="#06b6d4" />
+      <rect x="105" y="135" width="12" height="12" fill="#0f172a" />
+      <rect x="135" y="135" width="12" height="12" fill="#0f172a" />
+      <rect x="160" y="135" width="12" height="12" fill="#0f172a" />
+
+      <rect x="80" y="160" width="12" height="12" fill="#0f172a" />
+      <rect x="110" y="160" width="12" height="12" fill="#0f172a" />
+      <rect x="140" y="160" width="12" height="12" fill="#06b6d4" />
+    </svg>`;
+  }
+
+  // ── Interceptar window.fetch ───────────────────────────────
   const originalFetch = window.fetch;
   window.fetch = async function (input, init) {
-    const url = typeof input === 'string' ? input : input instanceof Request ? input.url : '';
+    const rawUrl = typeof input === 'string' ? input : input instanceof Request ? input.url : '';
     const method = (init && init.method ? init.method : 'GET').toUpperCase();
 
+    let urlPath = rawUrl;
+    try {
+      const parsed = new URL(rawUrl, window.location.href);
+      urlPath = parsed.pathname + parsed.search;
+    } catch {}
+
     // 1. GET /api/config
-    if (url.includes('/api/config') && method === 'GET') {
+    if (urlPath.includes('/api/config') && method === 'GET') {
       const cfg = getStoredConfig() || getInitialConfig();
       return new Response(JSON.stringify(cfg), {
         status: 200,
@@ -64,7 +265,7 @@
     }
 
     // 2. PUT /api/config
-    if (url.includes('/api/config') && method === 'PUT') {
+    if (urlPath.includes('/api/config') && method === 'PUT') {
       let body;
       try {
         body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body;
@@ -74,6 +275,7 @@
       const current = getStoredConfig() || getInitialConfig() || {};
       const updated = { ...current, ...body };
       saveStoredConfig(updated);
+      logAudit('config_update', 'Configuración general guardada en almacenamiento local');
       return new Response(JSON.stringify(updated), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -81,25 +283,36 @@
     }
 
     // 3. DELETE /api/config (Reset)
-    if (url.includes('/api/config') && method === 'DELETE') {
+    if (urlPath.includes('/api/config') && method === 'DELETE') {
       resetStoredConfig();
-      const init = getInitialConfig();
-      return new Response(JSON.stringify(init), {
+      const initCfg = getInitialConfig();
+      logAudit('config_reset', 'Configuración restablecida a valores por defecto');
+      return new Response(JSON.stringify(initCfg), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     // 4. POST /api/login
-    if (url.includes('/api/login') && method === 'POST') {
+    if (urlPath.includes('/api/login') && method === 'POST') {
+      logAudit('login_ok', 'Inicio de sesión exitoso (Modo Demo)');
       return new Response(JSON.stringify({ ok: true, message: 'Autenticado en modo demo' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // 5. GET /api/health
-    if (url.includes('/api/health') && method === 'GET') {
+    // 5. POST /api/logout
+    if (urlPath.includes('/api/logout') && method === 'POST') {
+      logAudit('logout', 'Cierre de sesión');
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 6. GET /api/health
+    if (urlPath.includes('/api/health') && method === 'GET') {
       return new Response(
         JSON.stringify({
           status: 'ok',
@@ -112,46 +325,315 @@
       );
     }
 
-    // 6. Password Change Block (Seguridad en Demo)
-    if (url.includes('/api/auth/hash-password') || url.includes('/api/password')) {
-      return new Response(
-        JSON.stringify({
-          error: '🔒 Modo Demo: Por seguridad, el cambio de contraseña está deshabilitado en esta muestra pública.',
-        }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } },
-      );
-    }
-
-    // 7. Upload Asset Block (Seguridad en Demo)
-    if (url.includes('/api/assets/upload') || url.includes('/api/assets')) {
-      if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+    // 7. GET /api/audit (Auditoría)
+    if (urlPath.includes('/api/audit') && method === 'GET') {
+      const urlObj = new URL(rawUrl, window.location.href);
+      if (urlObj.searchParams.get('actions') === '1') {
         return new Response(
           JSON.stringify({
-            error: '🔒 Modo Demo: La subida de archivos al servidor está deshabilitada en esta muestra. Podés usar URLs externas o los íconos integrados.',
+            actions: [
+              'config_update',
+              'config_reset',
+              'feature_toggle',
+              'icon_pack_install',
+              'icon_pack_uninstall',
+              'login_ok',
+              'logout',
+              'service_check',
+              'token_created',
+              'webhook_test',
+            ],
           }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } },
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
       }
-    }
 
-    // 8. Icon Packs mock
-    if (url.includes('/api/icon-packs') && method === 'GET') {
+      let entries = getStoredAuditLog();
+      const actionFilter = urlObj.searchParams.get('action');
+      const detailFilter = urlObj.searchParams.get('detail');
+      const fromFilter = urlObj.searchParams.get('from');
+      const toFilter = urlObj.searchParams.get('to');
+      const limit = Math.min(1000, Math.max(1, Number(urlObj.searchParams.get('limit')) || 200));
+
+      if (actionFilter) {
+        entries = entries.filter((e) => e.action === actionFilter);
+      }
+      if (detailFilter) {
+        const q = detailFilter.toLowerCase();
+        entries = entries.filter((e) => (e.detail || '').toLowerCase().includes(q));
+      }
+      if (fromFilter) {
+        const fromTs = new Date(fromFilter).getTime();
+        if (!isNaN(fromTs)) entries = entries.filter((e) => new Date(e.ts).getTime() >= fromTs);
+      }
+      if (toFilter) {
+        const toTs = new Date(toFilter).getTime();
+        if (!isNaN(toTs)) entries = entries.filter((e) => new Date(e.ts).getTime() <= toTs);
+      }
+
+      const totalLines = entries.length;
+      const sliced = entries.slice(0, limit);
+
       return new Response(
         JSON.stringify({
-          packs: [
-            { id: 'simple-icons', name: 'Simple Icons', description: '3.100+ marcas y logos', repoUrl: 'https://github.com/simple-icons/simple-icons', license: 'CC0 1.0', author: 'Simple Icons', estimatedCount: '3.100+', installed: true, installedCount: 3100 },
-            { id: 'dashboard-icons', name: 'Dashboard Icons', description: '1.000+ homelab y self-hosted', repoUrl: 'https://github.com/walkxcode/dashboard-icons', license: 'MIT', author: 'Walkx', estimatedCount: '1.000+', installed: true, installedCount: 1000 },
-            { id: 'lucide', name: 'Lucide Icons', description: '1.500+ iconos limpios', repoUrl: 'https://github.com/lucide-icons/lucide', license: 'ISC', author: 'Lucide', estimatedCount: '1.500+', installed: true, installedCount: 1500 },
-            { id: 'tabler-icons', name: 'Tabler Icons', description: '5.800+ iconos de UI', repoUrl: 'https://github.com/tabler/tabler-icons', license: 'MIT', author: 'Tabler', estimatedCount: '5.800+', installed: true, installedCount: 5800 },
-          ],
-          totalInstalledIcons: 11400,
+          entries: sliced,
+          totalLines,
+          hasMore: totalLines > limit,
+          path: 'data/audit.log',
+          sizeBytes: totalLines * 80,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       );
     }
 
-    // 9. POST /api/locale (Cambio de idioma)
-    if (url.includes('/api/locale') && method === 'POST') {
+    // 8. GET /api/metrics (Métricas)
+    if (urlPath.includes('/api/metrics') && method === 'GET') {
+      const urlObj = new URL(rawUrl, window.location.href);
+      const id = urlObj.searchParams.get('id');
+      const svgOnly = urlObj.searchParams.get('svg') === '1';
+      const summaryOnly = urlObj.searchParams.get('summary') === '1';
+
+      if (svgOnly) {
+        const svg = generateSparklineSvg('#06b6d4');
+        return new Response(svg, {
+          status: 200,
+          headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-cache' },
+        });
+      }
+
+      if (id) {
+        if (summaryOnly) {
+          return new Response(
+            JSON.stringify({
+              count: 120,
+              avgMs: 24,
+              maxMs: 82,
+              p95Ms: 45,
+              lastOk: true,
+              lastTs: new Date().toISOString(),
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        const now = Date.now();
+        const samples = Array.from({ length: 30 }, (_, i) => ({
+          ts: new Date(now - (30 - i) * 60000).toISOString(),
+          latencyMs: Math.floor(Math.random() * 25 + 15),
+          ok: true,
+        }));
+        return new Response(JSON.stringify({ cardId: id, samples }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const cfg = getStoredConfig() || getInitialConfig() || { cards: [] };
+      const cards = (cfg.cards || []).map((c) => ({
+        cardId: c.id,
+        count: 60,
+        avgMs: Math.floor(Math.random() * 25 + 15),
+        maxMs: Math.floor(Math.random() * 40 + 55),
+        p95Ms: Math.floor(Math.random() * 20 + 35),
+        lastOk: true,
+        lastTs: new Date().toISOString(),
+      }));
+
+      return new Response(JSON.stringify({ cards }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 9. POST /api/status (Status Diagnostics)
+    if (urlPath.includes('/api/status') && method === 'POST') {
+      let body = {};
+      try {
+        body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {};
+      } catch {}
+      const cfg = getStoredConfig() || getInitialConfig() || { cards: [] };
+      const targetIds = Array.isArray(body.ids) ? new Set(body.ids) : null;
+      const targets = (cfg.cards || []).filter((c) => c.enabled && (!targetIds || targetIds.has(c.id)));
+
+      const results = targets.map((c) => ({
+        id: c.id,
+        url: c.url,
+        ok: true,
+        status: 200,
+        latencyMs: Math.floor(Math.random() * 30 + 12),
+      }));
+
+      logAudit('service_check', `Diagnóstico ejecutado: ${results.length} servicios verificados con éxito (200 OK)`);
+
+      return new Response(JSON.stringify({ results }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 10. GET /api/icon-packs (Listar paquetes de íconos)
+    if (urlPath.includes('/api/icon-packs') && method === 'GET') {
+      const packs = getStoredIconPacks();
+      const totalInstalledIcons = packs.reduce((acc, p) => acc + (p.installed ? (p.installedCount || p.estimatedCountNum || 0) : 0), 0);
+      return new Response(
+        JSON.stringify({
+          packs,
+          totalInstalledIcons,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 11. POST /api/icon-packs/uninstall (Desinstalar paquete de íconos)
+    if (urlPath.includes('/api/icon-packs/uninstall') && method === 'POST') {
+      let body = {};
+      try {
+        body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {};
+      } catch {}
+      const packId = body.packId;
+      const packs = getStoredIconPacks().map((p) => {
+        if (p.id === packId) {
+          return { ...p, installed: false, installedCount: 0 };
+        }
+        return p;
+      });
+      saveStoredIconPacks(packs);
+      logAudit('icon_pack_uninstall', `Paquete de íconos "${packId}" desinstalado`);
+      return new Response(
+        JSON.stringify({ ok: true, message: `Paquete "${packId}" desinstalado correctamente.` }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 12. POST /api/icon-packs (Instalar paquete de íconos)
+    if (urlPath.includes('/api/icon-packs') && method === 'POST') {
+      let body = {};
+      try {
+        body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {};
+      } catch {}
+      const packId = body.packId;
+      if (packId) {
+        const packs = getStoredIconPacks().map((p) => {
+          if (p.id === packId) {
+            return { ...p, installed: true, installedCount: p.estimatedCountNum || 1000 };
+          }
+          return p;
+        });
+        saveStoredIconPacks(packs);
+        logAudit('icon_pack_install', `Paquete de íconos "${packId}" instalado`);
+        return new Response(
+          JSON.stringify({ ok: true, message: `Paquete "${packId}" instalado correctamente.` }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      logAudit('icon_pack_install', `Íconos personalizados instalados desde repositorio Git`);
+      return new Response(
+        JSON.stringify({ ok: true, message: 'Íconos personalizados instalados en la biblioteca (modo demo).' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 13. GET /api/qr/... (Generación de código QR)
+    if (urlPath.includes('/api/qr/')) {
+      const urlObj = new URL(rawUrl, window.location.href);
+      const text = urlObj.searchParams.get('text') || 'https://fitty.ar/Umbral';
+      const svg = generateQrSvg(text);
+      return new Response(svg, {
+        status: 200,
+        headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=300' },
+      });
+    }
+
+    // 14. POST /api/ai/format-card (Asistente IA)
+    if (urlPath.includes('/api/ai/format-card') && method === 'POST') {
+      let body = {};
+      try {
+        body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {};
+      } catch {}
+      logAudit('ai_format', `Formateo de tarjeta ejecutado con modelo IA`);
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          formatted: {
+            title: body.title ? `${body.title}` : 'Servicio Homelab',
+            description: body.description ? `${body.description} — Optimizado con IA.` : 'Servicio en red local de alta disponibilidad.',
+            icon: body.icon || 'sparkles',
+            color: '#06b6d4',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 15. GET /api/fetch-card-info (Scraper de metadatos)
+    if (urlPath.includes('/api/fetch-card-info') && method === 'GET') {
+      const urlObj = new URL(rawUrl, window.location.href);
+      const target = urlObj.searchParams.get('url') || '';
+      return new Response(
+        JSON.stringify({
+          title: target.replace(/^https?:\/\//i, '').split('/')[0] || 'App Local',
+          description: `Servicio alojado en ${target || 'red interna'}`,
+          icon: 'globe',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 16. POST /api/webhooks/test (Prueba de Webhooks)
+    if (urlPath.includes('/api/webhooks/test') && method === 'POST') {
+      logAudit('webhook_test', 'Disparo de webhook de prueba (simulado en modo demo)');
+      return new Response(
+        JSON.stringify({ ok: true, message: 'Webhook de prueba enviado correctamente (simulado en modo demo).' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 17. GET /api/tokens y POST /api/tokens (Tokens API)
+    if (urlPath.includes('/api/tokens')) {
+      if (method === 'GET') {
+        return new Response(JSON.stringify({ items: getStoredTokens() }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (method === 'POST') {
+        let body = {};
+        try {
+          body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {};
+        } catch {}
+        const tokenStr = 'umb_demo_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+        const tokens = getStoredTokens();
+        tokens.push({
+          id: 'tok_' + Date.now(),
+          name: body.name || 'Token Demo',
+          tokenPrefix: tokenStr.slice(0, 12) + '…',
+          scopes: body.scopes || ['read', 'write'],
+          createdAt: new Date().toISOString(),
+        });
+        saveStoredTokens(tokens);
+        logAudit('token_created', `Token de API "${body.name || 'Demo'}" creado`);
+        return new Response(JSON.stringify({ ok: true, plaintextToken: tokenStr }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // 18. POST /api/auth/totp/...
+    if (urlPath.includes('/api/auth/totp/')) {
+      const qrDataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(generateQrSvg())}`;
+      return new Response(
+        JSON.stringify({
+          secret: 'JBSWY3DPEHPK3PXP',
+          otpauthUrl: 'otpauth://totp/Umbral:admin?secret=JBSWY3DPEHPK3PXP&issuer=Umbral',
+          qrDataUrl,
+          backupCodes: ['DEMO-CODE-1', 'DEMO-CODE-2', 'DEMO-CODE-3'],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 19. POST /api/locale (Cambio de idioma)
+    if (urlPath.includes('/api/locale') && method === 'POST') {
       let body = {};
       try {
         body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {};
@@ -161,10 +643,33 @@
         localStorage.setItem('umbral_demo_locale', loc);
         document.cookie = `umbral_locale=${loc};path=/;max-age=2592000;SameSite=Lax`;
       } catch {}
+      logAudit('locale_change', `Idioma cambiado a "${loc}"`);
       return new Response(JSON.stringify({ ok: true, locale: loc }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
+    }
+
+    // 20. Password Change Block (Seguridad en Demo)
+    if (urlPath.includes('/api/auth/hash-password') || urlPath.includes('/api/password')) {
+      return new Response(
+        JSON.stringify({
+          error: '🔒 Modo Demo: Por seguridad, el cambio de contraseña permanente está deshabilitado en esta muestra pública.',
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 21. Upload Asset Block (Seguridad en Demo)
+    if (urlPath.includes('/api/assets/upload') || urlPath.includes('/api/assets') || urlPath.includes('/api/upload')) {
+      if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+        return new Response(
+          JSON.stringify({
+            error: '🔒 Modo Demo: La subida de archivos al servidor está deshabilitada en esta muestra estática. Podés usar URLs externas o los íconos vectoriales integrados.',
+          }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
     }
 
     // Passthrough para assets estáticos y otros requests
