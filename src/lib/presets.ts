@@ -354,6 +354,15 @@ export const APP_PRESETS: ReadonlyArray<AppPreset> = [
     description: 'Interfaz web complementaria para programar en pareja con IA y control de versiones Git.',
     defaultCategoryName: 'Agentes & IA',
   },
+  {
+    id: 'openclaw',
+    name: 'OpenClaw',
+    category: 'ai-agents',
+    icon: 'terminal',
+    color: '#0ea5e9',
+    description: 'Asistente personal de IA autoalojado que corre en tus dispositivos, integra múltiples modelos LLM, herramientas, plugins y canales de mensajería (WhatsApp, Telegram, Slack, Discord, etc.).',
+    defaultCategoryName: 'Agentes & IA',
+  },
 
   // ── ERP, CRM & Gestión Empresarial (Sistemas de Negocio) ─────────────────
   {
@@ -980,6 +989,33 @@ export const APP_PRESETS: ReadonlyArray<AppPreset> = [
     icon: 'monitor',
     color: '#2980b9',
     description: 'Servidor web de gestión, soporte y control remoto de escritorios y dispositivos por navegador.',
+    defaultCategoryName: 'SysOps',
+  },
+  {
+    id: '1panel',
+    name: '1Panel',
+    category: 'sysops',
+    icon: 'settings',
+    color: '#1d4ed8',
+    description: 'Panel moderno de gestión de servidores Linux con UI elegante, tienda de apps Docker (165+), WAF, log auditing y plataforma ligera de administración de IA.',
+    defaultCategoryName: 'SysOps',
+  },
+  {
+    id: 'foreman',
+    name: 'Foreman',
+    category: 'sysops',
+    icon: 'package',
+    color: '#a91d0a',
+    description: 'Panel oficial de administración del ciclo de vida de servidores Fedora/RHEL: provisioning, configuración, orquestación y monitoreo de bare-metal y VMs.',
+    defaultCategoryName: 'SysOps',
+  },
+  {
+    id: 'maas',
+    name: 'MAAS (Metal as a Service)',
+    category: 'sysops',
+    icon: 'cpu',
+    color: '#e95420',
+    description: 'Panel oficial de Ubuntu (Canonical) para gestión de bare-metal: descubrimiento, commissioning, provisioning y deployment automatizado de servidores físicos como cloud elástica.',
     defaultCategoryName: 'SysOps',
   },
 
@@ -1835,6 +1871,15 @@ export const APP_PRESETS: ReadonlyArray<AppPreset> = [
     icon: 'file',
     color: '#e11d48',
     description: 'Suite web completa para editar, unir, dividir y convertir archivos PDF.',
+    defaultCategoryName: 'Productividad',
+  },
+  {
+    id: 'convertx',
+    name: 'ConvertX',
+    category: 'productivity',
+    icon: 'arrow-right',
+    color: '#5b21b6',
+    description: 'Conversor de archivos online autoalojado que soporta más de 1000 formatos vía LibreOffice, Pandoc, FFmpeg, ImageMagick, Calibre, Inkscape, Vips y muchos más.',
     defaultCategoryName: 'Productividad',
   },
   {
