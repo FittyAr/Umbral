@@ -4,7 +4,9 @@ import { getConfig } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
-const isAuthed = Astro.locals.auth?.isAuthenticated ?? false;
+const isDemoBuild = true;
+export const prerender = true;
+const isAuthed = false; // En la rama demo, el form de login se muestra siempre — el visitor puede "entrar" con cualquier password.
 if (isAuthed) {
   return Astro.redirect('/admin/dashboard');
 }
@@ -53,8 +55,10 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
         )}
         <div class="form-group">
           <label for="password">{passwordLabel}</label>
-          <input type="password" id="password" name="password" required autocomplete="current-password" autofocus />
-          <small style="color:#06b6d4;display:block;margin-top:0.5rem;text-align:center">💡 Modo Demo: Podés ingresar con cualquier contraseña para probar el panel.</small>
+          <input id="password" name="password" type="password" required autofocus autocomplete="current-password" />
+          {isDemoBuild ? (
+            <small style="color:#06b6d4;display:block;margin-top:0.5rem;text-align:center">💡 Modo Demo: Podés ingresar con cualquier contraseña para probar el panel.</small>
+          ) : null}
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%">{submitLabel}</button>
       </form>
@@ -130,8 +134,8 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
           document.getElementById('totpCode')?.focus();
           return;
         }
-        const target = (window.__BASE_URL__ || '/') + 'admin/dashboard';
-        window.location.href = target;
+        const base = window.__BASE_URL__ || '/';
+        window.location.href = base + 'admin/dashboard';
       } catch (e) {
         err.textContent = errorFallback;
         err.hidden = false;
@@ -156,8 +160,8 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
           err.hidden = false;
           return;
         }
-        const target = (window.__BASE_URL__ || '/') + 'admin/dashboard';
-        window.location.href = target;
+        const base = window.__BASE_URL__ || '/';
+        window.location.href = base + 'admin/dashboard';
       } catch (e) {
         err.textContent = errorFallback;
         err.hidden = false;

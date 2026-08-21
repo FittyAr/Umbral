@@ -1,8 +1,30 @@
 /**
  * Umbral Demo Runtime Interceptor for GitHub Pages
- * Simulates the backend in localStorage with automatic 15-minute reset.
+ *
+ * Se carga como un <script src="demo-runtime.js"> en el HTML público y
+ * del admin. Intercepta `window.fetch` y responde a todas las rutas
+ * /api/* con datos simulados persistidos en localStorage. No toca el
+ * server real — todo vive en el browser del visitante.
+ *
+ * Características:
+ *  - TTL de 15 min para la config guardada (auto-reset al refrescar).
+ *  - Sembrado con entradas de auditoría "realistas" para que el visor
+ *    no aparezca vacío en la primera visita.
+ *  - Mock de sparklines/métricas para evitar 404 en /api/metrics.
+ *  - QR simulado en SVG (la generación real requiere backend Node.js).
+ *  - Bloqueo de cambios persistentes (password, uploads) con mensajes
+ *    explicativos "🔒 Modo Demo".
+ *  - Banner flotante en la esquina inferior derecha con botón de reset.
+ *  - Desactiva por default las features pesadas en el seed inicial
+ *    (AI, status, iconPacks) — el usuario puede encenderlas desde la UI.
+ *  - Marca `window.__UMBRAL_DEMO__ = true` para que el dashboard
+ *    pueda saltear el chequeo de auth y mostrar banners de demo.
  */
 (function () {
+  // Marca global de modo demo. El layout/dashboard la lee para
+  // condicionar UI (auth bypass, banners, etc).
+  window.__UMBRAL_DEMO__ = true;
+
   const STORAGE_KEY = 'umbral_demo_config';
   const STORAGE_TS_KEY = 'umbral_demo_ts';
   const STORAGE_AUDIT_KEY = 'umbral_demo_audit';
@@ -10,9 +32,36 @@
   const STORAGE_TOKENS_KEY = 'umbral_demo_tokens';
   const TTL_MS = 15 * 60 * 1000; // 15 minutos
 
-  // ── Configuración inicial y persistencia ───────────────────
+  // Features que el demo debe apagar por default. El usuario puede
+  // encenderlas desde el tab Avanzado → Features; si lo hace se
+  // persisten en localStorage y respetan su elección hasta el TTL.
+  // (ai, status, iconPacks y qr son las "pesadas" — generan ruido en
+  // la demo y/o requieren backend real.)
+  const DEMO_FORCE_DISABLE_FEATURES = ['ai', 'status', 'iconPacks', 'qr'];
+
   function getInitialConfig() {
     return window.__INITIAL_DEMO_CONFIG__ || null;
+  }
+
+  /**
+   * Aplica el override de demo sobre la config inicial: fuerza apagadas
+   * las features pesadas. Sólo se aplica cuando el usuario todavía no
+   * tiene config guardada (es decir, en el primer load o después de un
+   * reset). Una vez que el usuario interactúa y guarda algo, sus
+   * decisiones mandan — esto evita pisar elecciones explícitas.
+   */
+  function getDemoSeed() {
+    const init = getInitialConfig();
+    if (!init) return null;
+    const cfg = JSON.parse(JSON.stringify(init));
+    if (!cfg.features) cfg.features = {};
+    for (const name of DEMO_FORCE_DISABLE_FEATURES) {
+      if (!cfg.features[name]) cfg.features[name] = { enabled: false };
+      else cfg.features[name].enabled = false;
+    }
+    // Asegurar que la sección apiTokens existe (el dashboard la lee).
+    if (!cfg.apiTokens) cfg.apiTokens = { items: [] };
+    return cfg;
   }
 
   function getStoredConfig() {
@@ -45,7 +94,7 @@
       localStorage.removeItem(STORAGE_AUDIT_KEY);
       localStorage.removeItem(STORAGE_PACKS_KEY);
       localStorage.removeItem(STORAGE_TOKENS_KEY);
-      const init = getInitialConfig();
+      const init = getDemoSeed();
       if (init) saveStoredConfig(init);
     } catch (e) {
       console.warn('[Demo] Could not reset', e);
@@ -197,7 +246,7 @@
   }
 
   // ── Generador de QR SVG Mock ───────────────────────────────
-  function generateQrSvg(text = 'https://fitty.ar/Umbral') {
+  function generateQrSvg(text) {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" fill="#0f172a">
       <rect width="200" height="200" fill="#ffffff" rx="8" />
       <!-- Posicionadores QR -->
@@ -218,7 +267,7 @@
       <rect x="100" y="25" width="12" height="12" fill="#0f172a" />
       <rect x="80" y="45" width="12" height="12" fill="#0f172a" />
       <rect x="100" y="55" width="12" height="12" fill="#06b6d4" />
-      
+
       <rect x="25" y="80" width="12" height="12" fill="#0f172a" />
       <rect x="45" y="80" width="12" height="12" fill="#0f172a" />
       <rect x="75" y="80" width="12" height="12" fill="#0f172a" />
@@ -257,7 +306,7 @@
 
     // 1. GET /api/config
     if (urlPath.includes('/api/config') && method === 'GET') {
-      const cfg = getStoredConfig() || getInitialConfig();
+      const cfg = getStoredConfig() || getDemoSeed();
       return new Response(JSON.stringify(cfg), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -272,7 +321,7 @@
       } catch {
         return new Response(JSON.stringify({ error: 'JSON inválido' }), { status: 400 });
       }
-      const current = getStoredConfig() || getInitialConfig() || {};
+      const current = getStoredConfig() || getDemoSeed() || {};
       const updated = { ...current, ...body };
       saveStoredConfig(updated);
       logAudit('config_update', 'Configuración general guardada en almacenamiento local');
@@ -285,7 +334,7 @@
     // 3. DELETE /api/config (Reset)
     if (urlPath.includes('/api/config') && method === 'DELETE') {
       resetStoredConfig();
-      const initCfg = getInitialConfig();
+      const initCfg = getDemoSeed();
       logAudit('config_reset', 'Configuración restablecida a valores por defecto');
       return new Response(JSON.stringify(initCfg), {
         status: 200,
@@ -427,7 +476,7 @@
         });
       }
 
-      const cfg = getStoredConfig() || getInitialConfig() || { cards: [] };
+      const cfg = getStoredConfig() || getDemoSeed() || { cards: [] };
       const cards = (cfg.cards || []).map((c) => ({
         cardId: c.id,
         count: 60,
@@ -450,7 +499,7 @@
       try {
         body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {};
       } catch {}
-      const cfg = getStoredConfig() || getInitialConfig() || { cards: [] };
+      const cfg = getStoredConfig() || getDemoSeed() || { cards: [] };
       const targetIds = Array.isArray(body.ids) ? new Set(body.ids) : null;
       const targets = (cfg.cards || []).filter((c) => c.enabled && (!targetIds || targetIds.has(c.id)));
 
@@ -533,6 +582,9 @@
     }
 
     // 13. GET /api/qr/... (Generación de código QR)
+    // Devolvemos un QR SVG simulado. En el demo, /api/qr funciona
+    // porque lo simulamos client-side; el "alert de desactivado" lo
+    // maneja el dashboard forzando features.qr.enabled=false en el seed.
     if (urlPath.includes('/api/qr/')) {
       const urlObj = new URL(rawUrl, window.location.href);
       const text = urlObj.searchParams.get('text') || 'https://fitty.ar/Umbral';
@@ -650,8 +702,38 @@
       });
     }
 
-    // 20. Password Change Block (Seguridad en Demo)
-    if (urlPath.includes('/api/auth/hash-password') || urlPath.includes('/api/password')) {
+    // 20. GET /api/assets (Listar assets subidos)
+    if (urlPath.includes('/api/assets') && (method === 'GET' || method === 'HEAD')) {
+      return new Response(
+        JSON.stringify({
+          items: [],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 21. POST /api/auth/check-default-password (banner warning)
+    if (urlPath.includes('/api/auth/check-default-password') && method === 'GET') {
+      return new Response(JSON.stringify({ isDefault: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 22. POST /api/auth/hash-password (Password hashing)
+    if (urlPath.includes('/api/auth/hash-password') && method === 'POST') {
+      // Devolvemos un hash fake — no se persiste, es para el flujo client-side
+      // del dashboard (multi-user). En el demo no importa que sea fake.
+      let body = {};
+      try { body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {}; } catch {}
+      return new Response(
+        JSON.stringify({ hash: '$2a$12$demodemodemodemodemodemodemodemodemodemodemo' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 23. Password Change Block (Seguridad en Demo)
+    if (urlPath.includes('/api/password') && method === 'POST') {
       return new Response(
         JSON.stringify({
           error: '🔒 Modo Demo: Por seguridad, el cambio de contraseña permanente está deshabilitado en esta muestra pública.',
@@ -660,8 +742,8 @@
       );
     }
 
-    // 21. Upload Asset Block (Seguridad en Demo)
-    if (urlPath.includes('/api/assets/upload') || urlPath.includes('/api/assets') || urlPath.includes('/api/upload')) {
+    // 24. Upload Asset Block (Seguridad en Demo)
+    if (urlPath.includes('/api/upload')) {
       if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
         return new Response(
           JSON.stringify({
@@ -670,6 +752,36 @@
           { status: 403, headers: { 'Content-Type': 'application/json' } },
         );
       }
+    }
+
+    // 25. /api/import — Import config
+    if (urlPath.includes('/api/import') && (method === 'PUT' || method === 'POST')) {
+      let body = {};
+      try { body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body || {}; } catch {}
+      const current = getStoredConfig() || getDemoSeed() || {};
+      const updated = { ...current, ...body };
+      saveStoredConfig(updated);
+      logAudit('config_import', 'Configuración importada desde archivo (modo demo)');
+      return new Response(JSON.stringify(updated), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 26. /api/upload-from-url (Asset fetch server-side, evita CSP)
+    if (urlPath.includes('/api/upload-from-url') && method === 'POST') {
+      return new Response(
+        JSON.stringify({ ok: false, reason: 'demo-mode-disabled' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // 27. /api/auth/oidc/.../start (OIDC redirect)
+    if (urlPath.includes('/api/auth/oidc/') && method === 'GET') {
+      return new Response(
+        JSON.stringify({ error: '� Modo Demo: El SSO está deshabilitado. Configurá un provider en producción para habilitarlo.' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } },
+      );
     }
 
     // Passthrough para assets estáticos y otros requests
@@ -714,7 +826,7 @@
       <div style="display:flex;align-items:center;gap:0.4rem;background:rgba(6, 182, 212, 0.12);border:1px solid rgba(6, 182, 212, 0.25);padding:0.25rem 0.6rem;border-radius:8px">
         <span style="color:#e2e8f0;font-size:0.78rem">🔑 Admin:</span>
         <a href="${adminUrl}" style="color:#38bdf8;font-weight:600;text-decoration:underline;text-underline-offset:2px">/admin</a>
-        <span style="color:#94a3b8;font-size:0.75rem">(clave: <code>admin</code>)</span>
+        <span style="color:#94a3b8;font-size:0.75rem">(cualquier password)</span>
       </div>
       <button id="umbral-demo-reset-btn" title="Restablecer la configuración inicial de la demo" style="
         background: rgba(255, 255, 255, 0.08);

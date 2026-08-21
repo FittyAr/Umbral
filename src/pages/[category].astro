@@ -14,9 +14,16 @@ import { isFeatureEnabled } from '~/lib/features';
 import { getActiveWindowsForCard } from '~/lib/maintenance';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
+export const prerender = true;
+
+// getStaticPaths: pre-generamos una página por cada categoría marcada
+// como subpágina en el config. Sin esto Astro no sabe qué paths estáticos
+// generar y falla el build en output=static.
 export async function getStaticPaths() {
-  const config = await getConfig();
-  return config.categories.map((c) => ({ params: { category: c.id } }));
+  const cfg = await getConfig();
+  return cfg.categories
+    .filter((c) => c.isSubpage)
+    .map((c) => ({ params: { category: c.id } }));
 }
 
 const { category } = Astro.params;
@@ -373,7 +380,9 @@ const base = import.meta.env.BASE_URL || '/';
         d.title = 'Verificando…';
       });
       try {
-        const res = await fetch('/api/status', {
+        const base = window.__BASE_URL__ || '/';
+        const statusUrl = base.endsWith('/') ? `${base}api/status` : `${base}/api/status`;
+        const res = await fetch(statusUrl, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ ids: Array.from(dots.keys()) }),

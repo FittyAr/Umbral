@@ -9,6 +9,13 @@ import { resolveIconUrl } from '~/lib/icons';
 import { isFeatureEnabled } from '~/lib/features';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
+// docs/index.astro lee archivos del filesystem (fs.readdir de la carpeta
+// docs/), por lo que se procesa al primer GET en server mode.
+export const prerender = true;
+
+// Resolve docs dir relative to project root. process.cwd() is the project
+// root in dev (npm run dev) and in the built server (node ./dist/server/entry.mjs)
+// since the entry runs from the project root thanks to the Dockerfile WORKDIR.
 const DOCS_DIR = path.join(process.cwd(), 'docs');
 
 interface DocFile {
@@ -115,6 +122,7 @@ function parseFrontmatter(md: string): { title: string; description: string } {
 const docs = await listDocs();
 const config = await getConfig();
 const logoUrl = resolveIconUrl(config.branding.logo);
+const base = import.meta.env.BASE_URL || '/';
 
 const useI18n = isFeatureEnabled(config, 'i18n');
 const locale: Locale = useI18n
@@ -138,7 +146,6 @@ const sectionLabels: Record<string, string> = {
   dev: 'Desarrollo',
   general: 'General',
 };
-const base = import.meta.env.BASE_URL || '/';
 ---
 <PublicLayout config={config} title="Documentación — Umbral">
   <main class="page-wrap docs-page">

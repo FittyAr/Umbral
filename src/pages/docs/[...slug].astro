@@ -16,21 +16,40 @@ import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 // en deps) y se lo pasamos. Esto sólo se ejecuta en SSR, no llega al cliente.
 const purifyWindow = new JSDOM('').window;
 const DOMPurify = createDOMPurify(purifyWindow as unknown as Window);
-const DOCS_DIR = path.join(process.cwd(), 'docs');
+
+// docs/[...slug] lee archivos del filesystem en cada request.
+// En build estático pre-generamos una página por cada .md que encontremos.
+export const prerender = true;
 
 export async function getStaticPaths() {
-  const dir = path.join(process.cwd(), 'docs');
-  try {
-    const entries = await fs.readdir(dir, { recursive: true });
-    return entries
-      .filter((e) => typeof e === 'string' && e.endsWith('.md'))
-      .map((e) => ({ params: { slug: e.replace(/\.md$/, '').replace(/\\/g, '/') } }));
-  } catch {
-    return [];
+  // Astro extrae getStaticPaths a un módulo separado en build, así que
+  // inlineamos DOCS_DIR acá (no podemos referenciar la const del page).
+  const DOCS_DIR = path.join(process.cwd(), 'docs');
+  const out: Array<{ params: { slug: string } }> = [];
+  async function walk(dir: string, prefix: string) {
+    let entries: import('node:fs').Dirent[];
+    try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(full, prefix ? `${prefix}/${entry.name}` : entry.name);
+      } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name.toLowerCase() !== 'readme.md') {
+        const slug = prefix ? `${prefix}/${entry.name.replace(/\.md$/, '')}` : entry.name.replace(/\.md$/, '');
+        out.push({ params: { slug } });
+      }
+    }
   }
+  await walk(DOCS_DIR, '');
+  return out;
 }
 
 const { slug } = Astro.params;
+
+// Resolve docs dir relative to project root. process.cwd() es el project
+// root tanto en dev (npm run dev) como en el build (npm run build corre
+// desde la raíz del repo).
+const DOCS_DIR = path.join(process.cwd(), 'docs');
 
 // ── 1) Resolve the file path. Reject anything that tries to escape `docs/`.
 function resolveDocFile(slugParam: string | undefined): { abs: string; rel: string } | null {
@@ -114,6 +133,7 @@ const finalBody = cleanBody.replace(
 
 const config = await getConfig();
 const logoUrl = resolveIconUrl(config.branding.logo);
+const base = import.meta.env.BASE_URL || '/';
 
 const useI18n = isFeatureEnabled(config, 'i18n');
 const locale: Locale = useI18n
@@ -129,7 +149,6 @@ const sectionLabels: Record<string, string> = {
   usage: 'Uso',
   dev: 'Desarrollo',
 };
-const base = import.meta.env.BASE_URL || '/';
 ---
 <PublicLayout config={config} title={`${pageTitle} — Documentación`}>
   <main class="page-wrap docs-page">

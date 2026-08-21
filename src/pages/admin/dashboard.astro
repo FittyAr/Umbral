@@ -9,6 +9,12 @@ import { FEATURE_META, FEATURE_NAMES, isFeatureEnabled } from '~/lib/features';
 import { APP_PRESETS } from '~/lib/presets';
 import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
+// En la rama gh-pages el build es SIEMPRE demo (no hay middleware de auth
+// ni API endpoints), así que hardcodeamos isAuthed=true. El AdminLayout
+// expone window.__UMBRAL_DEMO__ = true para que la UI muestre el banner
+// y bloquee features que requieren backend (ej: QR).
+const isDemoBuild = true;
+export const prerender = true;
 const isAuthed = true;
 const csrfToken = 'demo-csrf-token';
 const config = await getConfig();
@@ -1463,16 +1469,35 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                   ⚠ experimental
                 </div>
               </div>
-              <label class="switch" style="flex-shrink:0">
-                <input type="checkbox" :checked="isFeatureOn(f.name)" @change="toggleFeature(f.name, $event.target.checked)" />
+              <label class="switch" style="flex-shrink:0" :title="(isDemoMode && f.name === 'qr') ? 'La generación de QR requiere el backend Node.js. No se puede activar en este build demo (GitHub Pages).' : ''">
+                <input
+                  type="checkbox"
+                  :checked="isFeatureOn(f.name)"
+                  :disabled="isDemoMode && f.name === 'qr'"
+                  @change="toggleFeature(f.name, $event.target.checked)"
+                />
                 <span class="slider"></span>
               </label>
             </div>
             <div x-show="isFeatureOn(f.name)" style="margin-top:0.5rem" x-cloak>
               <div style="font-size:0.75rem;color:#94a3b8" x-text="f.body"></div>
             </div>
-            <div x-show="f.name === 'qr'" style="font-size:0.75rem;color:#38bdf8;background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:6px;padding:0.4rem 0.6rem;margin-top:0.5rem" x-cloak>
-              ℹ️ <strong>Nota de Compatibilidad:</strong> La generación dinámica de códigos QR en servidor requiere el backend Node.js / Docker de Umbral. En este despliegue estático de GitHub Actions / Pages está desactivada por defecto y se simula en el cliente.
+            <!-- Alerta de compatibilidad para el feature QR en modo demo.
+                 La generación dinámica de QRs en el server requiere el
+                 backend Node.js / Docker de Umbral. En GitHub Pages sólo
+                 se sirve estático, así que dejamos la feature apagada por
+                 default y explicamos por qué. -->
+            <div
+              x-show="f.name === 'qr' && isDemoMode"
+              x-cloak
+              style="font-size:0.75rem;color:#fbbf24;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:6px;padding:0.4rem 0.6rem;margin-top:0.5rem;display:flex;gap:0.4rem;align-items:flex-start"
+            >
+              <span style="flex-shrink:0">⚠️</span>
+              <span>
+                <strong>Desactivada en este build (GitHub Pages / demo):</strong>
+                la generación dinámica de códigos QR requiere el backend Node.js / Docker de Umbral.
+                En este despliegue estático el switch queda bloqueado abajo; usá el build real de Node para habilitarla.
+              </span>
             </div>
           </div>
         </template>
@@ -2007,6 +2032,11 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         // form sólo si la feature está activa. descriptionFormat default
         // a 'plain' para cards nuevos; el user puede flippearlo.
         markdownEnabled: window.__featureList?.find?.((f) => f.name === 'markdown')?.enabled === true,
+        // isDemoMode: el build se hizo con UMBRAL_DEMO=true (GitHub Pages).
+        // Lo usamos para condicionar UI: el switch de QR queda bloqueado
+        // (porque requiere el backend Node) y se muestra un banner
+        // explicativo al lado de la feature.
+        isDemoMode: typeof window !== 'undefined' && window.__UMBRAL_DEMO__ === true,
         markdownPreview: '',
         markdownPreviewDirty: true,
         // i18n methods (Alpine 3: se llaman con `()` en el HTML)
@@ -3675,6 +3705,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           const base = window.__BASE_URL__ || '/';
           const prefix = base.endsWith('/') ? base : base + '/';
           if (icon.startsWith('/')) {
+            // Si el icon ya incluye el prefix, lo devolvemos tal cual.
             if (icon.startsWith(prefix)) return icon;
             return prefix + icon.slice(1);
           }
