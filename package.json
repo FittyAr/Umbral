@@ -1,6 +1,6 @@
 {
   "name": "umbral",
-  "version": "1.0.0",
+  "version": "1.1.4",
   "private": true,
   "type": "module",
   "description": "Umbral — self-hosted portal to internal apps behind a VPN. Editable from a simple admin panel. No database.",
