@@ -1,16 +1,33 @@
-import { promises as fs } from 'node:fs';
+import { promises as fs, createWriteStream } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { pipeline } from 'node:stream/promises';
+import { Readable } from 'node:stream';
 import AdmZip from 'adm-zip';
-import { invalidateIconsCache } from './icons';
 
 const execFileAsync = promisify(execFile);
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
-const ICON_PACKS_DIR = path.join(DATA_DIR, 'icon-packs');
-const PRIMARY_INSTALLED_PACKS_FILE = path.join(ICON_PACKS_DIR, '.installed-packs.json');
-const LEGACY_INSTALLED_PACKS_FILE = path.join(DATA_DIR, '.installed-packs.json');
+
+function getDataDir(): string {
+  return process.env.DATA_DIR || path.join(process.cwd(), 'data');
+}
+
+function getIconPacksDir(): string {
+  return path.join(getDataDir(), 'icon-packs');
+}
+
+function getPrimaryInstalledPacksFile(): string {
+  return path.join(getIconPacksDir(), '.installed-packs.json');
+}
+
+function getLegacyInstalledPacksFile(): string {
+  return path.join(getDataDir(), '.installed-packs.json');
+}
+
+const ZIP_DOWNLOAD_TIMEOUT_MS = 180_000;
+const GIT_CLONE_TIMEOUT_MS = 120_000;
+const GIT_SPARSE_TIMEOUT_MS = 60_000;
 
 const PROTECTED_FILES = new Set([
   'favicon.svg',
@@ -141,11 +158,11 @@ export const PREDEFINED_ICON_PACKS: ReadonlyArray<IconPackDefinition> = [
 /** Lee el registro de packs instalados */
 export async function getInstalledPacks(): Promise<Record<string, InstalledPackRecord>> {
   try {
-    const raw = await fs.readFile(PRIMARY_INSTALLED_PACKS_FILE, 'utf8');
+    const raw = await fs.readFile(getPrimaryInstalledPacksFile(), 'utf8');
     return JSON.parse(raw);
   } catch {
     try {
-      const raw = await fs.readFile(LEGACY_INSTALLED_PACKS_FILE, 'utf8');
+      const raw = await fs.readFile(getLegacyInstalledPacksFile(), 'utf8');
       return JSON.parse(raw);
     } catch {
       return {};
@@ -155,8 +172,8 @@ export async function getInstalledPacks(): Promise<Record<string, InstalledPackR
 
 /** Guarda el registro de packs instalados */
 async function saveInstalledPacks(records: Record<string, InstalledPackRecord>): Promise<void> {
-  await fs.mkdir(ICON_PACKS_DIR, { recursive: true });
-  await fs.writeFile(PRIMARY_INSTALLED_PACKS_FILE, JSON.stringify(records, null, 2), 'utf8');
+  await fs.mkdir(getIconPacksDir(), { recursive: true });
+  await fs.writeFile(getPrimaryInstalledPacksFile(), JSON.stringify(records, null, 2), 'utf8');
 }
 
 /** Obtiene el listado completo de packs con su estado de instalación */
@@ -175,14 +192,13 @@ export async function listIconPacksWithStatus(): Promise<{
     };
   });
 
-  // Contar cuántos SVGs totales hay en las subcarpetas de paquetes instalados
   let totalInstalledIcons = 0;
   try {
-    const entries = await fs.readdir(ICON_PACKS_DIR, { withFileTypes: true });
+    const entries = await fs.readdir(getIconPacksDir(), { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       try {
-        const files = await fs.readdir(path.join(ICON_PACKS_DIR, entry.name));
+        const files = await fs.readdir(path.join(getIconPacksDir(), entry.name));
         for (const f of files) {
           if (f.endsWith('.svg') && !PROTECTED_FILES.has(f)) {
             totalInstalledIcons++;
@@ -223,35 +239,53 @@ interface ExtractedSvg {
   content: string;
 }
 
-/** Descarga y extrae archivos SVG directamente en memoria desde un archivo ZIP de GitHub/GitLab */
-async function extractSvgsFromZip(
-  repoUrl: string,
-  branch: string,
-  targetSubpath?: string,
-): Promise<ExtractedSvg[]> {
-  let zipUrl = '';
-  if (repoUrl.includes('github.com')) {
-    const cleanRepo = repoUrl.replace(/\.git$/, '').replace(/\/+$/, '');
-    zipUrl = `${cleanRepo}/archive/refs/heads/${branch}.zip`;
-  } else if (repoUrl.includes('gitlab.com')) {
-    const cleanRepo = repoUrl.replace(/\.git$/, '').replace(/\/+$/, '');
-    zipUrl = `${cleanRepo}/-/archive/${branch}/${branch}.zip`;
+function formatExecError(err: unknown): string {
+  if (!err || typeof err !== 'object') return String(err);
+  const e = err as { message?: string; stderr?: string; code?: string };
+  const parts = [e.message, e.stderr].filter(Boolean);
+  if (e.code === 'ENOENT') {
+    parts.unshift('git no está instalado o no está en PATH');
   }
+  return parts.join(' — ') || 'Error desconocido';
+}
 
-  if (!zipUrl) return [];
+/** Resuelve la URL del archivo ZIP para GitHub (codeload) o GitLab. */
+export function resolveZipArchiveUrl(repoUrl: string, branch: string): string | null {
+  const cleanRepo = repoUrl.replace(/\.git$/, '').replace(/\/+$/, '');
+  if (cleanRepo.includes('github.com')) {
+    const match = cleanRepo.match(/github\.com\/([^/]+)\/([^/]+)/i);
+    if (!match) return null;
+    const [, owner, repo] = match;
+    return `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${branch}`;
+  }
+  if (cleanRepo.includes('gitlab.com')) {
+    return `${cleanRepo}/-/archive/${branch}/${branch}.zip`;
+  }
+  return null;
+}
 
-  const res = await fetch(zipUrl, {
+async function downloadToTempFile(url: string, destPath: string): Promise<void> {
+  const res = await fetch(url, {
     headers: { 'User-Agent': 'Umbral-Icon-Pack-Downloader' },
     redirect: 'follow',
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(ZIP_DOWNLOAD_TIMEOUT_MS),
   });
 
   if (!res.ok) {
-    return [];
+    throw new Error(
+      `Descarga ZIP fallida (${res.status} ${res.statusText}) desde ${url}`,
+    );
   }
 
-  const arrayBuffer = await res.arrayBuffer();
-  const zip = new AdmZip(Buffer.from(arrayBuffer));
+  if (!res.body) {
+    throw new Error(`Respuesta ZIP vacía desde ${url}`);
+  }
+
+  await pipeline(Readable.fromWeb(res.body as import('node:stream/web').ReadableStream), createWriteStream(destPath));
+}
+
+function parseSvgsFromZipFile(zipPath: string, targetSubpath?: string): ExtractedSvg[] {
+  const zip = new AdmZip(zipPath);
   const entries = zip.getEntries();
   const normSubpath = targetSubpath ? targetSubpath.toLowerCase().replace(/^[/\\]+|[/\\]+$/g, '') : '';
 
@@ -274,60 +308,113 @@ async function extractSvgsFromZip(
   return results;
 }
 
+/** Descarga el ZIP a disco y extrae archivos SVG (GitHub codeload / GitLab archive). */
+export async function extractSvgsFromZip(
+  repoUrl: string,
+  branch: string,
+  targetSubpath?: string,
+): Promise<ExtractedSvg[]> {
+  const zipUrl = resolveZipArchiveUrl(repoUrl, branch);
+  if (!zipUrl) {
+    throw new Error(`No se pudo resolver URL de archivo ZIP para ${repoUrl}`);
+  }
+
+  const tempZip = path.join(
+    os.tmpdir(),
+    `umbral-pack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.zip`,
+  );
+
+  try {
+    await downloadToTempFile(zipUrl, tempZip);
+    const results = parseSvgsFromZipFile(tempZip, targetSubpath);
+    if (results.length === 0) {
+      throw new Error(
+        `El archivo ZIP desde ${zipUrl} no contiene SVG válidos en la subcarpeta "${targetSubpath || '/'}".`,
+      );
+    }
+    return results;
+  } catch (err) {
+    console.error('[umbral] extractSvgsFromZip failed:', err);
+    throw err instanceof Error ? err : new Error(String(err));
+  } finally {
+    try {
+      await fs.rm(tempZip, { force: true });
+    } catch {
+      // ignore
+    }
+  }
+}
+
 /** Clona de forma superficial y sparse usando Git CLI en el directorio temporal del SO */
-async function extractSvgsFromGit(
+export async function extractSvgsFromGit(
   repoUrl: string,
   branch: string,
   targetSubpath?: string,
 ): Promise<ExtractedSvg[]> {
   const tempDir = path.join(os.tmpdir(), `umbral-pack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+  const gitEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+  let lastError: Error | null = null;
+
   try {
-    const gitEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
     const cloneArgs = ['clone', '--depth', '1', '--filter=blob:none', '--sparse'];
     if (branch) cloneArgs.push('--branch', branch);
     cloneArgs.push(repoUrl, tempDir);
 
     try {
-      await execFileAsync('git', cloneArgs, { env: gitEnv, timeout: 35_000 });
+      await execFileAsync('git', cloneArgs, { env: gitEnv, timeout: GIT_CLONE_TIMEOUT_MS });
       if (targetSubpath) {
         const normSub = targetSubpath.replace(/^[/\\]+|[/\\]+$/g, '');
-        await execFileAsync('git', ['sparse-checkout', 'set', normSub], { cwd: tempDir, env: gitEnv, timeout: 30_000 });
+        await execFileAsync('git', ['sparse-checkout', 'set', normSub], {
+          cwd: tempDir,
+          env: gitEnv,
+          timeout: GIT_SPARSE_TIMEOUT_MS,
+        });
       }
-    } catch {
-      // Fallback a clone shallow standard
+    } catch (sparseErr) {
+      lastError = new Error(`Git sparse clone falló: ${formatExecError(sparseErr)}`);
+      console.error('[umbral] git sparse clone failed:', sparseErr);
       try {
         await fs.rm(tempDir, { recursive: true, force: true });
-      } catch {}
+      } catch {
+        // ignore
+      }
       const standardArgs = ['clone', '--depth', '1'];
       if (branch) standardArgs.push('--branch', branch);
       standardArgs.push(repoUrl, tempDir);
-      await execFileAsync('git', standardArgs, { env: gitEnv, timeout: 45_000 });
+      try {
+        await execFileAsync('git', standardArgs, { env: gitEnv, timeout: GIT_CLONE_TIMEOUT_MS });
+        lastError = null;
+      } catch (standardErr) {
+        throw new Error(`Git clone falló: ${formatExecError(standardErr)}`);
+      }
     }
 
     const searchRoot = targetSubpath ? path.join(tempDir, targetSubpath) : tempDir;
     const results: ExtractedSvg[] = [];
 
     async function walk(dir: string) {
-      try {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.name === '.git' || entry.name === 'node_modules') continue;
-          const fullPath = path.join(dir, entry.name);
-          if (entry.isDirectory()) {
-            await walk(fullPath);
-          } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.svg')) {
-            const content = await fs.readFile(fullPath, 'utf8');
-            if (isValidSvg(content)) {
-              results.push({ name: entry.name, content });
-            }
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name === '.git' || entry.name === 'node_modules') continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await walk(fullPath);
+        } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.svg')) {
+          const content = await fs.readFile(fullPath, 'utf8');
+          if (isValidSvg(content)) {
+            results.push({ name: entry.name, content });
           }
         }
-      } catch {
-        // ignore
       }
     }
 
     await walk(searchRoot);
+    if (results.length === 0) {
+      const hint = lastError ? ` (${lastError.message})` : '';
+      throw new Error(
+        `Git clone completó pero no se encontraron SVG válidos en "${targetSubpath || '/'}".${hint}`,
+      );
+    }
     return results;
   } finally {
     try {
@@ -336,6 +423,45 @@ async function extractSvgsFromGit(
       // ignore
     }
   }
+}
+
+async function collectSvgsFromRepo(
+  repoUrl: string,
+  branch: string,
+  subpath?: string,
+): Promise<ExtractedSvg[]> {
+  const errors: string[] = [];
+
+  if (repoUrl.includes('walkxcode/dashboard-icons')) {
+    try {
+      return await extractSvgsFromGit(repoUrl, branch, subpath);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`git: ${msg}`);
+      console.error('[umbral] dashboard-icons git attempt failed:', err);
+    }
+  }
+
+  try {
+    return await extractSvgsFromZip(repoUrl, branch, subpath);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    errors.push(`zip: ${msg}`);
+    console.error('[umbral] zip extraction failed:', err);
+  }
+
+  try {
+    return await extractSvgsFromGit(repoUrl, branch, subpath);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    errors.push(`git: ${msg}`);
+    console.error('[umbral] git fallback failed:', err);
+  }
+
+  throw new Error(
+    `No se pudieron obtener archivos SVG desde ${repoUrl} (rama ${branch}, subcarpeta ${subpath || '/'}). ` +
+      `Detalle: ${errors.join(' | ')}`,
+  );
 }
 
 /** Instala un paquete de íconos en una carpeta aislada bajo data/icon-packs/<packId>/ */
@@ -368,42 +494,19 @@ export async function installIconPack(options: {
   const subpath = packDef ? packDef.subpath : options.subpath;
   const license = packDef ? packDef.license : 'Ver repositorio';
 
-  const packDir = path.join(ICON_PACKS_DIR, packId);
+  const packDir = path.join(getIconPacksDir(), packId);
+  await fs.mkdir(getIconPacksDir(), { recursive: true });
+
+  // Reinstall: limpiar carpeta previa antes de escribir de nuevo
+  try {
+    await fs.rm(packDir, { recursive: true, force: true });
+  } catch (err) {
+    console.error('[umbral] failed to wipe pack dir before reinstall:', err);
+    throw new Error(`No se pudo preparar la carpeta del paquete (${packDir}). Verificá permisos de escritura.`);
+  }
   await fs.mkdir(packDir, { recursive: true });
 
-  // Para repositorios con carpetas enormes de imágenes (como dashboard-icons), probamos primero Git sparse clone si está disponible
-  let svgs: ExtractedSvg[] = [];
-  if (repoUrl.includes('walkxcode/dashboard-icons')) {
-    try {
-      svgs = await extractSvgsFromGit(repoUrl, branch, subpath);
-    } catch {
-      svgs = [];
-    }
-  }
-
-  // Si no se usó git o falló, probar extracción directa en memoria desde ZIP
-  if (svgs.length === 0) {
-    try {
-      svgs = await extractSvgsFromZip(repoUrl, branch, subpath);
-    } catch {
-      svgs = [];
-    }
-  }
-
-  // Si aún no tenemos íconos, intentar Git CLI como último recurso
-  if (svgs.length === 0) {
-    try {
-      svgs = await extractSvgsFromGit(repoUrl, branch, subpath);
-    } catch {
-      svgs = [];
-    }
-  }
-
-  if (svgs.length === 0) {
-    throw new Error(
-      `No se pudieron obtener archivos SVG desde ${repoUrl}. Verificá la URL, la rama (${branch}), la subcarpeta (${subpath || '/'}) y la conexión a internet.`,
-    );
-  }
+  const svgs = await collectSvgsFromRepo(repoUrl, branch, subpath);
 
   const installedFiles: string[] = [];
   const namePrefix = options.prefix ? `${options.prefix}-` : '';
@@ -427,7 +530,6 @@ export async function installIconPack(options: {
     throw new Error('No se pudo procesar ningún ícono SVG válido del paquete.');
   }
 
-  // Escribir en lotes concurrentes de 50 archivos
   const BATCH_SIZE = 50;
   for (let i = 0; i < writeTasks.length; i += BATCH_SIZE) {
     const batch = writeTasks.slice(i, i + BATCH_SIZE);
@@ -435,14 +537,16 @@ export async function installIconPack(options: {
       batch.map(async (task) => {
         try {
           await fs.writeFile(task.destPath, task.content, 'utf8');
-        } catch {
-          // ignore individual write error
+        } catch (err) {
+          console.error('[umbral] failed to write icon file:', task.destPath, err);
+          throw new Error(
+            `No se pudo escribir el ícono ${task.fileName} en ${packDir}. Verificá permisos de ${getDataDir()}.`,
+          );
         }
       }),
     );
   }
 
-  // Registrar en .installed-packs.json
   const records = await getInstalledPacks();
   records[packId] = {
     id: packId,
@@ -454,7 +558,6 @@ export async function installIconPack(options: {
     files: installedFiles,
   };
   await saveInstalledPacks(records);
-  invalidateIconsCache();
 
   return {
     success: true,
@@ -474,24 +577,22 @@ export async function uninstallIconPack(packId: string): Promise<{
   const records = await getInstalledPacks();
   const record = records[packId];
 
-  // 1. Eliminar la carpeta completa del paquete
-  const packDir = path.join(ICON_PACKS_DIR, packId);
+  const packDir = path.join(getIconPacksDir(), packId);
   try {
     await fs.rm(packDir, { recursive: true, force: true });
-  } catch {
-    // ignore
+  } catch (err) {
+    console.error('[umbral] failed to remove pack dir:', packDir, err);
+    throw new Error(`No se pudo eliminar la carpeta del paquete (${packDir}). Verificá permisos.`);
   }
 
-  // 2. Limpieza de compatibilidad legacy si existían archivos en public/icons
   if (record?.files) {
     const legacyDir = path.join(process.cwd(), 'public', 'icons');
     for (const filename of record.files) {
       if (PROTECTED_FILES.has(filename)) continue;
       try {
-        // Solo borrar si no es uno de los core built-in icons
         await fs.unlink(path.join(legacyDir, filename));
       } catch {
-        // ignore
+        // ignore legacy cleanup failures
       }
     }
   }
@@ -502,14 +603,11 @@ export async function uninstallIconPack(packId: string): Promise<{
   delete records[packId];
   await saveInstalledPacks(records);
 
-  // También limpiar archivo legacy si existe
   try {
-    await fs.rm(LEGACY_INSTALLED_PACKS_FILE, { force: true });
+    await fs.rm(getLegacyInstalledPacksFile(), { force: true });
   } catch {
     // ignore
   }
-
-  invalidateIconsCache();
 
   return {
     success: true,

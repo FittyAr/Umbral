@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { getConfig, audit } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { listIconPacksWithStatus, installIconPack } from '~/lib/icon-packs';
-import { getBuiltinIconNames } from '~/lib/icons';
+import { getBuiltinIconNames, invalidateIconsCache } from '~/lib/icons';
 import { json, error } from '~/lib/http';
 
 export const prerender = false;
@@ -31,6 +31,8 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
     const result = await installIconPack(body);
+
+    invalidateIconsCache();
 
     await audit('update', `Icon pack installed: ${result.name} (${result.iconsInstalled} icons)`);
 

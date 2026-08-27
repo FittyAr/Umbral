@@ -15,6 +15,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "start": "node ./dist/server/entry.mjs",
+    "test:icon-packs": "node --test --experimental-strip-types tests/icon-packs.test.ts",
     "astro": "astro"
   },
   "dependencies": {
