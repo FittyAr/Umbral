@@ -3658,7 +3658,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         },
 
         async installPack(packId) {
-          this.iconPacksInstalling[packId] = true;
+          this.iconPacksInstalling = { ...this.iconPacksInstalling, [packId]: true };
           this.iconPackMsg = { text: 'Descargando e instalando paquete…', error: false };
           try {
             const res = await window.umbralAdmin.api('POST', '/api/icon-packs', { packId });
@@ -3670,13 +3670,13 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             this.iconPackMsg = { text: 'Error al instalar paquete: ' + e.message, error: true };
             window.umbralAdmin.toast(this.iconPackMsg.text, 'error');
           } finally {
-            this.iconPacksInstalling[packId] = false;
+            this.iconPacksInstalling = { ...this.iconPacksInstalling, [packId]: false };
           }
         },
 
         async uninstallPack(packId) {
           if (!confirm('¿Desinstalar los íconos de este paquete?')) return;
-          this.iconPacksInstalling[packId] = true;
+          this.iconPacksInstalling = { ...this.iconPacksInstalling, [packId]: true };
           try {
             const res = await window.umbralAdmin.api('POST', '/api/icon-packs/uninstall', { packId });
             this.iconPackMsg = { text: res.message || 'Paquete desinstalado.', error: false };
@@ -3687,7 +3687,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             this.iconPackMsg = { text: 'Error al desinstalar: ' + e.message, error: true };
             window.umbralAdmin.toast(this.iconPackMsg.text, 'error');
           } finally {
-            this.iconPacksInstalling[packId] = false;
+            this.iconPacksInstalling = { ...this.iconPacksInstalling, [packId]: false };
           }
         },
 

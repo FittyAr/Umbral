@@ -1,7 +1,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import AdmZip from 'adm-zip';
 import { getIconsDirs, invalidateIconsCache } from './icons';
 
 const execFileAsync = promisify(execFile);
@@ -213,86 +215,130 @@ function sanitizeIconFileName(filename: string): string {
   return (clean || 'icon') + '.svg';
 }
 
-/** Valida que un buffer o string sea un SVG bien formado */
+/** Valida que un string sea un SVG bien formado */
 function isValidSvg(content: string): boolean {
   const lower = content.toLowerCase();
   return lower.includes('<svg') && lower.includes('</svg>');
 }
 
-/** Intenta clonar con Git CLI */
-async function tryGitClone(repoUrl: string, targetDir: string, branch?: string): Promise<boolean> {
-  try {
-    const args = ['clone', '--depth', '1'];
-    if (branch) {
-      args.push('--branch', branch);
-    }
-    args.push(repoUrl, targetDir);
-    await execFileAsync('git', args, { timeout: 60_000 });
-    return true;
-  } catch {
-    return false;
-  }
+interface ExtractedSvg {
+  name: string;
+  content: string;
 }
 
-/** Descarga y descomprime un archivo ZIP usando AdmZip */
-async function downloadAndExtractZip(
-  zipUrl: string,
-  targetDir: string,
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const AdmZip = (await import('adm-zip')).default;
-    const res = await fetch(zipUrl, {
-      headers: { 'User-Agent': 'Umbral-Icon-Pack-Downloader' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(60_000),
-    });
-
-    if (!res.ok) {
-      return { success: false, error: `Error HTTP ${res.status} al descargar archivo ZIP.` };
-    }
-
-    const arrayBuffer = await res.arrayBuffer();
-    const zip = new AdmZip(Buffer.from(arrayBuffer));
-    zip.extractAllTo(targetDir, true);
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err?.message || 'Error al procesar archivo ZIP.' };
-  }
-}
-
-/** Recorre recursivamente un directorio buscando archivos .svg */
-async function findSvgFiles(
-  dir: string,
+/** Descarga y extrae archivos SVG directamente en memoria desde un archivo ZIP de GitHub/GitLab */
+async function extractSvgsFromZip(
+  repoUrl: string,
+  branch: string,
   targetSubpath?: string,
-): Promise<Array<{ relativePath: string; absolutePath: string }>> {
-  const results: Array<{ relativePath: string; absolutePath: string }> = [];
-
-  async function walk(currentDir: string) {
-    const entries = await fs.readdir(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(fullPath);
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.svg')) {
-        results.push({
-          relativePath: path.relative(dir, fullPath).replace(/\\/g, '/'),
-          absolutePath: fullPath,
-        });
-      }
-    }
+): Promise<ExtractedSvg[]> {
+  let zipUrl = '';
+  if (repoUrl.includes('github.com')) {
+    const cleanRepo = repoUrl.replace(/\.git$/, '').replace(/\/+$/, '');
+    zipUrl = `${cleanRepo}/archive/refs/heads/${branch}.zip`;
+  } else if (repoUrl.includes('gitlab.com')) {
+    const cleanRepo = repoUrl.replace(/\.git$/, '').replace(/\/+$/, '');
+    zipUrl = `${cleanRepo}/-/archive/${branch}/${branch}.zip`;
   }
 
-  await walk(dir);
+  if (!zipUrl) return [];
 
-  if (targetSubpath) {
-    const normSubpath = targetSubpath.toLowerCase().replace(/^[/\\]+|[/\\]+$/g, '');
-    const filtered = results.filter((item) =>
-      item.relativePath.toLowerCase().includes(normSubpath),
-    );
-    if (filtered.length > 0) return filtered;
+  const res = await fetch(zipUrl, {
+    headers: { 'User-Agent': 'Umbral-Icon-Pack-Downloader' },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(60_000),
+  });
+
+  if (!res.ok) {
+    return [];
+  }
+
+  const arrayBuffer = await res.arrayBuffer();
+  const zip = new AdmZip(Buffer.from(arrayBuffer));
+  const entries = zip.getEntries();
+  const normSubpath = targetSubpath ? targetSubpath.toLowerCase().replace(/^[/\\]+|[/\\]+$/g, '') : '';
+
+  const results: ExtractedSvg[] = [];
+  for (const entry of entries) {
+    if (entry.isDirectory) continue;
+    const entryName = entry.entryName.toLowerCase();
+    if (!entryName.endsWith('.svg')) continue;
+    if (normSubpath && !entryName.includes(normSubpath)) continue;
+
+    const content = entry.getData().toString('utf8');
+    if (isValidSvg(content)) {
+      results.push({
+        name: path.basename(entry.entryName),
+        content,
+      });
+    }
   }
 
   return results;
+}
+
+/** Clona de forma superficial y sparse usando Git CLI en el directorio temporal del SO */
+async function extractSvgsFromGit(
+  repoUrl: string,
+  branch: string,
+  targetSubpath?: string,
+): Promise<ExtractedSvg[]> {
+  const tempDir = path.join(os.tmpdir(), `umbral-pack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+  try {
+    const gitEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+    const cloneArgs = ['clone', '--depth', '1', '--filter=blob:none', '--sparse'];
+    if (branch) cloneArgs.push('--branch', branch);
+    cloneArgs.push(repoUrl, tempDir);
+
+    try {
+      await execFileAsync('git', cloneArgs, { env: gitEnv, timeout: 35_000 });
+      if (targetSubpath) {
+        const normSub = targetSubpath.replace(/^[/\\]+|[/\\]+$/g, '');
+        await execFileAsync('git', ['sparse-checkout', 'set', normSub], { cwd: tempDir, env: gitEnv, timeout: 30_000 });
+      }
+    } catch {
+      // Fallback a clone shallow standard
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+      } catch {}
+      const standardArgs = ['clone', '--depth', '1'];
+      if (branch) standardArgs.push('--branch', branch);
+      standardArgs.push(repoUrl, tempDir);
+      await execFileAsync('git', standardArgs, { env: gitEnv, timeout: 45_000 });
+    }
+
+    const searchRoot = targetSubpath ? path.join(tempDir, targetSubpath) : tempDir;
+    const results: ExtractedSvg[] = [];
+
+    async function walk(dir: string) {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.name === '.git' || entry.name === 'node_modules') continue;
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            await walk(fullPath);
+          } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.svg')) {
+            const content = await fs.readFile(fullPath, 'utf8');
+            if (isValidSvg(content)) {
+              results.push({ name: entry.name, content });
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    await walk(searchRoot);
+    return results;
+  } finally {
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+  }
 }
 
 /** Instala un paquete de íconos predefinido o desde URL Git */
@@ -330,104 +376,100 @@ export async function installIconPack(options: {
   const subpath = packDef ? packDef.subpath : options.subpath;
   const license = packDef ? packDef.license : 'Ver repositorio';
 
-  const tempDir = path.join(targetDirs[0], `.temp-pack-${Date.now()}`);
-
-  try {
-    await fs.mkdir(tempDir, { recursive: true });
-
-    // Estrategia 1: Intentar git clone
-    let downloaded = await tryGitClone(repoUrl, tempDir, branch);
-
-    // Estrategia 2: Si git falló, descargar ZIP de GitHub / GitLab
-    if (!downloaded) {
-      let zipUrl = '';
-      if (repoUrl.includes('github.com')) {
-        const cleanRepo = repoUrl.replace(/\.git$/, '').replace(/\/+$/, '');
-        zipUrl = `${cleanRepo}/archive/refs/heads/${branch}.zip`;
-      } else if (repoUrl.includes('gitlab.com')) {
-        const cleanRepo = repoUrl.replace(/\.git$/, '').replace(/\/+$/, '');
-        zipUrl = `${cleanRepo}/-/archive/${branch}/${branch}.zip`;
-      }
-
-      if (zipUrl) {
-        const zipResult = await downloadAndExtractZip(zipUrl, tempDir);
-        downloaded = zipResult.success;
-      }
-    }
-
-    if (!downloaded) {
-      throw new Error(
-        `No se pudo descargar el repositorio desde ${repoUrl}. Verificá la URL, la rama y tu conexión a internet.`,
-      );
-    }
-
-    // Buscar todos los archivos SVG dentro del repositorio descargado
-    const svgFiles = await findSvgFiles(tempDir, subpath);
-    if (svgFiles.length === 0) {
-      throw new Error('No se encontraron archivos SVG en el repositorio descargado.');
-    }
-
-    const installedFiles: string[] = [];
-    const namePrefix = options.prefix ? `${options.prefix}-` : '';
-
-    for (const item of svgFiles) {
-      try {
-        const content = await fs.readFile(item.absolutePath, 'utf8');
-        if (!isValidSvg(content)) continue;
-
-        const baseFileName = sanitizeIconFileName(item.absolutePath);
-        const finalFileName = namePrefix + baseFileName;
-
-        if (PROTECTED_FILES.has(finalFileName)) continue;
-
-        for (const dir of targetDirs) {
-          try {
-            await fs.mkdir(dir, { recursive: true });
-            const destPath = path.join(dir, finalFileName);
-            await fs.writeFile(destPath, content, 'utf8');
-          } catch {
-            // ignore
-          }
-        }
-        installedFiles.push(finalFileName);
-      } catch {
-        // Ignorar archivo corrupto
-      }
-    }
-
-    if (installedFiles.length === 0) {
-      throw new Error('No se pudo procesar ningún ícono SVG válido del paquete.');
-    }
-
-    // Registrar en .installed-packs.json
-    const records = await getInstalledPacks();
-    records[packId] = {
-      id: packId,
-      name: packName,
-      repoUrl,
-      installedAt: new Date().toISOString(),
-      iconsCount: installedFiles.length,
-      license,
-      files: installedFiles,
-    };
-    await saveInstalledPacks(records);
-    invalidateIconsCache();
-
-    return {
-      success: true,
-      packId,
-      name: packName,
-      iconsInstalled: installedFiles.length,
-      message: `Se instalaron correctamente ${installedFiles.length} íconos de ${packName}.`,
-    };
-  } finally {
-    // Limpieza de directorio temporal
+  // Para repositorios con carpetas enormes de imágenes (como dashboard-icons), probamos primero Git sparse clone si está disponible
+  let svgs: ExtractedSvg[] = [];
+  if (repoUrl.includes('walkxcode/dashboard-icons')) {
     try {
-      await fs.rm(tempDir, { recursive: true, force: true });
+      svgs = await extractSvgsFromGit(repoUrl, branch, subpath);
     } catch {
-      // ignore
+      svgs = [];
     }
   }
+
+  // Si no se usó git o falló, probar extracción directa en memoria desde ZIP
+  if (svgs.length === 0) {
+    try {
+      svgs = await extractSvgsFromZip(repoUrl, branch, subpath);
+    } catch {
+      svgs = [];
+    }
+  }
+
+  // Si aún no tenemos íconos, intentar Git CLI como último recurso
+  if (svgs.length === 0) {
+    try {
+      svgs = await extractSvgsFromGit(repoUrl, branch, subpath);
+    } catch {
+      svgs = [];
+    }
+  }
+
+  if (svgs.length === 0) {
+    throw new Error(
+      `No se pudieron obtener archivos SVG desde ${repoUrl}. Verificá la URL, la rama (${branch}), la subcarpeta (${subpath || '/'}) y la conexión a internet.`,
+    );
+  }
+
+  const installedFiles: string[] = [];
+  const namePrefix = options.prefix ? `${options.prefix}-` : '';
+
+  const writeTasks: Array<{ destPath: string; content: string; fileName: string }> = [];
+  for (const item of svgs) {
+    const baseFileName = sanitizeIconFileName(item.name);
+    const finalFileName = namePrefix + baseFileName;
+
+    if (PROTECTED_FILES.has(finalFileName)) continue;
+
+    for (const dir of targetDirs) {
+      writeTasks.push({
+        destPath: path.join(dir, finalFileName),
+        content: item.content,
+        fileName: finalFileName,
+      });
+    }
+    installedFiles.push(finalFileName);
+  }
+
+  if (installedFiles.length === 0) {
+    throw new Error('No se pudo procesar ningún ícono SVG válido del paquete.');
+  }
+
+  // Escribir en lotes concurrentes de 50 archivos para máximo rendimiento
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < writeTasks.length; i += BATCH_SIZE) {
+    const batch = writeTasks.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (task) => {
+        try {
+          await fs.writeFile(task.destPath, task.content, 'utf8');
+        } catch {
+          // ignore individual write error
+        }
+      }),
+    );
+  }
+
+  // Registrar en .installed-packs.json
+  const records = await getInstalledPacks();
+  records[packId] = {
+    id: packId,
+    name: packName,
+    repoUrl,
+    installedAt: new Date().toISOString(),
+    iconsCount: installedFiles.length,
+    license,
+    files: installedFiles,
+  };
+  await saveInstalledPacks(records);
+  invalidateIconsCache();
+
+  return {
+    success: true,
+    packId,
+    name: packName,
+    iconsInstalled: installedFiles.length,
+    message: `Se instalaron correctamente ${installedFiles.length} íconos de ${packName}.`,
+  };
 }
 
 /** Desinstala un paquete de íconos previamente instalado */
@@ -443,21 +485,30 @@ export async function uninstallIconPack(packId: string): Promise<{
     throw new Error('El paquete especificado no se encuentra instalado.');
   }
 
-  let removedCount = 0;
   const targetDirs = getIconsDirs();
+  const unlinkTasks: string[] = [];
   for (const filename of record.files) {
     if (PROTECTED_FILES.has(filename)) continue;
     for (const dir of targetDirs) {
-      try {
-        const filePath = path.join(dir, filename);
-        await fs.unlink(filePath);
-      } catch {
-        // ya no existe
-      }
+      unlinkTasks.push(path.join(dir, filename));
     }
-    removedCount++;
   }
 
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < unlinkTasks.length; i += BATCH_SIZE) {
+    const batch = unlinkTasks.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (filePath) => {
+        try {
+          await fs.unlink(filePath);
+        } catch {
+          // ignore
+        }
+      }),
+    );
+  }
+
+  const removedCount = record.files.length;
   delete records[packId];
   await saveInstalledPacks(records);
   invalidateIconsCache();
