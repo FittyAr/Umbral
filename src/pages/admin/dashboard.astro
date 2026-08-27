@@ -1385,7 +1385,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                   <span style="color:var(--text-faint)">No instalado</span>
                 </template>
               </div>
-              <div style="display:flex;gap:0.4rem">
+              <div style="display:flex;gap:0.4rem;align-items:center">
                 <template x-if="pack.installed">
                   <button
                     type="button"
@@ -1393,8 +1393,13 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                     style="color:#ef4444"
                     @click="uninstallPack(pack.id)"
                     :disabled="iconPacksInstalling[pack.id]"
+                    :style="iconPacksInstalling[pack.id] ? 'cursor:wait' : ''"
                   >
-                    Desinstalar
+                    <span x-show="!iconPacksInstalling[pack.id]">Desinstalar</span>
+                    <span x-show="iconPacksInstalling[pack.id]" style="display:inline-flex;align-items:center;gap:0.3rem" x-cloak>
+                      <svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                      Borrando…
+                    </span>
                   </button>
                 </template>
                 <button
@@ -1403,9 +1408,13 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                   :class="pack.installed ? 'btn-ghost' : 'btn-primary'"
                   @click="installPack(pack.id)"
                   :disabled="iconPacksInstalling[pack.id]"
+                  :style="iconPacksInstalling[pack.id] ? 'cursor:wait' : ''"
                 >
                   <span x-show="!iconPacksInstalling[pack.id]" x-text="pack.installed ? 'Reinstalar' : 'Instalar paquete'"></span>
-                  <span x-show="iconPacksInstalling[pack.id]" x-cloak>Descargando…</span>
+                  <span x-show="iconPacksInstalling[pack.id]" style="display:inline-flex;align-items:center;gap:0.3rem" x-cloak>
+                    <svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                    Instalando…
+                  </span>
                 </button>
               </div>
             </div>
@@ -3678,7 +3687,6 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         },
 
         async uninstallPack(packId) {
-          if (!confirm('¿Desinstalar los íconos de este paquete?')) return;
           this.iconPacksInstalling = { ...this.iconPacksInstalling, [packId]: true };
           try {
             const res = await window.umbralAdmin.api('POST', '/api/icon-packs/uninstall', { packId });
