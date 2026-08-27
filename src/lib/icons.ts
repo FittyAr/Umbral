@@ -1,25 +1,44 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-const PUBLIC_ICONS_DIR = path.join(process.cwd(), 'public', 'icons');
+export function getIconsDirs(): string[] {
+  const dirs: string[] = [];
+  const publicIcons = path.join(process.cwd(), 'public', 'icons');
+  const distClientIcons = path.join(process.cwd(), 'dist', 'client', 'icons');
+  dirs.push(publicIcons);
+  if (distClientIcons !== publicIcons) {
+    dirs.push(distClientIcons);
+  }
+  return dirs;
+}
+
 let cache: { icons: Set<string>; loadedAt: number } | null = null;
 const TTL = 60_000;
 
-/** Returns the set of predefined icon names available in /public/icons. */
+export function invalidateIconsCache(): void {
+  cache = null;
+}
+
+/** Returns the set of predefined icon names available in /public/icons and /dist/client/icons. */
 export async function getBuiltinIconNames(): Promise<string[]> {
   if (!cache || Date.now() - cache.loadedAt > TTL) {
-    try {
-      const entries = await fs.readdir(PUBLIC_ICONS_DIR);
-      const names = entries
-        .filter((e) => e.endsWith('.svg'))
-        .map((e) => e.replace(/\.svg$/, ''))
-        .sort();
-      cache = { icons: new Set(names), loadedAt: Date.now() };
-      return names;
-    } catch {
-      cache = { icons: new Set(), loadedAt: Date.now() };
-      return [];
+    const allNames = new Set<string>();
+    const dirs = getIconsDirs();
+    for (const dir of dirs) {
+      try {
+        const entries = await fs.readdir(dir);
+        for (const e of entries) {
+          if (e.endsWith('.svg')) {
+            allNames.add(e.replace(/\.svg$/, ''));
+          }
+        }
+      } catch {
+        // Ignorar directorios no existentes
+      }
     }
+    const names = Array.from(allNames).sort();
+    cache = { icons: allNames, loadedAt: Date.now() };
+    return names;
   }
   return Array.from(cache.icons);
 }

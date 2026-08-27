@@ -2,10 +2,12 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { getIconsDirs, invalidateIconsCache } from './icons';
 
 const execFileAsync = promisify(execFile);
-const PUBLIC_ICONS_DIR = path.join(process.cwd(), 'public', 'icons');
-const INSTALLED_PACKS_FILE = path.join(PUBLIC_ICONS_DIR, '.installed-packs.json');
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const PRIMARY_INSTALLED_PACKS_FILE = path.join(DATA_DIR, '.installed-packs.json');
+const LEGACY_INSTALLED_PACKS_FILE = path.join(process.cwd(), 'public', 'icons', '.installed-packs.json');
 
 const PROTECTED_FILES = new Set([
   'favicon.svg',
@@ -133,20 +135,32 @@ export const PREDEFINED_ICON_PACKS: ReadonlyArray<IconPackDefinition> = [
   },
 ];
 
-/** Lee el registro de packs instalados */
+/** Lee el registro de packs instalados (persistencia en DATA_DIR con fallback) */
 export async function getInstalledPacks(): Promise<Record<string, InstalledPackRecord>> {
   try {
-    const raw = await fs.readFile(INSTALLED_PACKS_FILE, 'utf8');
+    const raw = await fs.readFile(PRIMARY_INSTALLED_PACKS_FILE, 'utf8');
     return JSON.parse(raw);
   } catch {
-    return {};
+    try {
+      const raw = await fs.readFile(LEGACY_INSTALLED_PACKS_FILE, 'utf8');
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
   }
 }
 
 /** Guarda el registro de packs instalados */
 async function saveInstalledPacks(records: Record<string, InstalledPackRecord>): Promise<void> {
-  await fs.mkdir(PUBLIC_ICONS_DIR, { recursive: true });
-  await fs.writeFile(INSTALLED_PACKS_FILE, JSON.stringify(records, null, 2), 'utf8');
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(PRIMARY_INSTALLED_PACKS_FILE, JSON.stringify(records, null, 2), 'utf8');
+  try {
+    const publicIcons = path.join(process.cwd(), 'public', 'icons');
+    await fs.mkdir(publicIcons, { recursive: true });
+    await fs.writeFile(LEGACY_INSTALLED_PACKS_FILE, JSON.stringify(records, null, 2), 'utf8');
+  } catch {
+    // ignore
+  }
 }
 
 /** Obtiene el listado completo de packs con su estado de instalación */
@@ -165,14 +179,23 @@ export async function listIconPacksWithStatus(): Promise<{
     };
   });
 
-  // Contar cuántos SVGs totales hay en public/icons
+  // Contar cuántos SVGs totales hay en los directorios disponibles
   let totalInstalledIcons = 0;
-  try {
-    const files = await fs.readdir(PUBLIC_ICONS_DIR);
-    totalInstalledIcons = files.filter((f) => f.endsWith('.svg')).length;
-  } catch {
-    totalInstalledIcons = 0;
+  const seenFiles = new Set<string>();
+  const dirs = getIconsDirs();
+  for (const dir of dirs) {
+    try {
+      const files = await fs.readdir(dir);
+      for (const f of files) {
+        if (f.endsWith('.svg') && !PROTECTED_FILES.has(f)) {
+          seenFiles.add(f);
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
+  totalInstalledIcons = seenFiles.size;
 
   return { packs, totalInstalledIcons };
 }
@@ -286,7 +309,10 @@ export async function installIconPack(options: {
   iconsInstalled: number;
   message: string;
 }> {
-  await fs.mkdir(PUBLIC_ICONS_DIR, { recursive: true });
+  const targetDirs = getIconsDirs();
+  for (const dir of targetDirs) {
+    await fs.mkdir(dir, { recursive: true });
+  }
 
   let packDef: IconPackDefinition | undefined;
   if (options.packId) {
@@ -304,7 +330,7 @@ export async function installIconPack(options: {
   const subpath = packDef ? packDef.subpath : options.subpath;
   const license = packDef ? packDef.license : 'Ver repositorio';
 
-  const tempDir = path.join(PUBLIC_ICONS_DIR, `.temp-pack-${Date.now()}`);
+  const tempDir = path.join(targetDirs[0], `.temp-pack-${Date.now()}`);
 
   try {
     await fs.mkdir(tempDir, { recursive: true });
@@ -354,8 +380,15 @@ export async function installIconPack(options: {
 
         if (PROTECTED_FILES.has(finalFileName)) continue;
 
-        const destPath = path.join(PUBLIC_ICONS_DIR, finalFileName);
-        await fs.writeFile(destPath, content, 'utf8');
+        for (const dir of targetDirs) {
+          try {
+            await fs.mkdir(dir, { recursive: true });
+            const destPath = path.join(dir, finalFileName);
+            await fs.writeFile(destPath, content, 'utf8');
+          } catch {
+            // ignore
+          }
+        }
         installedFiles.push(finalFileName);
       } catch {
         // Ignorar archivo corrupto
@@ -378,6 +411,7 @@ export async function installIconPack(options: {
       files: installedFiles,
     };
     await saveInstalledPacks(records);
+    invalidateIconsCache();
 
     return {
       success: true,
@@ -410,19 +444,23 @@ export async function uninstallIconPack(packId: string): Promise<{
   }
 
   let removedCount = 0;
+  const targetDirs = getIconsDirs();
   for (const filename of record.files) {
     if (PROTECTED_FILES.has(filename)) continue;
-    try {
-      const filePath = path.join(PUBLIC_ICONS_DIR, filename);
-      await fs.unlink(filePath);
-      removedCount++;
-    } catch {
-      // ya no existe
+    for (const dir of targetDirs) {
+      try {
+        const filePath = path.join(dir, filename);
+        await fs.unlink(filePath);
+      } catch {
+        // ya no existe
+      }
     }
+    removedCount++;
   }
 
   delete records[packId];
   await saveInstalledPacks(records);
+  invalidateIconsCache();
 
   return {
     success: true,

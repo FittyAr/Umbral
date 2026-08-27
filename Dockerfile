@@ -39,8 +39,8 @@ RUN cd /app/node_modules/@img && \
 # ────────────────────────────────────────────────────────────────────────
 FROM node:24-alpine AS runtime
 # sharp ships its own libvips via @img/sharp-libvips-*, so we don't need system vips.
-# tini for proper signal handling; wget for the healthcheck.
-RUN apk add --no-cache tini wget \
+# tini for proper signal handling; wget for healthcheck; git for icon packs cloning.
+RUN apk add --no-cache tini wget git \
     && addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
@@ -54,9 +54,10 @@ COPY --from=builder --chown=app:app /app/package.json ./package.json
 # box without needing a host bind-mount. The folder is read-only at runtime
 # (the app never writes to it), so no volume is needed.
 COPY --from=builder --chown=app:app /app/docs ./docs
+COPY --from=builder --chown=app:app /app/public ./public
 
-# Pre-create writable dirs (these are the only writable points in the container)
-RUN mkdir -p /app/data/uploads && chown -R app:app /app/data
+# Pre-create writable dirs (data volume + dynamic runtime icon directories)
+RUN mkdir -p /app/data/uploads /app/public/icons /app/dist/client/icons && chown -R app:app /app/data /app/public /app/dist/client/icons
 
 USER app
 ENV NODE_ENV=production \
