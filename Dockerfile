@@ -56,8 +56,8 @@ COPY --from=builder --chown=app:app /app/package.json ./package.json
 COPY --from=builder --chown=app:app /app/docs ./docs
 COPY --from=builder --chown=app:app /app/public ./public
 
-# Pre-create writable dirs (data volume + dynamic runtime icon directories)
-RUN mkdir -p /app/data/uploads /app/public/icons /app/dist/client/icons && chown -R app:app /app/data /app/public /app/dist/client/icons
+# Pre-create writable dirs inside data volume
+RUN mkdir -p /app/data/uploads /app/data/icon-packs && chown -R app:app /app/data
 
 USER app
 ENV NODE_ENV=production \

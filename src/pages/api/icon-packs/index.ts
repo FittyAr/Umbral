@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { getConfig, audit } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { listIconPacksWithStatus, installIconPack } from '~/lib/icon-packs';
+import { getBuiltinIconNames } from '~/lib/icons';
 import { json, error } from '~/lib/http';
 
 export const prerender = false;
@@ -14,7 +15,8 @@ export const GET: APIRoute = async () => {
 
   try {
     const data = await listIconPacksWithStatus();
-    return json(data);
+    const availableIcons = await getBuiltinIconNames();
+    return json({ ...data, availableIcons });
   } catch (err: any) {
     return error(err?.message || 'Error al listar paquetes de íconos.', 500);
   }

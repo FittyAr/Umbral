@@ -3650,6 +3650,9 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             const res = await window.umbralAdmin.api('GET', '/api/icon-packs');
             this.iconPacks = res.packs || [];
             this.iconPacksTotal = res.totalInstalledIcons || 0;
+            if (res.availableIcons) {
+              this.builtinIcons = res.availableIcons;
+            }
           } catch (e) {
             this.iconPackMsg = { text: 'Error al cargar paquetes: ' + e.message, error: true };
           } finally {
@@ -3722,8 +3725,13 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             if (icon.startsWith(prefix)) return icon;
             return prefix + icon.slice(1);
           }
-          if (icon.includes('.')) return prefix + 'api/assets/' + icon;
-          return prefix + 'icons/' + icon + '.svg';
+          if (icon.includes('/')) {
+            return prefix + 'api/icons/' + icon.replace(/\.svg$/, '') + '.svg';
+          }
+          if (/\.(png|jpg|jpeg|webp|gif|ico)$/i.test(icon)) {
+            return prefix + 'api/assets/' + icon;
+          }
+          return prefix + 'icons/' + icon.replace(/\.svg$/, '') + '.svg';
         },
       }));
     });
