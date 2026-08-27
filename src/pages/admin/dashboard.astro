@@ -1555,9 +1555,12 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
     <!-- Card editor modal -->
     <template x-if="editingCard !== null">
       <div class="modal-backdrop" @click.self="tryCancelEdit()">
-        <div class="modal" @keydown.escape.window="tryCancelEdit()">
+        <div class="modal modal--wide" @keydown.escape.window="tryCancelEdit()">
           <h2 style="margin-top:0">Editar tarjeta</h2>
           <form @submit.prevent="saveCard()" @input="cardFormDirty = true" :key="editingKey">
+            <div class="card-editor-layout">
+              <!-- Columna izquierda: metadatos de la tarjeta -->
+              <div class="card-editor-fields">
             <div class="form-row">
               <div class="form-group">
                 <label>Título <button type="button" class="help-icon" @click="showHelp('card.title')" title="¿Qué hace esto?">?</button></label>
@@ -1625,8 +1628,6 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             <div class="form-group">
               <label>
                 <span>Descripción <button type="button" class="help-icon" @click="showHelp('card.description')" title="¿Qué hace esto?">?</button></span>
-                <!-- Toggle Markdown (opt-in: features.markdown). Si la feature
-                     está apagada, NO se muestra — el form asume plain. -->
                 <label x-show="markdownEnabled" style="display:inline-flex;align-items:center;gap:0.3rem;margin-left:0.5rem;font-size:0.78rem;color:var(--text-subtle);cursor:pointer" x-cloak>
                   <input type="checkbox" x-model="editingCard.descriptionFormat" @change="updateDescriptionLimit()" true-value="markdown" false-value="plain" />
                   <span x-text="markdownLabel()">Markdown</span>
@@ -1649,10 +1650,6 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                   <button type="button" class="btn btn-ghost" @click="refreshMarkdownPreview()" style="padding:0.15rem 0.4rem;font-size:0.72rem" x-text="refreshPreviewLabel()">Refresh preview</button>
                 </span>
               </div>
-              <!-- Preview markdown en vivo. Se renderiza client-side con marked
-                   + DOMPurify (mismas libs que el server, para que la preview
-                   matche el resultado final). Si la feature está apagada, no
-                   se muestra. -->
               <div x-show="editingCard.descriptionFormat === 'markdown' && markdownEnabled && markdownPreview" x-cloak class="markdown-preview-wrap" style="margin-top:0.5rem;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);font-size:0.8rem">
                 <div style="font-size:0.7rem;color:var(--text-faint);margin-bottom:0.3rem" x-text="previewLabel()">Preview</div>
                 <div class="card-desc-md" x-html="markdownPreview"></div>
@@ -1661,25 +1658,6 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             <div class="form-row">
               <div class="form-group">
                 <label>Categoría <button type="button" class="help-icon" @click="showHelp('card.category')" title="¿Qué hace esto?">?</button></label>
-                <!-- BUGFIX (categoría no se cargaba al editar reportado por
-                     el user): Alpine 3 procesa directivas en orden de aparición
-                     en el DOM. Cuando el form se monta, el <select x-model=
-                     "editingCard.category"> se inicializa ANTES de que el
-                     <template x-for="c in cfg.categories"> haya renderizado
-                     los <option>. En ese momento editingCard.category tiene
-                     un valor (ej: "com") pero no hay ningún <option value=
-                     "com"> en el DOM todavía, así que el select cae al
-                     fallback "— seleccionar —" y se queda ahí aunque las
-                     options se rendericen un instante después. El x-model
-                     NO re-evalúa cuando se agregan options nuevas — sólo
-                     cuando cambia el valor bindeado.
-                     
-                     El fix canónico de Alpine 3 para este caso es x-init +
-                     $nextTick: setear el value explícitamente después de que
-                     el próximo tick renderizó las options. Por qué $nextTick
-                     y no setTimeout: $nextTick se ejecuta justo después del
-                     próximo batch de render, así que las options ya están en
-                     el DOM y el .value = 'com' encuentra su match. -->
                 <select
                   x-model="editingCard.category"
                   x-init="$nextTick(() => $el.value = editingCard.category || '')"
@@ -1697,8 +1675,6 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
               </div>
             </div>
 
-            <!-- Tags (opt-in: features.tags) — chips input con autocomplete.
-                 Si la feature está apagada, no se muestra el campo. -->
             <div class="form-group" x-show="tagsEnabled" x-cloak>
               <label>
                 <span x-text="tagsLabel()">Tags</span>
@@ -1726,8 +1702,6 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                   :disabled="(editingCard.tags || []).length >= 10"
                 />
               </div>
-              <!-- Autocomplete: muestra hasta 8 sugerencias de tags que ya
-                   existen en otras cards. Click selecciona. -->
               <div x-show="tagSuggestions().length > 0 && tagInput.length > 0" x-cloak class="tag-suggestions">
                 <template x-for="s in tagSuggestions()" :key="s">
                   <button type="button" class="tag-suggestion" @click="addTag(s)">
@@ -1740,77 +1714,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                 Tags kebab-case (frontend, urgent, legacy…). Enter, coma o espacio para agregar. Backspace borra el último.
               </small>
             </div>
-            <div class="form-group">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.35rem">
-                <label style="margin:0">Ícono <button type="button" class="help-icon" @click="showHelp('card.icon')" title="¿Qué hace esto?">?</button></label>
-                <div style="display:flex;gap:0.4rem;align-items:center">
-                  <input
-                    type="text"
-                    x-model="iconPickerSearch"
-                    placeholder="Filtrar íconos…"
-                    style="font-size:0.75rem;padding:0.15rem 0.4rem;width:130px;border-radius:4px"
-                  />
-                  <button
-                    type="button"
-                    class="btn btn-ghost"
-                    style="font-size:0.72rem;padding:0.15rem 0.4rem;color:var(--accent)"
-                    @click="tab = 'iconpacks'; loadIconPacks()"
-                    x-show="isFeatureOn('iconPacks')"
-                    x-cloak
-                  >
-                    📦 Packs Git
-                  </button>
-                </div>
-              </div>
-              <!-- Picker visual: cada fila es un ícono + nombre, click selecciona.
-                   El user pidió "listbox que muestre los íconos junto al nombre de
-                   cada uno" — esto es exactamente eso. El input de texto de abajo
-                   queda sólo para custom paths (assets subidos, lucide icons que
-                   no estén en el set, etc.). -->
-              <div class="icon-picker">
-                <button
-                  type="button"
-                  class="icon-picker-item"
-                  :class="!editingCard.icon && 'selected'"
-                  @click="editingCard.icon=''; markDirty()"
-                >
-                  <span class="icon-picker-img" aria-hidden="true">🚫</span>
-                  <span class="icon-picker-name">Sin ícono</span>
-                </button>
-                <template x-for="i in filteredBuiltinIcons()" :key="i">
-                  <button
-                    type="button"
-                    class="icon-picker-item"
-                    :class="editingCard.icon===i && 'selected'"
-                    @click="editingCard.icon=i; markDirty()"
-                    :title="i"
-                  >
-                    <span class="icon-picker-img">
-                      <img :src="resolveIcon(i)" :alt="i" />
-                    </span>
-                    <span class="icon-picker-name" x-text="i"></span>
-                  </button>
-                </template>
-              </div>
-              <!-- Custom path: input secundario, sólo para assets subidos o
-                   nombres que no estén en el picker. -->
-              <details style="margin-top:0.5rem">
-                <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.78rem">¿Usar un asset subido o un nombre custom?</summary>
-                <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.4rem">
-                  <input
-                    type="text"
-                    x-model="editingCard.icon"
-                    placeholder="/api/assets/mi-logo.png o nombre-lucide"
-                    style="flex:1"
-                  />
-                  <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
-                </div>
-                <small style="color:#94a3b8">
-                  Pegá la URL de un asset que subiste (tipo <code>/api/assets/mi-logo.png</code>),
-                  o un nombre de ícono Lucide no listado (ej: <code>rocket</code>, <code>database</code>).
-                </small>
-              </details>
-            </div>
+
             <div class="form-row">
               <div class="form-group" x-show="editingCard.kind==='link'">
                 <label>
@@ -1824,7 +1728,6 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                   <button type="button" class="help-icon" @click="showHelp('card.enabled')" title="¿Qué hace esto?">?</button>
                 </label>
               </div>
-              <!-- Pinned (opt-in: features.pinned). Aparece arriba en su categoría. -->
               <div class="form-group" x-show="pinnedEnabled" x-cloak>
                 <label>
                   <input type="checkbox" x-model="editingCard.pinned" /> <span x-text="pinnedLabel()">Fijada</span>
@@ -1838,7 +1741,130 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
                 </label>
               </div>
             </div>
-            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+              </div>
+
+              <!-- Columna derecha: selector de íconos -->
+              <div class="icon-picker-panel">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+                  <label style="margin:0;font-weight:600">Ícono <button type="button" class="help-icon" @click="showHelp('card.icon')" title="¿Qué hace esto?">?</button></label>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    style="font-size:0.72rem;padding:0.15rem 0.4rem;color:var(--accent)"
+                    @click="tab = 'iconpacks'; loadIconPacks()"
+                    x-show="isFeatureOn('iconPacks')"
+                    x-cloak
+                  >
+                    Gestionar packs
+                  </button>
+                </div>
+
+                <div class="icon-picker-preview">
+                  <span class="icon-picker-preview-img" aria-hidden="true">
+                    <template x-if="editingCard.icon">
+                      <img :src="resolveIcon(editingCard.icon)" :alt="editingCard.icon" />
+                    </template>
+                    <template x-if="!editingCard.icon">
+                      <span style="font-size:1.5rem">🚫</span>
+                    </template>
+                  </span>
+                  <span class="icon-picker-preview-name" x-text="editingCard.icon || 'Sin ícono'"></span>
+                </div>
+
+                <div class="icon-picker-toolbar">
+                  <div class="icon-picker-toolbar-row">
+                    <div class="icon-picker-tabs">
+                      <button type="button" class="icon-picker-tab" :class="iconPickerTab === 'icons' && 'active'" @click="iconPickerTab = 'icons'">Íconos</button>
+                      <button type="button" class="icon-picker-tab" :class="iconPickerTab === 'assets' && 'active'" @click="iconPickerTab = 'assets'">Assets</button>
+                    </div>
+                    <input
+                      type="text"
+                      class="icon-picker-search"
+                      x-model="iconPickerSearch"
+                      @input="iconPickerLimit = 120"
+                      placeholder="Buscar por nombre…"
+                      x-show="iconPickerTab === 'icons'"
+                      x-cloak
+                    />
+                  </div>
+                  <div class="icon-picker-toolbar-row" x-show="iconPickerTab === 'icons'" x-cloak>
+                    <select class="icon-picker-pack-select" x-model="iconPickerPack" @change="iconPickerLimit = 120">
+                      <option value="all">Todos los packs</option>
+                      <option value="core">Core</option>
+                      <template x-for="pack in iconPickerPackOptions()" :key="pack">
+                        <option :value="pack" x-text="pack"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div class="icon-picker-meta" x-show="iconPickerTab === 'icons'" x-cloak>
+                    <span x-text="'Mostrando ' + visibleIconPickerIcons().length + ' de ' + filteredIconPickerIcons().length"></span>
+                    <span class="icon-picker-badge" x-show="iconPickerPack !== 'all'" x-text="iconPickerPack"></span>
+                  </div>
+                </div>
+
+                <div class="icon-picker-grid" x-show="iconPickerTab === 'icons'" x-cloak>
+                  <button
+                    type="button"
+                    class="icon-picker-tile"
+                    :class="!editingCard.icon && 'selected'"
+                    @click="editingCard.icon=''; markDirty()"
+                    title="Sin ícono"
+                  >
+                    <span class="icon-picker-tile-none" aria-hidden="true">🚫</span>
+                  </button>
+                  <template x-for="i in visibleIconPickerIcons()" :key="i">
+                    <button
+                      type="button"
+                      class="icon-picker-tile"
+                      :class="editingCard.icon===i && 'selected'"
+                      @click="editingCard.icon=i; markDirty()"
+                      :title="i"
+                    >
+                      <img :src="resolveIcon(i)" :alt="i" loading="lazy" />
+                    </button>
+                  </template>
+                </div>
+
+                <div class="icon-picker-load-more" x-show="iconPickerTab === 'icons' && iconPickerHasMore()" x-cloak>
+                  <button type="button" class="btn btn-sm btn-ghost" @click="loadMoreIcons()">Cargar más (120)</button>
+                </div>
+
+                <div class="icon-picker-grid" x-show="iconPickerTab === 'assets'" x-cloak>
+                  <template x-if="iconPickerAssets().length === 0">
+                    <p style="grid-column:1/-1;font-size:0.78rem;color:var(--text-faint);margin:0.5rem 0">No hay assets subidos. Subilos en la pestaña Assets.</p>
+                  </template>
+                  <template x-for="a in iconPickerAssets()" :key="a.name">
+                    <button
+                      type="button"
+                      class="icon-picker-tile"
+                      :class="editingCard.icon === a.url && 'selected'"
+                      @click="editingCard.icon = a.url; markDirty()"
+                      :title="a.name"
+                    >
+                      <img :src="a.url" :alt="a.name" loading="lazy" />
+                    </button>
+                  </template>
+                </div>
+
+                <details class="icon-picker-custom">
+                  <summary>¿Usar un asset subido o un nombre custom?</summary>
+                  <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.4rem">
+                    <input
+                      type="text"
+                      x-model="editingCard.icon"
+                      placeholder="/api/assets/mi-logo.png o simple-icons/docker"
+                      style="flex:1"
+                    />
+                    <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
+                  </div>
+                  <small style="color:#94a3b8">
+                    Pegá la URL de un asset (<code>/api/assets/mi-logo.png</code>) o un id de ícono (<code>simple-icons/docker</code>).
+                  </small>
+                </details>
+              </div>
+            </div>
+
+            <div class="card-editor-footer">
               <button type="button" class="btn btn-ghost" @click="tryCancelEdit()">Cancelar</button>
               <button type="submit" class="btn btn-primary">Guardar</button>
             </div>
@@ -2082,10 +2108,76 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         selectedAsset: null,
         builtinIcons: window.__builtinIcons || [],
         iconPickerSearch: '',
-        filteredBuiltinIcons() {
-          if (!this.iconPickerSearch) return this.builtinIcons;
+        iconPickerPack: 'all',
+        iconPickerLimit: 120,
+        iconPickerTab: 'icons',
+
+        resetIconPicker() {
+          this.iconPickerSearch = '';
+          this.iconPickerPack = 'all';
+          this.iconPickerLimit = 120;
+          this.iconPickerTab = 'icons';
+        },
+
+        async refreshIconCatalog() {
+          if (!this.isFeatureOn('iconPacks')) return;
+          try {
+            const res = await window.umbralAdmin.api('GET', '/api/icon-packs');
+            if (res.availableIcons) {
+              this.builtinIcons = res.availableIcons;
+            }
+          } catch {
+            // usar catálogo en caché
+          }
+        },
+
+        async prepareCardEditor() {
+          this.resetIconPicker();
+          await Promise.all([
+            this.refreshIconCatalog(),
+            this.assets.length === 0 ? this.refreshAssets() : Promise.resolve(),
+          ]);
+        },
+
+        iconPickerPacks() {
+          const packs = new Set(['core']);
+          for (const i of this.builtinIcons) {
+            const slash = i.indexOf('/');
+            if (slash > 0) packs.add(i.slice(0, slash));
+          }
+          return [...packs].sort();
+        },
+
+        iconPickerPackOptions() {
+          return this.iconPickerPacks().filter((p) => p !== 'core');
+        },
+
+        filteredIconPickerIcons() {
+          let list = this.builtinIcons;
+          if (this.iconPickerPack !== 'all') {
+            list = list.filter((i) =>
+              this.iconPickerPack === 'core' ? !i.includes('/') : i.startsWith(this.iconPickerPack + '/'),
+            );
+          }
           const q = this.iconPickerSearch.toLowerCase().trim();
-          return this.builtinIcons.filter(i => i.toLowerCase().includes(q));
+          if (q) list = list.filter((i) => i.toLowerCase().includes(q));
+          return list;
+        },
+
+        visibleIconPickerIcons() {
+          return this.filteredIconPickerIcons().slice(0, this.iconPickerLimit);
+        },
+
+        iconPickerHasMore() {
+          return this.visibleIconPickerIcons().length < this.filteredIconPickerIcons().length;
+        },
+
+        loadMoreIcons() {
+          this.iconPickerLimit += 120;
+        },
+
+        iconPickerAssets() {
+          return this.assets.filter((a) => /\.(svg|png|jpg|jpeg|webp|gif|ico)$/i.test(a.name));
         },
         featureList: window.__featureList || [],
         i18n: window.__i18n || null,
@@ -2188,6 +2280,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           this.editingIndex = -1;
           this.editingKey++;
           this.cardFormDirty = true;
+          this.prepareCardEditor();
         },
         // OIDC (opt-in: features.oidc)
         oidcEnabled: window.__featureList?.find?.((f) => f.name === 'oidc')?.enabled === true,
@@ -2779,8 +2872,6 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             return;
           }
           this.editingIndex = -1;
-          // Bumpear editingKey para que el form se re-mountee con el default
-          // "Nueva tarjeta" en lugar de mostrar datos de la edición anterior.
           this.editingKey = (this.editingKey || 0) + 1;
           this.editingCard = {
             id: 'card-' + Date.now().toString(36),
@@ -2796,11 +2887,9 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             order: this.cfg.cards.length,
             enabled: true,
             healthCheck: false,
-            // Tags solo si la feature está activa. Si no, el server las
-            // dropea al guardar (defense in depth). Inicializar como []
-            // evita undefined en bindings.
             tags: this.tagsEnabled ? [] : undefined,
           };
+          this.prepareCardEditor();
         },
         async editCard(idx) {
           const cardId = this.filteredCards()[idx]?.id;
@@ -2840,8 +2929,9 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
             // Incrementar el key fuerza re-mount del form, eliminando
             // cualquier binding stale de la edición anterior.
             this.editingKey = (this.editingKey || 0) + 1;
+            await this.prepareCardEditor();
             this.$nextTick(() => {
-              const modal = document.querySelector('.modal');
+              const modal = document.querySelector('.modal--wide');
               if (modal) modal.scrollTop = 0;
             });
           } catch (err) {
