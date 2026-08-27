@@ -16,6 +16,8 @@ data/*
 !data/.gitkeep
 !data/uploads/
 data/uploads/*
+public/icons/packs/
+public/icons/.installed-packs.json
 
 # env files
 .env
