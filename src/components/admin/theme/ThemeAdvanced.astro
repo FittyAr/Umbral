@@ -14,17 +14,23 @@ const categories = TOKEN_CATEGORIES;
 ---
 
 <h3 x-text="themeSectionAdvanced()">{t('admin.theme.section.advanced', 'Avanzado')}</h3>
-<p class="theme-section-desc" x-text="themeAdvancedIntro()">{t('admin.theme.advanced.intro', 'Override de design tokens por modo claro/oscuro. Los campos vacíos usan los defaults del sistema.')}</p>
+<p class="theme-section-desc" style="display:flex;align-items:center;gap:0.35rem">
+  <span x-text="themeAdvancedIntro()">{t('admin.theme.advanced.intro', 'Override de design tokens por modo claro/oscuro. Los campos vacíos usan los defaults del sistema.')}</span>
+  <button type="button" class="help-icon" @click="showHelp('theme.advanced.intro')" :title="helpTooltipLabel()">?</button>
+</p>
 
 <div class="theme-advanced-tabs">
   <button type="button" :class="themeAdvancedMode==='dark' && 'active'" @click="themeAdvancedMode='dark'">Dark</button>
   <button type="button" :class="themeAdvancedMode==='light' && 'active'" @click="themeAdvancedMode='light'">Light</button>
 </div>
 
-<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
-  <button type="button" class="btn btn-sm btn-ghost" @click="deriveThemeTokensFromAccent()" x-text="themeDeriveAccentLabel()">
-    {t('admin.theme.advanced.deriveAccent', 'Derivar del acento')}
-  </button>
+<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center">
+  <span style="display:inline-flex;align-items:center;gap:0.35rem">
+    <button type="button" class="btn btn-sm btn-ghost" @click="deriveThemeTokensFromAccent()" x-text="themeDeriveAccentLabel()">
+      {t('admin.theme.advanced.deriveAccent', 'Derivar del acento')}
+    </button>
+    <button type="button" class="help-icon" @click="showHelp('theme.advanced.derive')" :title="helpTooltipLabel()">?</button>
+  </span>
   <button type="button" class="btn btn-sm btn-ghost" @click="resetThemeTokenCategory('surfaces')" x-text="themeResetSurfacesLabel()">
     {t('admin.theme.advanced.resetSurfaces', 'Reset superficies')}
   </button>
@@ -33,7 +39,10 @@ const categories = TOKEN_CATEGORIES;
   </button>
 </div>
 
-<input type="search" class="theme-token-search" x-model="themeTokenSearch" :placeholder="themeTokenSearchPlaceholder()" />
+<div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem">
+  <input type="search" class="theme-token-search" x-model="themeTokenSearch" :placeholder="themeTokenSearchPlaceholder()" style="flex:1" />
+  <button type="button" class="help-icon" @click="showHelp('theme.advanced.tokens')" :title="helpTooltipLabel()">?</button>
+</div>
 
 <div class="form-row" style="margin-bottom:0.75rem">
   <div class="form-group">
@@ -41,7 +50,10 @@ const categories = TOKEN_CATEGORIES;
     <input type="range" min="0" max="24" :value="cfg.theme.tokens?.shared?.radius ?? 10" @input="setSharedToken('radius', +$event.target.value)" />
   </div>
   <div class="form-group">
-    <label x-text="themeShadowIntensityLabel()">{t('admin.theme.advanced.shadowIntensity', 'Intensidad sombras')}</label>
+    <label>
+      <span x-text="themeShadowIntensityLabel()">{t('admin.theme.advanced.shadowIntensity', 'Intensidad sombras')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.advanced.shadowIntensity')" :title="helpTooltipLabel()">?</button>
+    </label>
     <select :value="cfg.theme.tokens?.shared?.shadowIntensity ?? 'normal'" @change="setSharedToken('shadowIntensity', $event.target.value)">
       <option value="none">{t('admin.theme.advanced.shadowNone', 'Ninguna')}</option>
       <option value="subtle">{t('admin.theme.advanced.shadowSubtle', 'Sutil')}</option>
@@ -55,19 +67,20 @@ const categories = TOKEN_CATEGORIES;
   <template x-for="key in themeFilteredTokenKeys()" :key="key">
     <div class="theme-token-row">
       <label x-text="'--' + key.replace(/([A-Z])/g, '-$1').toLowerCase()"></label>
-      <input type="color" :value="tokenColorInput(key)" @input="setModeToken(key, $event.target.value)" />
+      <input type="color" class="color-swatch" :value="tokenColorInput(key)" @input="setModeToken(key, $event.target.value)" />
       <input type="text" :value="getModeToken(key)" @input="setModeToken(key, $event.target.value)" placeholder="(default)" />
     </div>
   </template>
 </div>
 
-<div class="theme-import-export">
+<div class="theme-import-export" style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap">
   <button type="button" class="btn btn-sm btn-ghost" @click="exportThemeJson()" x-text="themeExportLabel()">
     {t('admin.theme.advanced.export', 'Exportar tema (JSON)')}
   </button>
   <button type="button" class="btn btn-sm btn-ghost" @click="importThemeJson()" x-text="themeImportLabel()">
     {t('admin.theme.advanced.import', 'Importar tema (JSON)')}
   </button>
+  <button type="button" class="help-icon" @click="showHelp('theme.advanced.exportImport')" :title="helpTooltipLabel()">?</button>
 </div>
 
 <script define:vars={{ tokenKeys, categories }}>

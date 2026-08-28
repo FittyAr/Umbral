@@ -16,21 +16,21 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <label>
       <input type="checkbox" x-model="cfg.theme.showClock" />
       <span x-text="themeShowClockLabel()">{t('admin.theme.widgets.clock', 'Mostrar reloj')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.showClock')" title="?">?</button>
+      <button type="button" class="help-icon" @click="showHelp('theme.showClock')" :title="helpTooltipLabel()">?</button>
     </label>
   </div>
   <div class="form-group">
     <label>
       <input type="checkbox" x-model="cfg.theme.showRefresh" />
       <span x-text="themeShowRefreshLabel()">{t('admin.theme.widgets.refresh', 'Mostrar botón refresh')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.showRefresh')" title="?">?</button>
+      <button type="button" class="help-icon" @click="showHelp('theme.showRefresh')" :title="helpTooltipLabel()">?</button>
     </label>
   </div>
   <div class="form-group">
     <label>
       <input type="checkbox" x-model="cfg.theme.showStatusBar" />
       <span x-text="themeShowStatusBarLabel()">{t('admin.theme.widgets.statusBar', 'Mostrar status bar')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.showStatusBar')" title="?">?</button>
+      <button type="button" class="help-icon" @click="showHelp('theme.showStatusBar')" :title="helpTooltipLabel()">?</button>
     </label>
   </div>
 </div>
@@ -40,20 +40,27 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <label>
       <input type="checkbox" x-model="cfg.theme.showModeToggle" />
       <span x-text="themeShowModeToggleLabel()">{t('admin.theme.widgets.modeToggle', 'Mostrar toggle claro/oscuro')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.showModeToggle')" :title="helpTooltipLabel()">?</button>
     </label>
   </div>
 </div>
 
 <div class="form-row" x-show="cfg.theme.showClock">
   <div class="form-group">
-    <label x-text="themeClockPositionLabel()">{t('admin.theme.widgets.clockPosition', 'Posición del reloj')}</label>
+    <label>
+      <span x-text="themeClockPositionLabel()">{t('admin.theme.widgets.clockPosition', 'Posición del reloj')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.clockPosition')" :title="helpTooltipLabel()">?</button>
+    </label>
     <select x-model="cfg.theme.clockPosition">
       <option value="header-left">{t('admin.theme.widgets.clockLeft', 'Header izquierda')}</option>
       <option value="header-right">{t('admin.theme.widgets.clockRight', 'Header derecha')}</option>
     </select>
   </div>
   <div class="form-group">
-    <label x-text="themeClockFormatLabel()">{t('admin.theme.widgets.clockFormat', 'Formato del reloj')}</label>
+    <label>
+      <span x-text="themeClockFormatLabel()">{t('admin.theme.widgets.clockFormat', 'Formato del reloj')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.clockFormat')" :title="helpTooltipLabel()">?</button>
+    </label>
     <select x-model="cfg.theme.clockFormat">
       <option value="24h">24h</option>
       <option value="12h">12h</option>
@@ -63,11 +70,19 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 
 <div class="form-row">
   <div class="form-group">
-    <label x-text="themeHeaderOpacityLabel()">{t('admin.theme.widgets.headerOpacity', 'Opacidad header')} (<span x-text="cfg.theme.headerOpacity"></span>)</label>
+    <label>
+      <span x-text="themeHeaderOpacityLabel()">{t('admin.theme.widgets.headerOpacity', 'Opacidad header')}</span>
+      (<span x-text="cfg.theme.headerOpacity"></span>)
+      <button type="button" class="help-icon" @click="showHelp('theme.headerOpacity')" :title="helpTooltipLabel()">?</button>
+    </label>
     <input type="range" min="0" max="1" step="0.05" x-model.number="cfg.theme.headerOpacity" />
   </div>
   <div class="form-group">
-    <label x-text="themeFooterOpacityLabel()">{t('admin.theme.widgets.footerOpacity', 'Opacidad footer')} (<span x-text="cfg.theme.footerOpacity"></span>)</label>
+    <label>
+      <span x-text="themeFooterOpacityLabel()">{t('admin.theme.widgets.footerOpacity', 'Opacidad footer')}</span>
+      (<span x-text="cfg.theme.footerOpacity"></span>)
+      <button type="button" class="help-icon" @click="showHelp('theme.footerOpacity')" :title="helpTooltipLabel()">?</button>
+    </label>
     <input type="range" min="0" max="1" step="0.05" x-model.number="cfg.theme.footerOpacity" />
   </div>
 </div>

@@ -86,6 +86,11 @@ export const es = {
   'admin.dashboard.savedClamped': 'Configuración guardada ({n, plural, one {# descripción truncada} other {# descripciones truncadas}} a 200 chars)',
   'admin.dashboard.reloaded': 'Recargado',
   'admin.dashboard.error': 'Error: {message}',
+  'admin.help.tooltip': '¿Qué hace esto?',
+  'admin.iconPicker.emptyNoPacks': 'No hay íconos instalados. Descargá un pack desde la pestaña Íconos Git (Lucide, Simple Icons, etc.).',
+  'admin.iconPicker.emptyFeatureOff': 'Los íconos provienen de packs instalables. Activá la feature "Icon Packs" en Avanzado → Features para habilitarlos.',
+  'admin.iconPicker.goIconPacks': 'Ir a Íconos Git',
+  'admin.iconPicker.goFeatures': 'Ir a Features',
 
   // ── Admin: tabs ──────────────────────────────────────────────────
   'admin.tab.branding': 'Branding',

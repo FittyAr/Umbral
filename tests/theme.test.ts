@@ -12,6 +12,7 @@ import {
   contrastRatio,
   colorToHexApprox,
   resolveBackground,
+  computeBackgroundStyle,
 } from '../src/lib/theme-tokens.ts';
 import { applyThemePreset, applyThemePresetPartial, getBuiltinPreset, getPresetVariant, BUILTIN_THEME_PRESETS } from '../src/lib/theme-presets.ts';
 import { ThemeSchema } from '../src/lib/schema.ts';
@@ -290,5 +291,40 @@ describe('theme preview draft', () => {
 
   test('THEME_PREVIEW_STORAGE_KEY is stable', () => {
     assert.equal(THEME_PREVIEW_STORAGE_KEY, 'umbral-theme-preview');
+  });
+
+  test('resolveBackground uses backgroundLight atomically in light mode', () => {
+    const theme = ThemeSchema.parse({
+      background: {
+        type: 'image',
+        value: '/api/assets/dark-bg.png',
+        blur: 0,
+        overlay: 0,
+        overlayColor: '#000000',
+      },
+      backgroundLight: {
+        type: 'gradient',
+        value: 'linear-gradient(135deg, #e2e8f0, #93c5fd)',
+        blur: 0,
+        overlay: 0,
+        overlayColor: '#ffffff',
+      },
+    });
+    const light = resolveBackground(theme, 'light');
+    assert.equal(light.type, 'gradient');
+    assert.equal(light.value, 'linear-gradient(135deg, #e2e8f0, #93c5fd)');
+    assert.notEqual(light.type, 'image');
+  });
+
+  test('computeBackgroundStyle does not url() gradient when type is image', () => {
+    const css = computeBackgroundStyle({
+      type: 'image',
+      value: 'linear-gradient(258deg, #000, #fff)',
+      blur: 0,
+      overlay: 0,
+      overlayColor: '#000',
+    });
+    assert.match(css, /^background:linear-gradient/);
+    assert.doesNotMatch(css, /url\(/);
   });
 });

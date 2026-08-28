@@ -3,12 +3,13 @@
  * Mirrors src/lib/theme-tokens.ts for live preview in the admin panel.
  */
 
-import type { Theme } from './schema.ts';
+import type { Theme, Background } from './schema.ts';
 import { ThemeSchema } from './schema.ts';
 import {
   computeThemeVars,
   themeVarsToCss,
   resolveBackground,
+  computeBackgroundStyle,
   type ColorMode,
 } from './theme-tokens.ts';
 
@@ -115,14 +116,13 @@ export function themeFrameInlineStyle(theme: Theme, mode: ColorMode): string {
 }
 
 export function backgroundPreviewStyle(bg: Record<string, unknown>): string {
-  const blur = Number(bg.blur || 0);
-  const blurCss = blur > 0 ? `filter:blur(${blur}px);` : '';
-  const type = String(bg.type || 'gradient');
-  const value = String(bg.value || '#0f172a');
-  if (type === 'image') {
-    return `background-image:url('${value}');background-size:cover;background-position:center;${blurCss}`;
-  }
-  return `background:${value};${blurCss}`;
+  return computeBackgroundStyle({
+    type: (bg.type as Background['type']) || 'gradient',
+    value: String(bg.value || '#0f172a'),
+    blur: Number(bg.blur || 0),
+    overlay: Number(bg.overlay || 0),
+    overlayColor: String(bg.overlayColor || '#000000'),
+  });
 }
 
 export function persistThemePreviewDraft(theme: unknown): void {

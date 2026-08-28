@@ -286,9 +286,26 @@ function resolveIconColor(theme: Theme, mode: ColorMode, vars: Record<string, st
 /** Resolve background for a color mode (dark uses `background`, light uses `backgroundLight` if set). */
 export function resolveBackground(theme: Theme, mode: ColorMode): Background {
   if (mode === 'light' && theme.backgroundLight) {
-    return { ...theme.background, ...theme.backgroundLight };
+    return theme.backgroundLight;
   }
   return theme.background;
+}
+
+function isImageBackgroundValue(value: string): boolean {
+  return (
+    value.startsWith('/')
+    || value.startsWith('http://')
+    || value.startsWith('https://')
+    || value.startsWith('data:')
+  );
+}
+
+export function computeBackgroundStyle(bg: Background): string {
+  const blur = bg.blur > 0 ? `filter:blur(${bg.blur}px);` : '';
+  if (bg.type === 'image' && isImageBackgroundValue(bg.value)) {
+    return `background-image:url('${bg.value}');background-size:cover;background-position:center;${blur}`;
+  }
+  return `background:${bg.value};${blur}`;
 }
 
 /** Compute full CSS variable map for a theme + color mode. */
@@ -360,14 +377,6 @@ export function computeThemeCssBlocks(theme: Theme): { root: string; light: stri
   }
 
   return { root, light, shared: sharedParts.join(';') };
-}
-
-export function computeBackgroundStyle(bg: Background): string {
-  const blur = bg.blur > 0 ? `filter:blur(${bg.blur}px);` : '';
-  if (bg.type === 'image') {
-    return `background-image:url('${bg.value}');background-size:cover;background-position:center;${blur}`;
-  }
-  return `background:${bg.value};${blur}`;
 }
 
 export function resolveColorMode(

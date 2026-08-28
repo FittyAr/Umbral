@@ -10,7 +10,10 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 
 <div class="theme-preview-wrap">
   <div class="theme-preview-toolbar">
-    <label x-text="themePreviewLabel()">{t('admin.theme.preview.title', 'Vista previa')}</label>
+    <label>
+      <span x-text="themePreviewLabel()">{t('admin.theme.preview.title', 'Vista previa')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.preview.mode')" :title="helpTooltipLabel()">?</button>
+    </label>
     <div class="theme-preview-mode-btns">
       <button type="button" :class="themePreviewMode==='dark' && 'active'" @click="themePreviewMode='dark'">Dark</button>
       <button type="button" :class="themePreviewMode==='light' && 'active'" @click="themePreviewMode='light'">Light</button>
@@ -32,9 +35,14 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     ></div>
     <div class="theme-preview-inner">
       <div class="theme-preview-header" :style="`opacity:${cfg.theme.headerOpacity ?? 1}`">
+        <div class="theme-preview-clock" x-show="cfg.theme.showClock && cfg.theme.clockPosition === 'header-left'" x-text="themePreviewClock()"></div>
         <div class="theme-preview-logo" :style="`background:${cfg.theme.accentColor}`"></div>
         <div class="theme-preview-title" x-text="cfg.branding?.companyName || 'Mi Empresa'"></div>
-        <div class="theme-preview-clock" x-show="cfg.theme.showClock" x-text="'12:34:56'"></div>
+        <div class="theme-preview-header-actions">
+          <div class="theme-preview-clock" x-show="cfg.theme.showClock && cfg.theme.clockPosition !== 'header-left'" x-text="themePreviewClock()"></div>
+          <button type="button" class="theme-preview-refresh-btn" x-show="cfg.theme.showRefresh" title="Refresh" aria-hidden="true">↻</button>
+          <button type="button" class="theme-preview-mode-btn" x-show="cfg.theme.showModeToggle" aria-hidden="true">☀/☾</button>
+        </div>
       </div>
       <div class="theme-preview-cards">
         <template x-for="(card, i) in themePreviewCards()" :key="i">
@@ -65,5 +73,6 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <button type="button" class="btn btn-sm btn-primary" style="width:100%" @click="openThemePreviewTab()" x-text="themeOpenPreviewTabLabel()">
       {t('admin.theme.preview.openTab', 'Abrir preview en pestaña')}
     </button>
+    <button type="button" class="help-icon" @click="showHelp('theme.preview.openTab')" :title="helpTooltipLabel()">?</button>
   </div>
 </div>

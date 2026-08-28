@@ -2,9 +2,7 @@
 import type { Card } from '~/lib/schema';
 import type { Layout, Theme } from '~/lib/schema';
 import { resolveIconUrl } from '~/lib/icons';
-import { marked } from 'marked';
-import { JSDOM } from 'jsdom';
-import createDOMPurify from 'dompurify';
+import { renderMarkdown } from '~/lib/markdown';
 import { isFeatureEnabled } from '~/lib/features';
 import { getConfig } from '~/lib/config';
 
@@ -41,45 +39,15 @@ const isNote = card.kind === 'note';
 // DOMPurify necesita un window-like. Usamos jsdom (ya en deps) para
 // crearlo en el server. Cacheamos el window por proceso para no pagar
 // el costo de JSDOM en cada render de card.
-let _purify: ReturnType<typeof createDOMPurify> | null = null;
-async function getPurifier() {
-  if (_purify) return _purify;
-  const dom = new JSDOM('');
-  _purify = createDOMPurify(dom.window as unknown as Parameters<typeof createDOMPurify>[0]);
-  return _purify;
-}
-
 /** Render seguro de la descripción. Devuelve HTML sanitizado para
  *  markdown, o el string plano escapado para plain. */
 async function renderDescription(desc: string, format: 'plain' | 'markdown' | undefined): Promise<string> {
   if (!desc) return '';
-  // Si la feature markdown está apagada, SIEMPRE plain (defense-in-depth
-  // — el saveConfig ya filtra, pero el render no debe confiar).
   const cfg = await getConfig();
   if (format === 'markdown' && isFeatureEnabled(cfg, 'markdown')) {
-    // marked.parse devuelve string. Configuramos GFM-lite: line breaks,
-    // links seguros. NO permitimos HTML raw (marked sanitize: false
-    // confiamos en DOMPurify para limpieza).
-    const raw = await marked.parse(desc, {
-      gfm: true,
-      breaks: true,
-      async: true,
-    });
-    const purifier = await getPurifier();
-    // DOMPurify por default permite tags seguros. Bloqueamos scripts
-    // y eventos inline. Los href que pasen a través deben tener
-    // protocolo seguro (http/https/mailto).
-    return purifier.sanitize(raw, {
-      ALLOWED_TAGS: [
-        'a', 'b', 'i', 'em', 'strong', 'p', 'br', 'hr', 'ul', 'ol', 'li',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre',
-        'span', 'div', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
-      ],
-      ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
-      ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
-    });
+    return renderMarkdown(desc);
   }
-  return desc; // plain: Astro escapa automáticamente con {desc}
+  return desc;
 }
 
 // Para notas: no target/rel (no es link), no href. Se renderiza como un div.

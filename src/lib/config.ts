@@ -169,9 +169,9 @@ function defaultConfig(): Config {
     oidc: { providers: [] },
     apiTokens: { items: [] },
     categories: [
-      { id: 'com', name: 'Comunicación', icon: 'message-circle', isLocked: false, password: '', isSubpage: false },
-      { id: 'prod', name: 'Productividad', icon: 'briefcase', isLocked: false, password: '', isSubpage: false },
-      { id: 'dev', name: 'Desarrollo', icon: 'code', isLocked: false, password: '', isSubpage: false },
+      { id: 'com', name: 'Comunicación', icon: 'lucide/message-circle', isLocked: false, password: '', isSubpage: false },
+      { id: 'prod', name: 'Productividad', icon: 'lucide/briefcase', isLocked: false, password: '', isSubpage: false },
+      { id: 'dev', name: 'Desarrollo', icon: 'lucide/code', isLocked: false, password: '', isSubpage: false },
     ],
     cards: [
       // Tarjeta default que apunta a la documentación del sistema.
@@ -182,7 +182,7 @@ function defaultConfig(): Config {
         description: 'Cómo instalar, configurar y usar Umbral',
         descriptionFormat: 'plain',
         url: '/docs',
-        icon: 'file-text',
+        icon: 'lucide/file-text',
         category: 'dev',
         openInNewTab: false,
         color: '#10b981',

@@ -176,30 +176,40 @@ Tips:
 
 ## Íconos de tarjeta
 
-Dos tipos:
+Umbral **no incluye iconos built-in**. Los iconos provienen de **packs instalables** (pestaña **Íconos Git** en el admin: Lucide, Simple Icons, Tabler, etc.) o de **assets subidos**.
 
-### Íconos predefinidos (Lucide)
+### Packs Git
 
-Whitelist de ~60 íconos. Lista en el panel admin al editar una tarjeta. Los más usados:
+1. Activá la feature `iconPacks` en **Avanzado → Features**.
+2. Instalá un pack (recomendado: **Lucide** para UI genérica, **Simple Icons** para marcas).
+3. En el editor de tarjeta, elegí `pack/nombre` (ej: `lucide/server`, `simple-icons/github`).
 
-- `chat`, `message-square`, `mail` — comunicación
-- `briefcase`, `box`, `package` — productividad
-- `code`, `code-2`, `terminal`, `git-branch` — dev
-- `file`, `file-text`, `folder`, `folder-open` — archivos
-- `database`, `server`, `cloud` — infra
-- `image`, `video`, `mic` — media
-- `users`, `user`, `user-plus` — gente
-- `lock`, `key`, `shield`, `shield-check` — seguridad
-- `github`, `slack`, `globe` — externos
-- `home`, `star`, `heart`, `settings`, `search`, `bell`, `calendar`, `clock`
-
-Lista completa en `/admin` → Tarjetas → Editar → Icon picker.
+Los presets del catálogo ya referencian iconos calificados (`lucide/...`, `simple-icons/...`). Si el pack no está instalado, la tarjeta se muestra sin icono hasta que lo instales.
 
 ### Assets subidos
 
 - Subí PNG, JPEG, WebP, SVG, GIF desde el tab **Assets** (kind: "icon").
-- Después, en la tarjeta, elegí `/api/assets/<nombre-archivo>` del dropdown.
+- Después, en la tarjeta, elegí `/api/assets/<nombre-archivo>` del dropdown o pegá la URL en el campo custom.
 - Tamaño recomendado: 128x128 px o 64x64 para favicons.
+
+## Vista previa de widgets (admin → Tema)
+
+La preview embebida refleja:
+
+- **Reloj** — posición (`clockPosition`) y formato (`clockFormat` 12h/24h)
+- **Refresh** — botón en header si `showRefresh`
+- **Toggle claro/oscuro** — si `showModeToggle`
+- **Status bar** — footer si `showStatusBar`
+- **Opacidad** — `headerOpacity` / `footerOpacity`
+
+## Ayuda contextual
+
+Cada control del admin puede mostrar un icono **?** con explicación. Los textos viven en `src/i18n/help/{es,en,pt}.ts` (139 claves). Para agregar una:
+
+1. Añadí la entrada en `help/es.ts` con `{ title, short, body }` (markdown en `body`).
+2. Traducí en `help/en.ts` y `help/pt.ts` (`satisfies HelpCatalog`).
+3. Cableá `<button class="help-icon" @click="showHelp('tu.clave')">` en el template.
+4. El modal pre-renderiza markdown sanitizado en el servidor (`bodyHtml`).
 
 ## Favicons y OG image
 

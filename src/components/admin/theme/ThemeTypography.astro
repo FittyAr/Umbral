@@ -14,7 +14,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <div class="form-group">
     <label>
       <span x-text="themeFontLabel()">{t('admin.theme.typography.font', 'Tipografía')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.fontFamily')" title="?">?</button>
+      <button type="button" class="help-icon" @click="showHelp('theme.fontFamily')" :title="helpTooltipLabel()">?</button>
     </label>
     <select x-model="cfg.theme.fontFamily" @change="updateFontUrl()">
       <option>Inter</option><option>Roboto</option><option>Open Sans</option>
@@ -24,7 +24,10 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     </select>
   </div>
   <div class="form-group">
-    <label x-text="themeFontWeightLabel()">{t('admin.theme.typography.weight', 'Peso')}</label>
+    <label>
+      <span x-text="themeFontWeightLabel()">{t('admin.theme.typography.weight', 'Peso')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.fontWeight')" :title="helpTooltipLabel()">?</button>
+    </label>
     <select x-model="cfg.theme.fontWeight">
       <option value="400">400 — Regular</option>
       <option value="500">500 — Medium</option>
@@ -38,6 +41,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <label style="display:flex;align-items:center;gap:0.5rem">
     <input type="checkbox" x-model="cfg.theme.useGoogleFonts" @change="updateFontUrl()" />
     <span x-text="themeGoogleFontsLabel()">{t('admin.theme.typography.googleFonts', 'Cargar desde Google Fonts (requiere conexión)')}</span>
+    <button type="button" class="help-icon" @click="showHelp('theme.useGoogleFonts')" :title="helpTooltipLabel()">?</button>
   </label>
 </div>
 

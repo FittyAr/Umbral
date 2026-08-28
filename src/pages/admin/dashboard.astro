@@ -1,9 +1,10 @@
 ---
 import AdminLayout from '~/layouts/AdminLayout.astro';
 import { getConfig } from '~/lib/config';
-import { getBuiltinIconNames } from '~/lib/icons';
+import { getAvailableIconNames } from '~/lib/icons';
 import { AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, findPresetByBaseUrl } from './ai-providers';
-import { HELP_TEXTS } from './help-texts';
+import { getHelpTexts } from '~/i18n/help/index.ts';
+import { renderMarkdownSync } from '~/lib/markdown.ts';
 import { AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS } from '~/lib/ai-prompts';
 import { FEATURE_META, FEATURE_NAMES, isFeatureEnabled } from '~/lib/features';
 import { APP_PRESETS } from '~/lib/presets';
@@ -22,7 +23,7 @@ if (!isAuthed) {
 }
 const csrfToken = isDemoBuild ? 'demo-csrf-token' : (Astro.locals.auth?.csrfToken ?? '');
 const config = await getConfig();
-const builtinIcons = await getBuiltinIconNames();
+const availableIcons = await getAvailableIconNames();
 
 // i18n del admin: traducimos títulos de tabs y la sección Features.
 // Si la feature i18n está apagada, defaults históricos en español.
@@ -31,6 +32,18 @@ const locale: Locale = useI18n
   ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
   : 'es';
 const trf = t(locale);
+
+const helpCatalog = getHelpTexts(locale);
+const HELP_TEXTS = Object.fromEntries(
+  Object.entries(helpCatalog).map(([key, val]) => [
+    key,
+    {
+      title: val.title,
+      short: val.short,
+      bodyHtml: renderMarkdownSync(val.body),
+    },
+  ]),
+);
 
 // Metadata de features para la UI del tab Avanzado. Cada item tiene label,
 // short, body, wave, experimental y deps — la sección "Features" lo lee
@@ -91,12 +104,12 @@ const THEME_PRESET_I18N = {
     <div class="panel" :class="tab==='branding' && 'active'">
       <h2 style="margin-top:0">Branding</h2>
       <div class="form-group">
-        <label>Nombre de la empresa <button type="button" class="help-icon" @click="showHelp('branding.companyName')" title="¿Qué hace esto?">?</button></label>
+        <label>Nombre de la empresa <button type="button" class="help-icon" @click="showHelp('branding.companyName')" :title="helpTooltipLabel()">?</button></label>
         <input type="text" x-model="cfg.branding.companyName" maxlength="80" />
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Logo <button type="button" class="help-icon" @click="showHelp('branding.logo')" title="¿Qué hace esto?">?</button></label>
+          <label>Logo <button type="button" class="help-icon" @click="showHelp('branding.logo')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.branding.logo">
             <option value="">— Sin logo (usar inicial) —</option>
             <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg)$/i.test(a.name))" :key="a.name">
@@ -108,7 +121,7 @@ const THEME_PRESET_I18N = {
           </div>
         </div>
         <div class="form-group">
-          <label>Favicon <button type="button" class="help-icon" @click="showHelp('branding.favicon')" title="¿Qué hace esto?">?</button></label>
+          <label>Favicon <button type="button" class="help-icon" @click="showHelp('branding.favicon')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.branding.favicon">
             <option value="">— Default —</option>
             <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg|ico)$/i.test(a.name))" :key="a.name">
@@ -127,19 +140,19 @@ const THEME_PRESET_I18N = {
       <h2 style="margin-top:0">Layout</h2>
       <div class="form-row">
         <div class="form-group">
-          <label>Columnas desktop <button type="button" class="help-icon" @click="showHelp('layout.columnsDesktop')" title="¿Qué hace esto?">?</button></label>
+          <label>Columnas desktop <button type="button" class="help-icon" @click="showHelp('layout.columnsDesktop')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="2" max="8" x-model.number="cfg.layout.columnsDesktop" />
         </div>
         <div class="form-group">
-          <label>Columnas tablet <button type="button" class="help-icon" @click="showHelp('layout.columnsTablet')" title="¿Qué hace esto?">?</button></label>
+          <label>Columnas tablet <button type="button" class="help-icon" @click="showHelp('layout.columnsTablet')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="2" max="6" x-model.number="cfg.layout.columnsTablet" />
         </div>
         <div class="form-group">
-          <label>Columnas mobile <button type="button" class="help-icon" @click="showHelp('layout.columnsMobile')" title="¿Qué hace esto?">?</button></label>
+          <label>Columnas mobile <button type="button" class="help-icon" @click="showHelp('layout.columnsMobile')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="1" max="3" x-model.number="cfg.layout.columnsMobile" />
         </div>
         <div class="form-group">
-          <label>Tamaño de tarjeta <button type="button" class="help-icon" @click="showHelp('layout.cardSize')" title="¿Qué hace esto?">?</button></label>
+          <label>Tamaño de tarjeta <button type="button" class="help-icon" @click="showHelp('layout.cardSize')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.layout.cardSize">
             <option value="small">Chico</option>
             <option value="medium">Mediano</option>
@@ -148,10 +161,10 @@ const THEME_PRESET_I18N = {
         </div>
       </div>
       <div class="form-group">
-        <label><input type="checkbox" x-model="cfg.layout.showDescriptions" /> Mostrar descripciones <button type="button" class="help-icon" @click="showHelp('layout.showDescriptions')" title="¿Qué hace esto?">?</button></label>
+        <label><input type="checkbox" x-model="cfg.layout.showDescriptions" /> Mostrar descripciones <button type="button" class="help-icon" @click="showHelp('layout.showDescriptions')" :title="helpTooltipLabel()">?</button></label>
       </div>
       <div class="form-group">
-        <label>Intervalo health check (segundos) <button type="button" class="help-icon" @click="showHelp('layout.healthCheckInterval')" title="¿Qué hace esto?">?</button>
+        <label>Intervalo health check (segundos) <button type="button" class="help-icon" @click="showHelp('layout.healthCheckInterval')" :title="helpTooltipLabel()">?</button>
           <span style="color:var(--text-faint);font-size:0.8rem" x-text="'— ' + (cfg.layout.healthCheckInterval || 60) + 's'"></span>
         </label>
         <input type="number" min="10" max="3600" x-model.number="cfg.layout.healthCheckInterval" />
@@ -165,7 +178,7 @@ const THEME_PRESET_I18N = {
     <div class="panel" :class="tab==='categories' && 'active'">
       <h2 style="margin-top:0">
         Categorías
-        <button type="button" class="help-icon" @click="showHelp('category.order')" title="¿Qué hace esto?">?</button>
+        <button type="button" class="help-icon" @click="showHelp('category.order')" :title="helpTooltipLabel()">?</button>
       </h2>
       <p class="muted" style="color:#94a3b8;font-size:0.85rem">Las tarjetas se agrupan por categoría. El id es la clave interna (kebab-case). Arrastrá las filas con <code>⋮⋮</code> para reordenar — el orden de las categorías en la portada sigue el orden acá.</p>
       <div class="card-list" id="categories-sortable">
@@ -175,13 +188,19 @@ const THEME_PRESET_I18N = {
               <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
               <div class="info" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;align-items:center">
                 <input type="text" x-model="cat.id" placeholder="id (kebab-case)" @input="markDirty()" />
-                <input type="text" x-model="cat.name" placeholder="Nombre" @input="markDirty()" />
-                <select x-model="cat.icon" @change="markDirty()" :title="cat.icon || 'ícono'">
-                  <option value="">— ícono —</option>
-                  <template x-for="i in builtinIcons" :key="i">
-                    <option :value="i" x-text="i"></option>
-                  </template>
-                </select>
+                <span style="display:flex;align-items:center;gap:0.25rem">
+                  <input type="text" x-model="cat.name" placeholder="Nombre" @input="markDirty()" style="flex:1" />
+                  <button type="button" class="help-icon" @click="showHelp('category.name')" :title="helpTooltipLabel()">?</button>
+                </span>
+                <span style="display:flex;align-items:center;gap:0.25rem">
+                  <select x-model="cat.icon" @change="markDirty()" :title="cat.icon || 'ícono'" style="flex:1">
+                    <option value="">— ícono —</option>
+                    <template x-for="i in availableIcons" :key="i">
+                      <option :value="i" x-text="i"></option>
+                    </template>
+                  </select>
+                  <button type="button" class="help-icon" @click="showHelp('category.icon')" :title="helpTooltipLabel()">?</button>
+                </span>
               </div>
               <button class="btn btn-sm btn-ghost" @click="removeCategory(idx)" title="Eliminar categoría">×</button>
             </div>
@@ -190,7 +209,7 @@ const THEME_PRESET_I18N = {
                 <input type="checkbox" x-model="cat.isLocked" @change="markDirty()" style="width:auto;cursor:pointer" />
                 <span>🔒 Bloquear con contraseña</span>
               </label>
-              <button type="button" class="help-icon" @click="showHelp('category.lock')" title="¿Cómo funciona el bloqueo?">?</button>
+              <button type="button" class="help-icon" @click="showHelp('category.lock')" :title="helpTooltipLabel()">?</button>
               <div x-show="cat.isLocked" style="display:flex;align-items:center;gap:0.5rem;flex:1;min-width:220px;max-width:340px">
                 <input type="text" x-model="cat.password" placeholder="Contraseña de la categoría…" @input="markDirty()" style="padding:0.3rem 0.55rem;font-size:0.85rem" />
               </div>
@@ -200,7 +219,7 @@ const THEME_PRESET_I18N = {
                 <input type="checkbox" x-model="cat.isSubpage" @change="markDirty()" style="width:auto;cursor:pointer" />
                 <span>📄 Subpágina independiente (oculta de la portada)</span>
               </label>
-              <button type="button" class="help-icon" @click="showHelp('category.subpage')" title="¿Cómo funciona la subpágina?">?</button>
+              <button type="button" class="help-icon" @click="showHelp('category.subpage')" :title="helpTooltipLabel()">?</button>
               <template x-if="cat.isSubpage">
                 <a :href="'/' + cat.id" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:0.25rem;color:var(--accent);text-decoration:none;font-size:0.8rem;background:var(--surface);padding:0.15rem 0.5rem;border-radius:4px;border:1px solid var(--border)">
                   <span>Abrir: /<span x-text="cat.id"></span></span>
@@ -269,19 +288,22 @@ const THEME_PRESET_I18N = {
     <div class="panel" :class="tab==='assets' && 'active'">
       <h2 style="margin-top:0">
         Assets
-        <button type="button" class="help-icon" @click="showHelp('assets.upload')" title="¿Qué hace esto?">?</button>
+        <button type="button" class="help-icon" @click="showHelp('assets.upload')" :title="helpTooltipLabel()">?</button>
       </h2>
       <div class="uploader" :class="uploaderDragover && 'dragover'"
            @click="$refs.fileInput.click()"
            @dragover.prevent="uploaderDragover=true"
            @dragleave="uploaderDragover=false"
            @drop.prevent="handleFileDrop($event)">
-        <p style="margin:0 0 0.5rem">Arrastrá archivos acá o hacé click para subir</p>
+        <div style="display:flex;align-items:center;justify-content:center;gap:0.35rem;margin-bottom:0.5rem">
+          <p style="margin:0">Arrastrá archivos acá o hacé click para subir</p>
+          <button type="button" class="help-icon" @click.stop="showHelp('assets.dropzone')" :title="helpTooltipLabel()">?</button>
+        </div>
         <small>PNG, JPEG, WebP, SVG, GIF · Logos 1MB · Iconos 512KB · Bg 5MB</small>
         <input type="file" x-ref="fileInput" accept="image/*" multiple @change="handleFileSelect($event)" hidden />
       </div>
       <div class="form-group" style="max-width:240px">
-        <label>Tipo al subir <button type="button" class="help-icon" @click="showHelp('assets.upload')" title="¿Qué hace esto?">?</button></label>
+        <label>Tipo al subir <button type="button" class="help-icon" @click="showHelp('assets.upload')" :title="helpTooltipLabel()">?</button></label>
         <select x-model="uploadKind">
           <option value="icon">Icono (128px, ≤512KB)</option>
           <option value="logo">Logo (512px, ≤1MB)</option>
@@ -298,9 +320,11 @@ const THEME_PRESET_I18N = {
             <div class="name" x-text="a.name"></div>
             <div class="bytes" x-text="(a.bytes/1024).toFixed(1) + ' KB'"></div>
             <div class="usage" x-show="a.usedBy.length" x-text="'Usado en: ' + a.usedBy.join(', ')"></div>
-            <div style="display:flex;gap:0.2rem;margin-top:0.4rem;width:100%">
+            <div style="display:flex;gap:0.2rem;margin-top:0.4rem;width:100%;align-items:center">
               <button class="btn btn-sm btn-ghost" style="flex:1;font-size:0.7rem;padding:0.2rem" @click="copyToClipboard(a.url)">Copiar URL</button>
+              <button type="button" class="help-icon" @click="showHelp('assets.copyUrl')" :title="helpTooltipLabel()">?</button>
               <button class="btn btn-sm btn-ghost" style="flex:0 0 auto;font-size:0.7rem;padding:0.2rem 0.4rem" @click="deleteAsset(a.name)" :disabled="a.usedBy.length>0" :title="a.usedBy.length ? 'En uso' : 'Borrar'">🗑</button>
+              <button type="button" class="help-icon" @click="showHelp('assets.delete')" :title="helpTooltipLabel()">?</button>
             </div>
           </div>
         </template>
@@ -311,7 +335,7 @@ const THEME_PRESET_I18N = {
     <div class="panel" :class="tab==='status' && 'active'">
       <h2 style="margin-top:0">
         Status de las tarjetas
-        <button type="button" class="help-icon" @click="showHelp('status.check')" title="¿Qué hace esto?">?</button>
+        <button type="button" class="help-icon" @click="showHelp('status.check')" :title="helpTooltipLabel()">?</button>
       </h2>
       <p class="muted" style="color:#94a3b8;font-size:0.85rem">Ping HEAD a cada URL. Útil para detectar servicios caídos.</p>
       <button class="btn btn-primary" @click="checkAllStatus()" :disabled="checkingStatus">
@@ -341,11 +365,11 @@ const THEME_PRESET_I18N = {
       <h3 style="margin-top:1.5rem">Sesión y cookies</h3>
       <div class="form-row">
         <div class="form-group">
-          <label>Duración (horas) <button type="button" class="help-icon" @click="showHelp('session.ttlHours')" title="¿Qué hace esto?">?</button></label>
+          <label>Duración (horas) <button type="button" class="help-icon" @click="showHelp('session.ttlHours')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="1" max="720" x-model.number="cfg.security.session.ttlHours" />
         </div>
         <div class="form-group">
-          <label>SameSite <button type="button" class="help-icon" @click="showHelp('session.cookieSameSite')" title="¿Qué hace esto?">?</button></label>
+          <label>SameSite <button type="button" class="help-icon" @click="showHelp('session.cookieSameSite')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.security.session.cookieSameSite">
             <option value="Lax">Lax (permisivo, default)</option>
             <option value="Strict">Strict (más seguro)</option>
@@ -353,7 +377,7 @@ const THEME_PRESET_I18N = {
           </select>
         </div>
         <div class="form-group">
-          <label>Secure flag <button type="button" class="help-icon" @click="showHelp('session.cookieSecure')" title="¿Qué hace esto?">?</button></label>
+          <label>Secure flag <button type="button" class="help-icon" @click="showHelp('session.cookieSecure')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.security.session.cookieSecure">
             <option value="auto">Auto (recomendado)</option>
             <option value="always">Siempre</option>
@@ -361,27 +385,27 @@ const THEME_PRESET_I18N = {
           </select>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.session.rotateCsrfOnLogin" /> Rotar CSRF en cada login <button type="button" class="help-icon" @click="showHelp('session.rotateCsrfOnLogin')" title="¿Qué hace esto?">?</button></label>
+          <label><input type="checkbox" x-model="cfg.security.session.rotateCsrfOnLogin" /> Rotar CSRF en cada login <button type="button" class="help-icon" @click="showHelp('session.rotateCsrfOnLogin')" :title="helpTooltipLabel()">?</button></label>
         </div>
       </div>
 
       <h3 style="margin-top:1.5rem">Login y CSRF</h3>
       <div class="form-row">
         <div class="form-group">
-          <label>Largo mínimo del password <button type="button" class="help-icon" @click="showHelp('auth.minPasswordLength')" title="¿Qué hace esto?">?</button></label>
+          <label>Largo mínimo del password <button type="button" class="help-icon" @click="showHelp('auth.minPasswordLength')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="0" max="128" x-model.number="cfg.security.auth.minPasswordLength" />
           <small style="color:#94a3b8">0 = sin mínimo (permite passwords cortos legados)</small>
         </div>
         <div class="form-group">
-          <label>Rate limit (intentos) <button type="button" class="help-icon" @click="showHelp('auth.rateLimitMax')" title="¿Qué hace esto?">?</button></label>
+          <label>Rate limit (intentos) <button type="button" class="help-icon" @click="showHelp('auth.rateLimitMax')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="1" max="10000" x-model.number="cfg.security.auth.rateLimitMax" />
         </div>
         <div class="form-group">
-          <label>Rate limit (ventana, seg) <button type="button" class="help-icon" @click="showHelp('auth.rateLimitWindowSec')" title="¿Qué hace esto?">?</button></label>
+          <label>Rate limit (ventana, seg) <button type="button" class="help-icon" @click="showHelp('auth.rateLimitWindowSec')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="1" max="3600" x-model.number="cfg.security.auth.rateLimitWindowSec" />
         </div>
         <div class="form-group">
-          <label>Política CSRF <button type="button" class="help-icon" @click="showHelp('auth.csrfPolicy')" title="¿Qué hace esto?">?</button></label>
+          <label>Política CSRF <button type="button" class="help-icon" @click="showHelp('auth.csrfPolicy')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.security.auth.csrfPolicy">
             <option value="mutations">Mutations (default, recomendado)</option>
             <option value="all">Todos los requests</option>
@@ -393,62 +417,62 @@ const THEME_PRESET_I18N = {
       <h3 style="margin-top:1.5rem">Uploads</h3>
       <div class="form-row">
         <div class="form-group">
-          <label>Máx logo (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesLogo')" title="¿Qué hace esto?">?</button></label>
+          <label>Máx logo (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesLogo')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesLogo / 1024)" @change="cfg.security.uploads.maxBytesLogo = $event.target.value * 1024" />
         </div>
         <div class="form-group">
-          <label>Máx favicon (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesFavicon')" title="¿Qué hace esto?">?</button></label>
+          <label>Máx favicon (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesFavicon')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesFavicon / 1024)" @change="cfg.security.uploads.maxBytesFavicon = $event.target.value * 1024" />
         </div>
         <div class="form-group">
-          <label>Máx ícono (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesIcon')" title="¿Qué hace esto?">?</button></label>
+          <label>Máx ícono (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesIcon')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesIcon / 1024)" @change="cfg.security.uploads.maxBytesIcon = $event.target.value * 1024" />
         </div>
         <div class="form-group">
-          <label>Máx fondo (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesBackground')" title="¿Qué hace esto?">?</button></label>
+          <label>Máx fondo (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesBackground')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesBackground / 1024)" @change="cfg.security.uploads.maxBytesBackground = $event.target.value * 1024" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>MIME permitidos (coma-separado) <button type="button" class="help-icon" @click="showHelp('uploads.allowedMimeTypes')" title="¿Qué hace esto?">?</button></label>
+          <label>MIME permitidos (coma-separado) <button type="button" class="help-icon" @click="showHelp('uploads.allowedMimeTypes')" :title="helpTooltipLabel()">?</button></label>
           <input type="text" :value="cfg.security.uploads.allowedMimeTypes.join(', ')" @change="cfg.security.uploads.allowedMimeTypes = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.uploads.allowSvg" /> Permitir SVG <button type="button" class="help-icon" @click="showHelp('uploads.allowSvg')" title="¿Qué hace esto?">?</button></label>
+          <label><input type="checkbox" x-model="cfg.security.uploads.allowSvg" /> Permitir SVG <button type="button" class="help-icon" @click="showHelp('uploads.allowSvg')" :title="helpTooltipLabel()">?</button></label>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.uploads.sanitizeSvg" /> Sanitizar SVG con DOMPurify <button type="button" class="help-icon" @click="showHelp('uploads.sanitizeSvg')" title="¿Qué hace esto?">?</button></label>
+          <label><input type="checkbox" x-model="cfg.security.uploads.sanitizeSvg" /> Sanitizar SVG con DOMPurify <button type="button" class="help-icon" @click="showHelp('uploads.sanitizeSvg')" :title="helpTooltipLabel()">?</button></label>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.uploads.processImages" /> Procesar imágenes con sharp <button type="button" class="help-icon" @click="showHelp('uploads.processImages')" title="¿Qué hace esto?">?</button></label>
+          <label><input type="checkbox" x-model="cfg.security.uploads.processImages" /> Procesar imágenes con sharp <button type="button" class="help-icon" @click="showHelp('uploads.processImages')" :title="helpTooltipLabel()">?</button></label>
         </div>
       </div>
 
       <h3 style="margin-top:1.5rem">Red</h3>
       <div class="form-row">
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.network.trustForwardedFor" /> Confiar en X-Forwarded-For (sólo con reverse proxy) <button type="button" class="help-icon" @click="showHelp('network.trustForwardedFor')" title="¿Qué hace esto?">?</button></label>
+          <label><input type="checkbox" x-model="cfg.security.network.trustForwardedFor" /> Confiar en X-Forwarded-For (sólo con reverse proxy) <button type="button" class="help-icon" @click="showHelp('network.trustForwardedFor')" :title="helpTooltipLabel()">?</button></label>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.network.allowInternalHosts" /> Permitir health checks a hosts internos (10/8, 172.16/12, 192.168/16) <button type="button" class="help-icon" @click="showHelp('network.allowInternalHosts')" title="¿Qué hace esto?">?</button></label>
+          <label><input type="checkbox" x-model="cfg.security.network.allowInternalHosts" /> Permitir health checks a hosts internos (10/8, 172.16/12, 192.168/16) <button type="button" class="help-icon" @click="showHelp('network.allowInternalHosts')" :title="helpTooltipLabel()">?</button></label>
         </div>
         <div class="form-group">
-          <label>Cookie domain (ej: .example.com) <button type="button" class="help-icon" @click="showHelp('network.cookieDomain')" title="¿Qué hace esto?">?</button></label>
+          <label>Cookie domain (ej: .example.com) <button type="button" class="help-icon" @click="showHelp('network.cookieDomain')" :title="helpTooltipLabel()">?</button></label>
           <input type="text" x-model="cfg.security.network.cookieDomain" placeholder="(vacío = sin domain)" />
         </div>
       </div>
       <div class="form-group">
-        <label>Proxies confiables (uno por línea, informativo) <button type="button" class="help-icon" @click="showHelp('network.trustedProxies')" title="¿Qué hace esto?">?</button></label>
+        <label>Proxies confiables (uno por línea, informativo) <button type="button" class="help-icon" @click="showHelp('network.trustedProxies')" :title="helpTooltipLabel()">?</button></label>
         <textarea x-model="cfg.security.network.trustedProxiesText" rows="3" placeholder="10.0.0.1&#10;192.168.1.0/24"></textarea>
       </div>
 
       <h3 style="margin-top:1.5rem">Headers de seguridad</h3>
       <div class="form-row">
         <div class="form-group">
-          <label>X-Frame-Options <button type="button" class="help-icon" @click="showHelp('headers.xFrameOptions')" title="¿Qué hace esto?">?</button></label>
+          <label>X-Frame-Options <button type="button" class="help-icon" @click="showHelp('headers.xFrameOptions')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.security.headers.xFrameOptions">
             <option value="DENY">DENY (recomendado)</option>
             <option value="SAMEORIGIN">SAMEORIGIN</option>
@@ -456,7 +480,7 @@ const THEME_PRESET_I18N = {
           </select>
         </div>
         <div class="form-group">
-          <label>Referrer-Policy <button type="button" class="help-icon" @click="showHelp('headers.referrerPolicy')" title="¿Qué hace esto?">?</button></label>
+          <label>Referrer-Policy <button type="button" class="help-icon" @click="showHelp('headers.referrerPolicy')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.security.headers.referrerPolicy">
             <option value="no-referrer">no-referrer</option>
             <option value="same-origin">same-origin</option>
@@ -466,11 +490,11 @@ const THEME_PRESET_I18N = {
         </div>
       </div>
       <div class="form-group">
-        <label>Content-Security-Policy (vacío = no se envía header) <button type="button" class="help-icon" @click="showHelp('headers.csp')" title="¿Qué hace esto?">?</button></label>
+        <label>Content-Security-Policy (vacío = no se envía header) <button type="button" class="help-icon" @click="showHelp('headers.csp')" :title="helpTooltipLabel()">?</button></label>
         <textarea x-model="cfg.security.headers.csp" rows="4"></textarea>
       </div>
       <div class="form-group">
-        <label>Permissions-Policy <button type="button" class="help-icon" @click="showHelp('headers.permissionsPolicy')" title="¿Qué hace esto?">?</button></label>
+        <label>Permissions-Policy <button type="button" class="help-icon" @click="showHelp('headers.permissionsPolicy')" :title="helpTooltipLabel()">?</button></label>
         <input type="text" x-model="cfg.security.headers.permissionsPolicy" />
       </div>
       <h3 style="margin-top:1.5rem">HSTS (Strict-Transport-Security)</h3>
@@ -481,7 +505,7 @@ const THEME_PRESET_I18N = {
       </p>
       <div class="form-row">
         <div class="form-group">
-          <label>Modo <button type="button" class="help-icon" @click="showHelp('headers.hsts')" title="¿Qué hace esto?">?</button></label>
+          <label>Modo <button type="button" class="help-icon" @click="showHelp('headers.hsts')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.security.headers.hsts">
             <option value="auto">Auto (default, recomendado)</option>
             <option value="always">Siempre forzar</option>
@@ -489,18 +513,18 @@ const THEME_PRESET_I18N = {
           </select>
         </div>
         <div class="form-group">
-          <label>Max-Age (segundos) <button type="button" class="help-icon" @click="showHelp('headers.hstsMaxAge')" title="¿Qué hace esto?">?</button></label>
+          <label>Max-Age (segundos) <button type="button" class="help-icon" @click="showHelp('headers.hstsMaxAge')" :title="helpTooltipLabel()">?</button></label>
           <input type="number" min="0" max="63072000" x-model.number="cfg.security.headers.hstsMaxAge" />
           <small style="color:#94a3b8">Default 31536000 (1 año). 0 desactiva.</small>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.headers.hstsIncludeSubDomains" /> includeSubDomains <button type="button" class="help-icon" @click="showHelp('headers.hstsIncludeSubDomains')" title="¿Qué hace esto?">?</button></label>
+          <label><input type="checkbox" x-model="cfg.security.headers.hstsIncludeSubDomains" /> includeSubDomains <button type="button" class="help-icon" @click="showHelp('headers.hstsIncludeSubDomains')" :title="helpTooltipLabel()">?</button></label>
           <small style="color:#94a3b8">Activar SÓLO si todos los subdominios son HTTPS.</small>
         </div>
         <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.security.headers.hstsPreload" /> preload <button type="button" class="help-icon" @click="showHelp('headers.hstsPreload')" title="¿Qué hace esto?">?</button></label>
+          <label><input type="checkbox" x-model="cfg.security.headers.hstsPreload" /> preload <button type="button" class="help-icon" @click="showHelp('headers.hstsPreload')" :title="helpTooltipLabel()">?</button></label>
           <small style="color:#94a3b8">Para enviar a hstspreload.org. Requiere includeSubDomains y max-age ≥ 1 año.</small>
         </div>
       </div>
@@ -509,7 +533,7 @@ const THEME_PRESET_I18N = {
     <!-- PASSWORD -->
     <div class="panel" :class="tab==='security' && 'active'">
       <h2 style="margin-top:0">Seguridad</h2>
-      <h3>Cambiar contraseña <button type="button" class="help-icon" @click="showHelp('security.password')" title="¿Qué hace esto?">?</button></h3>
+      <h3>Cambiar contraseña <button type="button" class="help-icon" @click="showHelp('security.password')" :title="helpTooltipLabel()">?</button></h3>
       <form @submit.prevent="changePassword()" style="max-width:400px">
         <div class="form-group">
           <label>Contraseña actual</label>
@@ -526,20 +550,20 @@ const THEME_PRESET_I18N = {
         <button type="submit" class="btn btn-primary">Cambiar</button>
       </form>
 
-      <h3 style="margin-top:2rem">CSRF Token <button type="button" class="help-icon" @click="showHelp('security.csrf')" title="¿Qué hace esto?">?</button></h3>
+      <h3 style="margin-top:2rem">CSRF Token <button type="button" class="help-icon" @click="showHelp('security.csrf')" :title="helpTooltipLabel()">?</button></h3>
       <p style="color:#94a3b8;font-size:0.85rem">Este token se rota automáticamente al cambiar la contraseña.</p>
       <code style="display:inline-block;padding:0.4rem 0.7rem;background:#0f172a;border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '-'"></code>
 
       <!-- MULTI-USER (opt-in: features.multiUser) — sólo si la feature está activa. -->
       <template x-if="multiUserEnabled">
         <div class="multi-user-section">
-          <h3 style="margin-top:2rem">Usuarios <button type="button" class="help-icon" @click="showHelp('security.multiUser')" title="Que hace esto?">?</button></h3>
+          <h3 style="margin-top:2rem">Usuarios <button type="button" class="help-icon" @click="showHelp('security.multiUser')" :title="helpTooltipLabel()">?</button></h3>
           <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="multiUserIntro()">
             Crea usuarios con roles (admin/editor/viewer) y login con username. El password unico sigue siendo valido como rescue path.
           </p>
 
           <div class="form-group" style="max-width:600px">
-            <label>Modo de acceso <button type="button" class="help-icon" @click="showHelp('security.accessMode')" title="Que hace esto?">?</button></label>
+            <label>Modo de acceso <button type="button" class="help-icon" @click="showHelp('security.accessMode')" :title="helpTooltipLabel()">?</button></label>
             <div style="display:flex;gap:1rem;font-size:0.85rem;flex-wrap:wrap">
               <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
                 <input type="radio" name="accessMode" value="password-only" :checked="cfg.auth.singlePasswordEnabled && (!cfg.auth.users || cfg.auth.users.length === 0)" @change="cfg.auth.singlePasswordEnabled = true; if (cfg.auth.users &amp;&amp; cfg.auth.users.length > 0) { cfg.auth.users = []; }" />
@@ -638,7 +662,7 @@ const THEME_PRESET_I18N = {
       </div>
       <div class="form-row" x-show="cfg.ai.enabled">
         <div class="form-group">
-          <label>Preset <button type="button" class="help-icon" @click="showHelp('ai.preset')" title="¿Qué hace esto?">?</button></label>
+          <label>Preset <button type="button" class="help-icon" @click="showHelp('ai.preset')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="aiPreset" @change="applyAiPreset(aiPreset)">
             <option value="">— Custom / Otro —</option>
             <template x-for="p in aiProviders" :key="p.id">
@@ -657,13 +681,13 @@ const THEME_PRESET_I18N = {
         <div class="form-group" style="flex:1">
           <label>
             <span x-text="presetApiKeyLabel()">API Key</span>
-            <button type="button" class="help-icon" @click="showHelp('ai.apiKey')" title="¿Por qué en texto plano?">?</button>
+            <button type="button" class="help-icon" @click="showHelp('ai.apiKey')" :title="helpTooltipLabel()">?</button>
           </label>
           <input type="password" x-model="cfg.ai.apiKey" placeholder="sk-..." autocomplete="off" />
           <small style="color:#94a3b8" x-text="presetApiKeyHelp()"></small>
         </div>
         <div class="form-group">
-          <label>Modelo <button type="button" class="help-icon" @click="showHelp('ai.model')" title="¿Qué hace esto?">?</button></label>
+          <label>Modelo <button type="button" class="help-icon" @click="showHelp('ai.model')" :title="helpTooltipLabel()">?</button></label>
           <input type="text" x-model="cfg.ai.model" placeholder="gpt-4o-mini" list="ai-model-suggestions" />
           <datalist id="ai-model-suggestions">
             <template x-for="m in presetModels()" :key="m">
@@ -672,7 +696,7 @@ const THEME_PRESET_I18N = {
           </datalist>
         </div>
         <div class="form-group">
-          <label>Idioma de la IA <button type="button" class="help-icon" @click="showHelp('ai.language')" title="¿Qué hace esto?">?</button></label>
+          <label>Idioma de la IA <button type="button" class="help-icon" @click="showHelp('ai.language')" :title="helpTooltipLabel()">?</button></label>
           <select x-model="cfg.ai.language">
             <template x-for="l in aiLanguages" :key="l.code">
               <option :value="l.code" x-text="l.name"></option>
@@ -684,7 +708,7 @@ const THEME_PRESET_I18N = {
       <div class="form-group" x-show="cfg.ai.enabled">
         <label>
           System prompt
-          <button type="button" class="help-icon" @click="showHelp('ai.systemPrompt')" title="¿Qué es el system prompt?">?</button>
+          <button type="button" class="help-icon" @click="showHelp('ai.systemPrompt')" :title="helpTooltipLabel()">?</button>
         </label>
         <textarea x-model="cfg.ai.systemPrompt" rows="3" placeholder="Si lo dejás vacío, uso uno default en castellano rioplatense."></textarea>
         <details style="margin-top:0.5rem">
@@ -706,7 +730,7 @@ const THEME_PRESET_I18N = {
 
       <h3 style="margin-top:1.5rem">
         Búsqueda externa (auto-completar)
-        <button type="button" class="help-icon" @click="showHelp('externalSearch.intro')" title="¿Qué hace esto?">?</button>
+        <button type="button" class="help-icon" @click="showHelp('externalSearch.intro')" :title="helpTooltipLabel()">?</button>
       </h3>
       <p style="color:var(--text-subtle);font-size:0.82rem;margin:0 0 0.5rem">
         Cuando el botón "Auto-completar" del form de tarjeta no puede scrapear el sitio
@@ -716,14 +740,14 @@ const THEME_PRESET_I18N = {
       </p>
       <div class="form-group">
         <label>
-          Brave Search API key <button type="button" class="help-icon" @click="showHelp('externalSearch.brave')" title="¿Qué hace esto?">?</button>
+          Brave Search API key <button type="button" class="help-icon" @click="showHelp('externalSearch.brave')" :title="helpTooltipLabel()">?</button>
         </label>
         <input type="password" x-model="cfg.externalSearch.braveApiKey" placeholder="BSA..." autocomplete="off" />
         <small style="color:#94a3b8">2000 req/mes gratis. Conseguila en <a href="https://brave.com/search/api/" target="_blank" rel="noopener">brave.com/search/api</a>.</small>
       </div>
       <div class="form-group">
         <label>
-          Tavily API key <button type="button" class="help-icon" @click="showHelp('externalSearch.tavily')" title="¿Qué hace esto?">?</button>
+          Tavily API key <button type="button" class="help-icon" @click="showHelp('externalSearch.tavily')" :title="helpTooltipLabel()">?</button>
         </label>
         <input type="password" x-model="cfg.externalSearch.tavilyApiKey" placeholder="tvly-..." autocomplete="off" />
         <small style="color:#94a3b8">1000 req/mes gratis. Optimizado para AI. Conseguila en <a href="https://tavily.com" target="_blank" rel="noopener">tavily.com</a>.</small>
@@ -743,7 +767,7 @@ const THEME_PRESET_I18N = {
 
     <!-- WEBHOOKS (opt-in: features.webhooks) -->
     <div class="panel" :class="tab==='webhooks' && 'active'">
-      <h2 style="margin-top:0" x-text="webhooksTitle()">Webhooks <button type="button" class="help-icon" @click="showHelp('advanced.webhooks')" title="¿Qué hace esto?">?</button></h2>
+      <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="webhooksTitle()">Webhooks</span><button type="button" class="help-icon" @click="showHelp('advanced.webhooks')" :title="helpTooltipLabel()">?</button></h2>
       <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem" x-html="webhooksIntro()">
         Notifica a URLs externas cuando una card con health-check cambia de estado (de healthy → failing o vice versa).
       </p>
@@ -812,7 +836,7 @@ const THEME_PRESET_I18N = {
 
     <!-- MAINTENANCE WINDOWS (opt-in: features.maintenanceWindows) -->
     <div class="panel" :class="tab==='maintenance' && 'active'">
-      <h2 style="margin-top:0" x-text="maintenanceTitle()">Mantenimiento <button type="button" class="help-icon" @click="showHelp('advanced.maintenance')" title="¿Qué hace esto?">?</button></h2>
+      <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="maintenanceTitle()">Mantenimiento</span><button type="button" class="help-icon" @click="showHelp('advanced.maintenance')" :title="helpTooltipLabel()">?</button></h2>
       <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem" x-html="maintenanceIntro()">
         Programa ventanas donde una (o todas) las cards están en mantenimiento. Durante la ventana, las cards muestran badge ámbar y NO disparan webhooks de health_fail.
       </p>
@@ -878,12 +902,16 @@ const THEME_PRESET_I18N = {
 
     <!-- AUDIT LOG VIEWER (opt-in: features.auditLogViewer) -->
     <div class="panel" :class="tab==='audit' && 'active'">
-      <h2 style="margin-top:0" x-text="auditTitle()">Auditoría <button type="button" class="help-icon" @click="showHelp('advanced.audit')" title="¿Qué hace esto?">?</button></h2>
+      <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="auditTitle()">Auditoría</span><button type="button" class="help-icon" @click="showHelp('advanced.audit')" :title="helpTooltipLabel()">?</button></h2>
       <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem">
         Registro cronológico de eventos administrativos de <code>data/audit.log</code>. Filtros: acción, texto en el detalle, rango temporal.
       </p>
 
       <div class="audit-toolbar" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:0.75rem">
+        <div style="display:flex;align-items:center;gap:0.35rem;align-self:flex-end;padding-bottom:0.35rem">
+          <span style="font-size:0.78rem;color:var(--text-subtle)">Filtros</span>
+          <button type="button" class="help-icon" @click="showHelp('audit.filters')" :title="helpTooltipLabel()">?</button>
+        </div>
         <div class="form-group" style="margin:0;min-width:160px">
           <label style="font-size:0.78rem;margin-bottom:0.2rem">Acción</label>
           <select x-model="auditFilter.action" @change="reloadAudit()" style="padding:0.3rem 0.5rem">
@@ -906,7 +934,10 @@ const THEME_PRESET_I18N = {
           <input type="datetime-local" x-model="auditFilter.to" @change="reloadAudit()" />
         </div>
         <div class="form-group" style="margin:0">
-          <label style="font-size:0.78rem;margin-bottom:0.2rem">Límite</label>
+          <label style="font-size:0.78rem;margin-bottom:0.2rem;display:flex;align-items:center;gap:0.35rem">
+            <span>Límite</span>
+            <button type="button" class="help-icon" @click="showHelp('audit.limit')" :title="helpTooltipLabel()">?</button>
+          </label>
           <select x-model.number="auditFilter.limit" @change="reloadAudit()">
             <option value="50">50</option>
             <option value="200">200</option>
@@ -915,7 +946,10 @@ const THEME_PRESET_I18N = {
           </select>
         </div>
         <button type="button" class="btn btn-ghost" @click="resetAuditFilter()" x-text="auditResetLabel()">Limpiar</button>
-        <button type="button" class="btn btn-ghost" @click="downloadAuditLog()" x-text="auditDownloadLabel()">Descargar log completo</button>
+        <span style="display:inline-flex;align-items:center;gap:0.35rem">
+          <button type="button" class="btn btn-ghost" @click="downloadAuditLog()" x-text="auditDownloadLabel()">Descargar log completo</button>
+          <button type="button" class="help-icon" @click="showHelp('audit.download')" :title="helpTooltipLabel()">?</button>
+        </span>
       </div>
 
       <div x-show="auditLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="auditLoadingLabel()">Cargando…</div>
@@ -960,7 +994,7 @@ const THEME_PRESET_I18N = {
 
     <!-- METRICS (opt-in: features.metrics) -->
     <div class="panel" :class="tab==='metrics' && 'active'">
-      <h2 style="margin-top:0" x-text="metricsTitle()">Métricas <button type="button" class="help-icon" @click="showHelp('advanced.metrics')" title="¿Qué hace esto?">?</button></h2>
+      <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="metricsTitle()">Métricas</span><button type="button" class="help-icon" @click="showHelp('advanced.metrics')" :title="helpTooltipLabel()">?</button></h2>
       <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem" x-html="metricsIntro()">
         Sparklines + resumen (avg, p95, max) por card con health-check. Datos en memoria (últimas 100 muestras = ~1.5h con check cada 60s).
       </p>
@@ -1025,7 +1059,7 @@ const THEME_PRESET_I18N = {
 
     <!-- OIDC SSO (opt-in: features.oidc) -->
     <div class="panel" :class="tab==='oidc' && 'active'">
-      <h2 style="margin-top:0" x-text="tabOidc()">OIDC / SSO Providers <button type="button" class="help-icon" @click="showHelp('advanced.oidc')" title="¿Qué hace esto?">?</button></h2>
+      <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="tabOidc()">OIDC / SSO Providers</span><button type="button" class="help-icon" @click="showHelp('advanced.oidc')" :title="helpTooltipLabel()">?</button></h2>
       <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
         Configurá proveedores de identidad OpenID Connect (Google, Keycloak, Authentik, etc.) para Single Sign-On.
       </p>
@@ -1103,7 +1137,7 @@ const THEME_PRESET_I18N = {
 
     <!-- API TOKENS (opt-in: features.apiTokens) -->
     <div class="panel" :class="tab==='tokens' && 'active'">
-      <h2 style="margin-top:0" x-text="tabTokens()">Tokens API <button type="button" class="help-icon" @click="showHelp('advanced.apiTokens')" title="¿Qué hace esto?">?</button></h2>
+      <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="tabTokens()">Tokens API</span><button type="button" class="help-icon" @click="showHelp('advanced.apiTokens')" :title="helpTooltipLabel()">?</button></h2>
       <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
         Tokens Bearer para el CLI companion, scripts o integraciones de CI/CD. El token plano solo se muestra una vez al generarlo.
       </p>
@@ -1164,7 +1198,7 @@ const THEME_PRESET_I18N = {
 
     <!-- MULTI-PORTAL (opt-in: features.multiPortal) -->
     <div class="panel" :class="tab==='portals' && 'active'">
-      <h2 style="margin-top:0" x-text="tabPortals()">Multi-Portal <button type="button" class="help-icon" @click="showHelp('advanced.multiPortal')" title="¿Qué hace esto?">?</button></h2>
+      <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="tabPortals()">Multi-Portal</span><button type="button" class="help-icon" @click="showHelp('advanced.multiPortal')" :title="helpTooltipLabel()">?</button></h2>
       <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
         Permite servir distintos dashboards según el dominio (Host header) o el prefijo de ruta.
       </p>
@@ -1225,7 +1259,10 @@ const THEME_PRESET_I18N = {
     <div class="panel" :class="tab==='iconpacks' && 'active'">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
         <div>
-          <h2 style="margin:0 0 0.25rem" x-text="tabIconPacks()">Paquetes de Íconos (Icon Packs)</h2>
+          <h2 style="margin:0 0 0.25rem;display:flex;align-items:center;gap:0.35rem">
+            <span x-text="tabIconPacks()">Paquetes de Íconos (Icon Packs)</span>
+            <button type="button" class="help-icon" @click="showHelp('iconPacks.intro')" :title="helpTooltipLabel()">?</button>
+          </h2>
           <p style="color:var(--text-subtle);font-size:0.85rem;margin:0">
             Descargá e instalá colecciones completas de miles de íconos SVG desde repositorios Git de código abierto con un solo clic.
           </p>
@@ -1234,10 +1271,13 @@ const THEME_PRESET_I18N = {
           <span style="font-size:0.85rem;color:var(--text-subtle);background:var(--surface);padding:0.4rem 0.75rem;border:1px solid var(--border);border-radius:6px">
             Íconos disponibles en Umbral: <strong style="color:var(--text)" x-text="iconPacksTotal"></strong>
           </span>
-          <button type="button" class="btn btn-sm btn-ghost" @click="loadIconPacks()" :disabled="iconPacksLoading">
-            <span x-show="!iconPacksLoading">🔄 Actualizar</span>
-            <span x-show="iconPacksLoading" x-cloak>Cargando…</span>
-          </button>
+          <span style="display:inline-flex;align-items:center;gap:0.35rem">
+            <button type="button" class="btn btn-sm btn-ghost" @click="loadIconPacks()" :disabled="iconPacksLoading">
+              <span x-show="!iconPacksLoading">🔄 Actualizar</span>
+              <span x-show="iconPacksLoading" x-cloak>Cargando…</span>
+            </button>
+            <button type="button" class="help-icon" @click="showHelp('iconPacks.refresh')" :title="helpTooltipLabel()">?</button>
+          </span>
         </div>
       </div>
 
@@ -1257,7 +1297,11 @@ const THEME_PRESET_I18N = {
       </div>
 
       <!-- Cuadrícula de Paquetes Predefinidos -->
-      <h3 style="margin:1rem 0 0.75rem">Paquetes Populares de Código Abierto</h3>
+      <div style="display:flex;align-items:center;gap:0.35rem;margin:1rem 0 0.75rem">
+        <h3 style="margin:0">Paquetes Populares de Código Abierto</h3>
+        <button type="button" class="help-icon" @click="showHelp('iconPacks.install')" :title="helpTooltipLabel()">?</button>
+        <button type="button" class="help-icon" @click="showHelp('iconPacks.uninstall')" :title="helpTooltipLabel()">?</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:1rem;margin-bottom:2rem">
         <template x-for="pack in iconPacks" :key="pack.id">
           <div class="card-item" style="display:flex;flex-direction:column;justify-content:space-between;padding:1rem;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
@@ -1330,7 +1374,10 @@ const THEME_PRESET_I18N = {
 
       <!-- Instalar desde repositorio Git personalizado -->
       <div style="padding:1.25rem;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
-        <h3 style="margin:0 0 0.5rem">Instalar desde Repositorio Git Personalizado</h3>
+        <h3 style="margin:0 0 0.5rem;display:flex;align-items:center;gap:0.35rem">
+          <span>Instalar desde Repositorio Git Personalizado</span>
+          <button type="button" class="help-icon" @click="showHelp('iconPacks.customRepo')" :title="helpTooltipLabel()">?</button>
+        </h3>
         <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem">
           Ingresá la URL de cualquier repositorio público de Git (GitHub, GitLab, Gitea, etc.). Umbral clonará o descargará el repositorio y extraerá automáticamente todos los archivos SVG encontrados.
         </p>
@@ -1341,15 +1388,24 @@ const THEME_PRESET_I18N = {
             <input type="text" x-model="customPack.repoUrl" placeholder="https://github.com/usuario/mi-pack-iconos.git" style="width:100%" />
           </div>
           <div>
-            <label style="display:block;font-size:0.8rem;margin-bottom:0.25rem">Rama (opcional)</label>
+            <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;margin-bottom:0.25rem">
+              <span>Rama (opcional)</span>
+              <button type="button" class="help-icon" @click="showHelp('iconPacks.branch')" :title="helpTooltipLabel()">?</button>
+            </label>
             <input type="text" x-model="customPack.branch" placeholder="main o master" style="width:100%" />
           </div>
           <div>
-            <label style="display:block;font-size:0.8rem;margin-bottom:0.25rem">Carpeta interna / Subpath (opcional)</label>
+            <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;margin-bottom:0.25rem">
+              <span>Carpeta interna / Subpath (opcional)</span>
+              <button type="button" class="help-icon" @click="showHelp('iconPacks.subpath')" :title="helpTooltipLabel()">?</button>
+            </label>
             <input type="text" x-model="customPack.subpath" placeholder="ej: svg/ o icons/" style="width:100%" />
           </div>
           <div>
-            <label style="display:block;font-size:0.8rem;margin-bottom:0.25rem">Prefijo de nombres (opcional)</label>
+            <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;margin-bottom:0.25rem">
+              <span>Prefijo de nombres (opcional)</span>
+              <button type="button" class="help-icon" @click="showHelp('iconPacks.prefix')" :title="helpTooltipLabel()">?</button>
+            </label>
             <input type="text" x-model="customPack.prefix" placeholder="ej: custom (para custom-nombre.svg)" style="width:100%" />
           </div>
         </div>
@@ -1376,7 +1432,7 @@ const THEME_PRESET_I18N = {
     <div class="panel" :class="tab==='advanced' && 'active'">
       <h2 style="margin-top:0" x-text="tabAdvanced()">Avanzado</h2>
 
-      <h3 style="margin-top:1.5rem" x-text="featuresTitle()">Features (opt-in) <button type="button" class="help-icon" @click="showHelp('advanced.features')" title="¿Qué hace esto?">?</button></h3>
+      <h3 style="margin-top:1.5rem;display:flex;align-items:center;gap:0.35rem"><span x-text="featuresTitle()">Features (opt-in)</span><button type="button" class="help-icon" @click="showHelp('advanced.features')" :title="helpTooltipLabel()">?</button></h3>
       <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem" x-html="featuresIntro()">
         Cada feature nueva arranca <strong>apagada</strong> por default. Si no la activás, ni se ejecuta, ni se carga su dependencia, ni aparece en la UI. Al encender una feature, aparecerá automáticamente su pestaña correspondiente en la barra superior.
       </p>
@@ -1425,7 +1481,7 @@ const THEME_PRESET_I18N = {
         </template>
       </div>
 
-      <h3 style="margin-top:2rem">Export / Import <button type="button" class="help-icon" @click="showHelp('advanced.export')" title="¿Qué hace esto?">?</button></h3>
+      <h3 style="margin-top:2rem">Export / Import <button type="button" class="help-icon" @click="showHelp('advanced.export')" :title="helpTooltipLabel()">?</button></h3>
       <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
         <button class="btn btn-ghost" @click="exportConfig()">Descargar config.json</button>
         <span style="color:#94a3b8;font-size:0.85rem">backup / migración / versionar</span>
@@ -1435,15 +1491,15 @@ const THEME_PRESET_I18N = {
           Importar config.json
           <input type="file" accept="application/json" @change="importConfig($event)" hidden />
         </label>
-        <button type="button" class="help-icon" @click="showHelp('advanced.import')" title="¿Qué hace esto?">?</button>
+        <button type="button" class="help-icon" @click="showHelp('advanced.import')" :title="helpTooltipLabel()">?</button>
         <span style="color:#94a3b8;font-size:0.85rem">reemplaza la config actual (no es merge)</span>
       </div>
 
-      <h3>Healthcheck <button type="button" class="help-icon" @click="showHelp('advanced.healthcheck')" title="¿Qué hace esto?">?</button></h3>
+      <h3>Healthcheck <button type="button" class="help-icon" @click="showHelp('advanced.healthcheck')" :title="helpTooltipLabel()">?</button></h3>
       <button class="btn btn-ghost" @click="checkHealth()">Probar /api/health</button>
       <pre x-show="healthInfo" x-text="JSON.stringify(healthInfo, null, 2)" style="background:var(--code-bg, #0f172a);color:var(--code-fg, #38bdf8);border:1px solid var(--border);padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
 
-      <h3 style="margin-top:2rem">Reset <button type="button" class="help-icon" @click="showHelp('advanced.reset')" title="¿Qué hace esto?">?</button></h3>
+      <h3 style="margin-top:2rem">Reset <button type="button" class="help-icon" @click="showHelp('advanced.reset')" :title="helpTooltipLabel()">?</button></h3>
       <p style="color:#94a3b8;font-size:0.85rem">Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).</p>
       <button class="btn btn-danger" @click="resetConfig()">Reset a defaults</button>
     </div>
@@ -1459,11 +1515,11 @@ const THEME_PRESET_I18N = {
               <div class="card-editor-fields">
             <div class="form-row">
               <div class="form-group">
-                <label>Título <button type="button" class="help-icon" @click="showHelp('card.title')" title="¿Qué hace esto?">?</button></label>
+                <label>Título <button type="button" class="help-icon" @click="showHelp('card.title')" :title="helpTooltipLabel()">?</button></label>
                 <input type="text" x-model="editingCard.title" required maxlength="80" />
               </div>
               <div class="form-group">
-                <label>Tipo <button type="button" class="help-icon" @click="showHelp('card.kind')" title="¿Qué hace esto?">?</button></label>
+                <label>Tipo <button type="button" class="help-icon" @click="showHelp('card.kind')" :title="helpTooltipLabel()">?</button></label>
                 <select x-model="editingCard.kind">
                   <option value="link">Link (clickeable)</option>
                   <option value="note">Nota (informativa, sin link)</option>
@@ -1473,7 +1529,7 @@ const THEME_PRESET_I18N = {
             </div>
             <div class="form-row">
               <div class="form-group" style="flex:1">
-                <label>URL <button type="button" class="help-icon" @click="showHelp('card.url')" title="¿Qué hace esto?">?</button> <span x-show="editingCard.kind==='link'" style="color:#dc2626">*</span></label>
+                <label>URL <button type="button" class="help-icon" @click="showHelp('card.url')" :title="helpTooltipLabel()">?</button> <span x-show="editingCard.kind==='link'" style="color:#dc2626">*</span></label>
                 <div style="display:flex;gap:0.4rem;align-items:flex-start">
                   <input
                     type="text"
@@ -1494,6 +1550,7 @@ const THEME_PRESET_I18N = {
                     <span x-show="!autofillBusy">Auto-completar</span>
                     <span x-show="autofillBusy" x-cloak>Buscando…</span>
                   </button>
+                  <button type="button" class="help-icon" @click="showHelp('card.autofill')" :title="helpTooltipLabel()" x-show="editingCard.kind==='link'">?</button>
                 </div>
                 <small style="color:#94a3b8">
                   <template x-if="editingCard.kind==='link'">
@@ -1517,16 +1574,18 @@ const THEME_PRESET_I18N = {
                 <span x-show="!aiBusy">Mejorar con IA</span>
                 <span x-show="aiBusy" x-cloak>Pensando…</span>
               </button>
+              <button type="button" class="help-icon" @click="showHelp('card.aiEnhance')" :title="helpTooltipLabel()">?</button>
               <span style="color:var(--text-faint);font-size:0.75rem">
                 Usa la config de IA (Admin → IA). Editá el prompt system ahí si querés otro estilo.
               </span>
             </div>
             <div class="form-group">
               <label>
-                <span>Descripción <button type="button" class="help-icon" @click="showHelp('card.description')" title="¿Qué hace esto?">?</button></span>
+                <span>Descripción <button type="button" class="help-icon" @click="showHelp('card.description')" :title="helpTooltipLabel()">?</button></span>
                 <label x-show="markdownEnabled" style="display:inline-flex;align-items:center;gap:0.3rem;margin-left:0.5rem;font-size:0.78rem;color:var(--text-subtle);cursor:pointer" x-cloak>
                   <input type="checkbox" x-model="editingCard.descriptionFormat" @change="updateDescriptionLimit()" true-value="markdown" false-value="plain" />
                   <span x-text="markdownLabel()">Markdown</span>
+                  <button type="button" class="help-icon" @click="showHelp('card.descriptionFormat')" :title="helpTooltipLabel()">?</button>
                 </label>
               </label>
               <textarea
@@ -1553,7 +1612,7 @@ const THEME_PRESET_I18N = {
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Categoría <button type="button" class="help-icon" @click="showHelp('card.category')" title="¿Qué hace esto?">?</button></label>
+                <label>Categoría <button type="button" class="help-icon" @click="showHelp('card.category')" :title="helpTooltipLabel()">?</button></label>
                 <select
                   x-model="editingCard.category"
                   x-init="$nextTick(() => $el.value = editingCard.category || '')"
@@ -1566,7 +1625,7 @@ const THEME_PRESET_I18N = {
                 </select>
               </div>
               <div class="form-group">
-                <label>Color <button type="button" class="help-icon" @click="showHelp('card.color')" title="¿Qué hace esto?">?</button></label>
+                <label>Color <button type="button" class="help-icon" @click="showHelp('card.color')" :title="helpTooltipLabel()">?</button></label>
                 <input type="color" x-model="editingCard.color" />
               </div>
             </div>
@@ -1574,7 +1633,7 @@ const THEME_PRESET_I18N = {
             <div class="form-group" x-show="tagsEnabled" x-cloak>
               <label>
                 <span x-text="tagsLabel()">Tags</span>
-                <button type="button" class="help-icon" @click="showHelp('card.tags')" title="¿Qué hace esto?">?</button>
+                <button type="button" class="help-icon" @click="showHelp('card.tags')" :title="helpTooltipLabel()">?</button>
                 <span style="font-size:0.7rem;color:var(--text-faint);margin-left:0.5rem" x-text="(editingCard.tags || []).length + '/10'"></span>
               </label>
               <div class="tags-chips-wrap" @click="$refs.tagsInput && $refs.tagsInput.focus()">
@@ -1615,25 +1674,25 @@ const THEME_PRESET_I18N = {
               <div class="form-group" x-show="editingCard.kind==='link'">
                 <label>
                   <input type="checkbox" x-model="editingCard.openInNewTab" /> Abrir en nueva pestaña
-                  <button type="button" class="help-icon" @click="showHelp('card.openInNewTab')" title="¿Qué hace esto?">?</button>
+                  <button type="button" class="help-icon" @click="showHelp('card.openInNewTab')" :title="helpTooltipLabel()">?</button>
                 </label>
               </div>
               <div class="form-group">
                 <label>
                   <input type="checkbox" x-model="editingCard.enabled" /> Activa
-                  <button type="button" class="help-icon" @click="showHelp('card.enabled')" title="¿Qué hace esto?">?</button>
+                  <button type="button" class="help-icon" @click="showHelp('card.enabled')" :title="helpTooltipLabel()">?</button>
                 </label>
               </div>
               <div class="form-group" x-show="pinnedEnabled" x-cloak>
                 <label>
                   <input type="checkbox" x-model="editingCard.pinned" /> <span x-text="pinnedLabel()">Fijada</span>
-                  <button type="button" class="help-icon" @click="showHelp('card.pinned')" title="¿Qué hace esto?">?</button>
+                  <button type="button" class="help-icon" @click="showHelp('card.pinned')" :title="helpTooltipLabel()">?</button>
                 </label>
               </div>
               <div class="form-group" x-show="editingCard.kind==='link'">
                 <label>
                   <input type="checkbox" x-model="editingCard.healthCheck" /> Health check (dot en vivo)
-                  <button type="button" class="help-icon" @click="showHelp('card.healthCheck')" title="¿Qué hace esto?">?</button>
+                  <button type="button" class="help-icon" @click="showHelp('card.healthCheck')" :title="helpTooltipLabel()">?</button>
                 </label>
               </div>
             </div>
@@ -1642,7 +1701,10 @@ const THEME_PRESET_I18N = {
               <!-- Columna derecha: selector de íconos -->
               <div class="icon-picker-panel">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
-                  <label style="margin:0;font-weight:600">Ícono <button type="button" class="help-icon" @click="showHelp('card.icon')" title="¿Qué hace esto?">?</button></label>
+                  <label style="margin:0;font-weight:600;display:flex;align-items:center;gap:0.35rem">
+                    <span>Ícono</span>
+                    <button type="button" class="help-icon" @click="showHelp('card.iconPicker')" :title="helpTooltipLabel()">?</button>
+                  </label>
                   <button
                     type="button"
                     class="btn btn-ghost btn-sm"
@@ -1686,7 +1748,6 @@ const THEME_PRESET_I18N = {
                   <div class="icon-picker-toolbar-row" x-show="iconPickerTab === 'icons'" x-cloak>
                     <select class="icon-picker-pack-select" x-model="iconPickerPack" @change="iconPickerLimit = 120">
                       <option value="all">Todos los packs</option>
-                      <option value="core">Core</option>
                       <template x-for="pack in iconPickerPackOptions()" :key="pack">
                         <option :value="pack" x-text="pack"></option>
                       </template>
@@ -1698,7 +1759,12 @@ const THEME_PRESET_I18N = {
                   </div>
                 </div>
 
-                <div class="icon-picker-grid" x-show="iconPickerTab === 'icons'" x-cloak>
+                <div class="icon-picker-empty" x-show="iconPickerTab === 'icons' && filteredIconPickerIcons().length === 0 && !iconPickerSearch.trim()" x-cloak>
+                  <p x-text="iconPickerEmptyMessage()"></p>
+                  <button type="button" class="btn btn-sm btn-primary" @click="openIconPacksFromPicker()" x-text="iconPickerEmptyAction()"></button>
+                </div>
+
+                <div class="icon-picker-grid" x-show="iconPickerTab === 'icons' && filteredIconPickerIcons().length > 0" x-cloak>
                   <button
                     type="button"
                     class="icon-picker-tile"
@@ -1779,7 +1845,7 @@ const THEME_PRESET_I18N = {
             <button type="button" class="btn btn-ghost btn-sm" @click="closeHelp()" aria-label="Cerrar">✕</button>
           </div>
           <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem" x-text="currentHelp().short"></p>
-          <div class="help-body" x-text="currentHelp().body" style="white-space:pre-wrap;font-size:0.9rem;line-height:1.6"></div>
+          <div class="help-body" x-html="currentHelp().bodyHtml"></div>
           <div style="display:flex;justify-content:flex-end;margin-top:1rem">
             <button type="button" class="btn btn-primary btn-sm" @click="closeHelp()">Entendido</button>
           </div>
@@ -1936,7 +2002,7 @@ const THEME_PRESET_I18N = {
   </div>
 
   <!-- Alpine.js + Sortable + dashboard logic -->
-  <script is:inline define:vars={{ initialConfig: config, builtinIcons, appPresets: APP_PRESETS, predefinedIconPacks: PREDEFINED_ICON_PACKS, builtinThemePresets: BUILTIN_THEME_PRESETS, themePresetI18n: THEME_PRESET_I18N, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS, FEATURE_LIST, I18N: useI18n ? { dirty: trf('admin.dashboard.dirty'), reload: trf('admin.dashboard.reload'), save: trf('admin.dashboard.save'), saving: trf('admin.dashboard.saving'), saved: trf('admin.dashboard.saved'), savedClamped: trf('admin.dashboard.savedClamped'), reloaded: trf('admin.dashboard.reloaded'), error: trf('admin.dashboard.error'), tabs: { branding: trf('admin.tab.branding'), theme: trf('admin.tab.theme'), layout: trf('admin.tab.layout'), categories: trf('admin.tab.categories'), cards: trf('admin.tab.cards'), assets: trf('admin.tab.assets'), status: trf('admin.tab.status'), hardening: trf('admin.tab.hardening'), password: trf('admin.tab.password'), ai: trf('admin.tab.ai'), webhooks: trf('admin.tab.webhooks'), maintenance: trf('admin.tab.maintenance'), audit: trf('admin.tab.audit'), metrics: trf('admin.tab.metrics'), oidc: trf('admin.tab.oidc'), tokens: trf('admin.tab.tokens'), portals: trf('admin.tab.portals'), iconPacks: trf('admin.tab.iconPacks'), advanced: trf('admin.tab.advanced'), }, featuresTitle: trf('admin.features.title'), featuresIntro: trf('admin.features.intro'), webhooks: { title: trf('admin.webhooks.title'), intro: trf('admin.webhooks.intro'), add: trf('admin.webhooks.add'), testNew: trf('admin.webhooks.testNew'), }, maintenance: { title: trf('admin.maintenance.title'), intro: trf('admin.maintenance.intro'), add: trf('admin.maintenance.add'), }, audit: { title: trf('admin.audit.title'), reset: trf('admin.audit.reset'), download: trf('admin.audit.download'), loading: trf('admin.audit.loading'), empty: trf('admin.audit.empty'), downloadError: trf('admin.audit.downloadError'), }, metrics: { title: trf('admin.metrics.title'), intro: trf('admin.metrics.intro'), reload: trf('admin.metrics.reload'), loading: trf('admin.metrics.loading'), }, users: { intro: trf('admin.users.intro'), accessModeHelp: trf('admin.users.accessModeHelp'), }, card: { markdown: trf('admin.card.markdown'), refreshPreview: trf('admin.card.refreshPreview'), previewLabel: trf('admin.card.previewLabel'), tags: trf('admin.card.tags'), tagsPlaceholder: trf('admin.card.tagsPlaceholder'), tagsHelp: trf('admin.card.tagsHelp'), tagsAdd: trf('admin.card.tagsAdd'), pinned: trf('admin.card.pinned'), }, theme: { title: trf('admin.theme.title'), sectionPresets: trf('admin.theme.section.presets'), sectionBackground: trf('admin.theme.section.background'), sectionColors: trf('admin.theme.section.colors'), sectionTypography: trf('admin.theme.section.typography'), sectionCards: trf('admin.theme.section.cards'), sectionWidgets: trf('admin.theme.section.widgets'), sectionAdvanced: trf('admin.theme.section.advanced'), presetsIntro: trf('admin.theme.presets.intro'), saveCustomPreset: trf('admin.theme.preset.saveCustom'), resetDefaults: trf('admin.theme.preset.reset'), previewTitle: trf('admin.theme.preview.title'), openPreviewTab: trf('admin.theme.preview.openTab'), gradientBuilder: trf('admin.theme.background.gradientBuilder'), advancedCss: trf('admin.theme.background.advancedCss'), widgetsIntro: trf('admin.theme.widgets.intro'), advancedIntro: trf('admin.theme.advanced.intro'), deriveAccent: trf('admin.theme.advanced.deriveAccent'), exportTheme: trf('admin.theme.advanced.export'), importTheme: trf('admin.theme.advanced.import'), tokenSearchPlaceholder: trf('admin.theme.advanced.tokenSearch'), presetApplied: trf('admin.theme.preset.applied'), presetSaved: trf('admin.theme.preset.saved'), themeImported: trf('admin.theme.advanced.imported'), themeExported: trf('admin.theme.advanced.exported'), }, } : null }}>
+  <script is:inline define:vars={{ initialConfig: config, availableIcons, appPresets: APP_PRESETS, predefinedIconPacks: PREDEFINED_ICON_PACKS, builtinThemePresets: BUILTIN_THEME_PRESETS, themePresetI18n: THEME_PRESET_I18N, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS, FEATURE_LIST, I18N: useI18n ? { dirty: trf('admin.dashboard.dirty'), reload: trf('admin.dashboard.reload'), save: trf('admin.dashboard.save'), saving: trf('admin.dashboard.saving'), saved: trf('admin.dashboard.saved'), savedClamped: trf('admin.dashboard.savedClamped'), reloaded: trf('admin.dashboard.reloaded'), error: trf('admin.dashboard.error'), tabs: { branding: trf('admin.tab.branding'), theme: trf('admin.tab.theme'), layout: trf('admin.tab.layout'), categories: trf('admin.tab.categories'), cards: trf('admin.tab.cards'), assets: trf('admin.tab.assets'), status: trf('admin.tab.status'), hardening: trf('admin.tab.hardening'), password: trf('admin.tab.password'), ai: trf('admin.tab.ai'), webhooks: trf('admin.tab.webhooks'), maintenance: trf('admin.tab.maintenance'), audit: trf('admin.tab.audit'), metrics: trf('admin.tab.metrics'), oidc: trf('admin.tab.oidc'), tokens: trf('admin.tab.tokens'), portals: trf('admin.tab.portals'), iconPacks: trf('admin.tab.iconPacks'), advanced: trf('admin.tab.advanced'), }, featuresTitle: trf('admin.features.title'), featuresIntro: trf('admin.features.intro'), webhooks: { title: trf('admin.webhooks.title'), intro: trf('admin.webhooks.intro'), add: trf('admin.webhooks.add'), testNew: trf('admin.webhooks.testNew'), }, maintenance: { title: trf('admin.maintenance.title'), intro: trf('admin.maintenance.intro'), add: trf('admin.maintenance.add'), }, audit: { title: trf('admin.audit.title'), reset: trf('admin.audit.reset'), download: trf('admin.audit.download'), loading: trf('admin.audit.loading'), empty: trf('admin.audit.empty'), downloadError: trf('admin.audit.downloadError'), }, metrics: { title: trf('admin.metrics.title'), intro: trf('admin.metrics.intro'), reload: trf('admin.metrics.reload'), loading: trf('admin.metrics.loading'), }, users: { intro: trf('admin.users.intro'), accessModeHelp: trf('admin.users.accessModeHelp'), }, card: { markdown: trf('admin.card.markdown'), refreshPreview: trf('admin.card.refreshPreview'), previewLabel: trf('admin.card.previewLabel'), tags: trf('admin.card.tags'), tagsPlaceholder: trf('admin.card.tagsPlaceholder'), tagsHelp: trf('admin.card.tagsHelp'), tagsAdd: trf('admin.card.tagsAdd'), pinned: trf('admin.card.pinned'), }, help: { tooltip: trf('admin.help.tooltip'), }, iconPicker: { noPacks: trf('admin.iconPicker.emptyNoPacks'), featureOff: trf('admin.iconPicker.emptyFeatureOff'), goIconPacks: trf('admin.iconPicker.goIconPacks'), goFeatures: trf('admin.iconPicker.goFeatures'), }, theme: { title: trf('admin.theme.title'), sectionPresets: trf('admin.theme.section.presets'), sectionBackground: trf('admin.theme.section.background'), sectionColors: trf('admin.theme.section.colors'), sectionTypography: trf('admin.theme.section.typography'), sectionCards: trf('admin.theme.section.cards'), sectionWidgets: trf('admin.theme.section.widgets'), sectionAdvanced: trf('admin.theme.section.advanced'), presetsIntro: trf('admin.theme.presets.intro'), saveCustomPreset: trf('admin.theme.preset.saveCustom'), resetDefaults: trf('admin.theme.preset.reset'), previewTitle: trf('admin.theme.preview.title'), openPreviewTab: trf('admin.theme.preview.openTab'), gradientBuilder: trf('admin.theme.background.gradientBuilder'), advancedCss: trf('admin.theme.background.advancedCss'), widgetsIntro: trf('admin.theme.widgets.intro'), advancedIntro: trf('admin.theme.advanced.intro'), deriveAccent: trf('admin.theme.advanced.deriveAccent'), exportTheme: trf('admin.theme.advanced.export'), importTheme: trf('admin.theme.advanced.import'), tokenSearchPlaceholder: trf('admin.theme.advanced.tokenSearch'), presetApplied: trf('admin.theme.preset.applied'), presetSaved: trf('admin.theme.preset.saved'), themeImported: trf('admin.theme.advanced.imported'), themeExported: trf('admin.theme.advanced.exported'), }, } : null }}>
     // Mirror trustedProxies (array) into a text form so the textarea can edit it.
     initialConfig.security.network.trustedProxiesText = (initialConfig.security.network.trustedProxies || []).join('\n');
     // Si el config legacy no tiene `features`, lo inicializamos como objeto
@@ -1947,7 +2013,7 @@ const THEME_PRESET_I18N = {
     if (!initialConfig.portals) initialConfig.portals = { defaultPortal: 'default', items: [] };
     // expose config to adminApp data
     window.__initialConfig = initialConfig;
-    window.__builtinIcons = builtinIcons;
+    window.__availableIcons = availableIcons;
     window.__appPresets = appPresets;
     window.__predefinedIconPacks = predefinedIconPacks;
     window.__aiProviders = AI_PROVIDERS;
@@ -2033,7 +2099,7 @@ const THEME_PRESET_I18N = {
         checkingStatus: false,
         healthInfo: null,
         selectedAsset: null,
-        builtinIcons: window.__builtinIcons || [],
+        availableIcons: window.__availableIcons || [],
         iconPickerSearch: '',
         iconPickerPack: 'all',
         iconPickerLimit: 120,
@@ -2051,7 +2117,7 @@ const THEME_PRESET_I18N = {
           try {
             const res = await window.umbralAdmin.api('GET', '/api/icon-packs');
             if (res.availableIcons) {
-              this.builtinIcons = res.availableIcons;
+              this.availableIcons = res.availableIcons;
             }
           } catch {
             // usar catálogo en caché
@@ -2067,8 +2133,8 @@ const THEME_PRESET_I18N = {
         },
 
         iconPickerPacks() {
-          const packs = new Set(['core']);
-          for (const i of this.builtinIcons) {
+          const packs = new Set();
+          for (const i of this.availableIcons) {
             const slash = i.indexOf('/');
             if (slash > 0) packs.add(i.slice(0, slash));
           }
@@ -2076,15 +2142,13 @@ const THEME_PRESET_I18N = {
         },
 
         iconPickerPackOptions() {
-          return this.iconPickerPacks().filter((p) => p !== 'core');
+          return this.iconPickerPacks();
         },
 
         filteredIconPickerIcons() {
-          let list = this.builtinIcons;
+          let list = this.availableIcons;
           if (this.iconPickerPack !== 'all') {
-            list = list.filter((i) =>
-              this.iconPickerPack === 'core' ? !i.includes('/') : i.startsWith(this.iconPickerPack + '/'),
-            );
+            list = list.filter((i) => i.startsWith(this.iconPickerPack + '/'));
           }
           const q = this.iconPickerSearch.toLowerCase().trim();
           if (q) list = list.filter((i) => i.toLowerCase().includes(q));
@@ -2105,6 +2169,28 @@ const THEME_PRESET_I18N = {
 
         iconPickerAssets() {
           return this.assets.filter((a) => /\.(svg|png|jpg|jpeg|webp|gif|ico)$/i.test(a.name));
+        },
+
+        iconPickerEmptyMessage() {
+          if (!this.isFeatureOn('iconPacks')) {
+            return this.i18n?.iconPicker?.featureOff || 'Los íconos provienen de packs instalables. Activá la feature "Icon Packs" en Avanzado → Features para habilitarlos.';
+          }
+          return this.i18n?.iconPicker?.noPacks || 'No hay íconos instalados. Descargá un pack desde la pestaña Íconos Git (Lucide, Simple Icons, etc.).';
+        },
+
+        iconPickerEmptyAction() {
+          if (!this.isFeatureOn('iconPacks')) {
+            return this.i18n?.iconPicker?.goFeatures || 'Ir a Features';
+          }
+          return this.i18n?.iconPicker?.goIconPacks || 'Ir a Íconos Git';
+        },
+
+        openIconPacksFromPicker() {
+          if (!this.isFeatureOn('iconPacks')) {
+            this.tab = 'advanced';
+            return;
+          }
+          this.tab = 'iconpacks';
         },
         featureList: window.__featureList || [],
         i18n: window.__i18n || null,
@@ -2597,6 +2683,7 @@ const THEME_PRESET_I18N = {
           if (this.tab === 'iconpacks' && this.iconPacks.length === 0 && !this.iconPacksLoading) {
             this.loadIconPacks();
           }
+          setInterval(() => { this.themePreviewClockTick++; }, 1000);
         },
 
         markDirty() { this.dirty = JSON.stringify(this.cfg) !== JSON.stringify(this.original); },
@@ -2816,7 +2903,7 @@ const THEME_PRESET_I18N = {
             description: '',
             descriptionFormat: 'plain',
             url: 'https://',
-            icon: this.builtinIcons[0] || 'globe',
+            icon: this.availableIcons[0] || '',
             category: this.cfg.categories[0].id,
             openInNewTab: true,
             color: this.cfg.theme.accentColor,
@@ -3027,23 +3114,8 @@ const THEME_PRESET_I18N = {
           const desc = this.editingCard?.description || '';
           if (!desc) { this.markdownPreview = ''; return; }
           try {
-            const [{ marked }, { JSDOM }, dompurifyMod] = await Promise.all([
-              import('marked'),
-              import('jsdom'),
-              import('dompurify'),
-            ]);
-            const dom = new JSDOM('');
-            const DP = dompurifyMod.default || dompurifyMod;
-            const purifier = DP(dom.window);
-            const raw = await marked.parse(desc, { gfm: true, breaks: true, async: true });
-            this.markdownPreview = purifier.sanitize(raw, {
-              ALLOWED_TAGS: [
-                'a', 'b', 'i', 'em', 'strong', 'p', 'br', 'hr', 'ul', 'ol', 'li',
-                'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre',
-                'span', 'div', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
-              ],
-              ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
-            });
+            const res = await window.umbralAdmin.api('POST', '/api/markdown/render', { text: desc });
+            this.markdownPreview = res.html || '';
             this.markdownPreviewDirty = false;
           } catch (e) {
             this.markdownPreview = '<em style="color:#fca5a5">Error al renderizar preview: ' + (e?.message || e) + '</em>';
@@ -3131,7 +3203,7 @@ const THEME_PRESET_I18N = {
           const ec = this.editingCard;
           const isEmpty = (!ec.title || ec.title === 'Nueva tarjeta' || !ec.title.trim())
             && !ec.description
-            && (!ec.icon || ec.icon === this.builtinIcons[0]);
+            && (!ec.icon || ec.icon === this.availableIcons[0]);
           if (isEmpty) this.autofillFromUrl();
         },
         async improveWithAI() {
@@ -3711,6 +3783,27 @@ const THEME_PRESET_I18N = {
         themeSaveCustomPreset() { return this.i18n?.theme?.saveCustomPreset || 'Guardar como preset'; },
         themeResetDefaults() { return this.i18n?.theme?.resetDefaults || 'Restaurar defaults'; },
         themePreviewLabel() { return this.i18n?.theme?.previewTitle || 'Vista previa'; },
+        themePreviewClockTick: 0,
+
+        themePreviewClock() {
+          void this.themePreviewClockTick;
+          const fmt = this.cfg.theme.clockFormat || '24h';
+          const now = new Date();
+          if (fmt === '12h') {
+            let h = now.getHours() % 12;
+            if (h === 0) h = 12;
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+            return `${h}:${m}:${s} ${ampm}`;
+          }
+          return now.toLocaleTimeString('es-AR', { hour12: false });
+        },
+
+        helpTooltipLabel() {
+          return this.i18n?.help?.tooltip || '¿Qué hace esto?';
+        },
+
         themeOpenPreviewTabLabel() { return this.i18n?.theme?.openPreviewTab || 'Abrir preview en pestaña'; },
         themeGradientBuilderLabel() { return this.i18n?.theme?.gradientBuilder || 'Constructor de gradiente'; },
         themeAdvancedCssLabel() { return this.i18n?.theme?.advancedCss || 'CSS avanzado'; },
@@ -3957,7 +4050,7 @@ const THEME_PRESET_I18N = {
         themePreviewActiveBg() {
           const mode = this.effectivePreviewMode();
           if (mode === 'light' && this.cfg.theme.backgroundLight) {
-            return { ...this.cfg.theme.background, ...this.cfg.theme.backgroundLight };
+            return this.cfg.theme.backgroundLight;
           }
           return this.cfg.theme.background;
         },
@@ -4229,7 +4322,7 @@ const THEME_PRESET_I18N = {
             this.iconPacks = this.mergeIconPacksFromApi(res.packs);
             this.iconPacksTotal = res.totalInstalledIcons || 0;
             if (res.availableIcons) {
-              this.builtinIcons = res.availableIcons;
+              this.availableIcons = res.availableIcons;
             }
             this.iconPackMsg = { text: '', error: false };
           } catch (e) {
@@ -4351,23 +4444,6 @@ const THEME_PRESET_I18N = {
     [x-cloak] { display: none !important; }
     .dirty-badge { color: #fbbf24; font-size: 0.85rem; }
     .muted { color: #94a3b8; font-size: 0.85rem; }
-    /* Help icon "?" al lado de cada label avanzado. Inline-block, no afecta
-       el flow del label. Hover lo agranda un toque para feedback. */
-    .help-icon {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 18px; height: 18px; margin-left: 0.35rem; padding: 0;
-      border-radius: 50%; border: 1px solid var(--border);
-      background: var(--surface); color: var(--text-muted);
-      font-size: 0.7rem; font-weight: 600; line-height: 1;
-      cursor: pointer; vertical-align: middle;
-      transition: background 0.12s, color 0.12s, transform 0.12s;
-    }
-    .help-icon:hover { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); transform: scale(1.1); }
-    /* Modal de help: ancho cómodo para leer bloques de texto largos. */
-    .help-modal { max-width: 640px; max-height: 80vh; overflow-y: auto; }
-    .help-body code { background: var(--code-bg); padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
-    .help-body strong { color: var(--text); }
-    /* Colores para el resultado del test de IA. */
     .help-ok { color: #10b981; }
     .help-err { color: #f87171; }
     /* System card: la de docs (/docs) no se puede editar ni borrar. */
