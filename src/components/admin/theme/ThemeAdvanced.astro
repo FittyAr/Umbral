@@ -46,8 +46,8 @@ const categories = TOKEN_CATEGORIES;
 
 <div class="form-row" style="margin-bottom:0.75rem">
   <div class="form-group">
-    <label x-text="themeRadiusLabel()">{t('admin.theme.advanced.radius', 'Radio base')} (<span x-text="cfg.theme.tokens?.shared?.radius ?? 10"></span>px)</label>
-    <input type="range" min="0" max="24" :value="cfg.theme.tokens?.shared?.radius ?? 10" @input="setSharedToken('radius', +$event.target.value)" />
+    <label><span x-text="themeRadiusLabel()">{t('admin.theme.advanced.radius', 'Radio base')}</span> (<span x-text="cfg?.theme?.tokens?.shared?.radius ?? 10"></span>px)</label>
+    <input type="range" min="0" max="24" :value="cfg?.theme?.tokens?.shared?.radius ?? 10" @input="setSharedToken('radius', +$event.target.value)" />
   </div>
   <div class="form-group">
     <label>

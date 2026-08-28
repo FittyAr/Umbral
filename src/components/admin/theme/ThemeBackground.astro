@@ -58,7 +58,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     </label>
     <div class="theme-gradient-preview" :style="`background:${buildGradientCss()}`"></div>
     <div class="form-group" style="margin-bottom:0.5rem">
-      <label x-text="themeGradientAngleLabel()">{t('admin.theme.background.angle', 'Ángulo')}: <span x-text="themeGradientAngle"></span>°</label>
+      <label><span x-text="themeGradientAngleLabel()">{t('admin.theme.background.angle', 'Ángulo')}</span>: <span x-text="themeGradientAngle"></span>°</label>
       <input type="range" min="0" max="360" x-model.number="themeGradientAngle" @input="syncGradientToBackground()" />
     </div>
     <div class="theme-gradient-stops">

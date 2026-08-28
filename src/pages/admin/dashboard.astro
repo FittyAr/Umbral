@@ -2047,8 +2047,7 @@ const THEME_PRESET_I18N = {
     window.__contrastRatio = contrastRatio;
     window.__colorToHexApprox = colorToHexApprox;
 
-    document.addEventListener('alpine:init', () => {
-      Alpine.data('adminApp', () => ({
+    Alpine.data('adminApp', () => ({
         tab: 'cards',
         themeSection: 'presets',
         themePreviewMode: 'auto',
@@ -2064,7 +2063,7 @@ const THEME_PRESET_I18N = {
           { color: '#0f172a', pos: 100 },
         ],
         themeTokenSearch: '',
-        cfg: null,
+        cfg: window.__initialConfig || null,
         original: null,
         dirty: false,
         busy: false,
@@ -4436,7 +4435,6 @@ const THEME_PRESET_I18N = {
           return '';
         },
       }));
-    });
     Alpine.start();
   </script>
 
