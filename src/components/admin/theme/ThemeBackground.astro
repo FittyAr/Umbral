@@ -1,0 +1,118 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<h3 x-text="themeSectionBackground()">{t('admin.theme.section.background', 'Fondo')}</h3>
+
+<div class="theme-advanced-tabs" style="margin-bottom:0.75rem">
+  <button type="button" :class="themeBgEditMode==='dark' && 'active'" @click="themeBgEditMode='dark'; parseGradientFromBackground()" x-text="themeBgModeDarkLabel()">
+    {t('admin.theme.background.modeDark', 'Modo oscuro')}
+  </button>
+  <button type="button" :class="themeBgEditMode==='light' && 'active'" @click="themeBgEditMode='light'; parseGradientFromBackground()" x-text="themeBgModeLightLabel()">
+    {t('admin.theme.background.modeLight', 'Modo claro')}
+  </button>
+  <button type="button" class="btn btn-sm btn-ghost" style="margin-left:auto" @click="copyBackgroundFromOtherMode()" x-text="themeBgCopyOtherLabel()">
+    {t('admin.theme.background.copyOther', 'Copiar del otro modo')}
+  </button>
+</div>
+
+<div class="form-group">
+  <label>
+    <span x-text="themeBgTypeLabel()">{t('admin.theme.background.type', 'Tipo de fondo')}</span>
+    <button type="button" class="help-icon" @click="showHelp('theme.background.type')" title="?">?</button>
+  </label>
+  <select :value="getActiveBgProp('type')" @change="setActiveBgProp('type', $event.target.value); onBackgroundTypeChange()">
+    <option value="gradient">{t('admin.theme.background.typeGradient', 'Gradiente')}</option>
+    <option value="color">{t('admin.theme.background.typeColor', 'Color sólido')}</option>
+    <option value="image">{t('admin.theme.background.typeImage', 'Imagen subida')}</option>
+  </select>
+</div>
+
+<div class="form-group" x-show="getActiveBgProp('type')==='image'">
+  <label>
+    <span x-text="themeBgImageLabel()">{t('admin.theme.background.image', 'Imagen de fondo')}</span>
+    <button type="button" class="help-icon" @click="showHelp('theme.background.value')" title="?">?</button>
+  </label>
+  <select :value="getActiveBgProp('value')" @change="setActiveBgProp('value', $event.target.value)">
+    <option value="">{t('admin.theme.background.selectImage', '— Seleccionar imagen —')}</option>
+    <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp)$/i.test(a.name))" :key="a.name">
+      <option :value="a.url" x-text="a.name"></option>
+    </template>
+  </select>
+</div>
+
+<div x-show="getActiveBgProp('type')!=='image' && !themeUseAdvancedCss">
+  <div class="theme-gradient-builder" x-show="getActiveBgProp('type')==='gradient'">
+    <label style="font-size:0.82rem;color:var(--text-subtle);display:block;margin-bottom:0.5rem" x-text="themeGradientBuilderLabel()">
+      {t('admin.theme.background.gradientBuilder', 'Constructor de gradiente')}
+    </label>
+    <div class="theme-gradient-preview" :style="`background:${buildGradientCss()}`"></div>
+    <div class="form-group" style="margin-bottom:0.5rem">
+      <label x-text="themeGradientAngleLabel()">{t('admin.theme.background.angle', 'Ángulo')}: <span x-text="themeGradientAngle"></span>°</label>
+      <input type="range" min="0" max="360" x-model.number="themeGradientAngle" @input="syncGradientToBackground()" />
+    </div>
+    <div class="theme-gradient-stops">
+      <template x-for="(stop, idx) in themeGradientStops" :key="idx">
+        <div class="theme-gradient-stop">
+          <input type="color" x-model="stop.color" @input="syncGradientToBackground()" />
+          <input type="range" min="0" max="100" x-model.number="stop.pos" @input="syncGradientToBackground()" />
+          <span x-text="stop.pos + '%'" style="font-size:0.75rem;color:var(--text-subtle)"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+  <div class="form-group" x-show="getActiveBgProp('type')==='color'">
+    <label x-text="themeBgColorLabel()">{t('admin.theme.background.color', 'Color')}</label>
+    <div class="theme-color-field">
+      <input type="color" :value="getActiveBgProp('value')" @input="setActiveBgProp('value', $event.target.value)" />
+      <input type="text" :value="getActiveBgProp('value')" @input="setActiveBgProp('value', $event.target.value)" placeholder="#0f172a" />
+    </div>
+  </div>
+</div>
+
+<div class="form-group">
+  <label style="display:flex;align-items:center;gap:0.5rem">
+    <input type="checkbox" x-model="themeUseAdvancedCss" @change="onAdvancedCssToggle()" />
+    <span x-text="themeAdvancedCssLabel()">{t('admin.theme.background.advancedCss', 'CSS avanzado (editar valor manualmente)')}</span>
+  </label>
+</div>
+
+<div class="form-group" x-show="themeUseAdvancedCss || getActiveBgProp('type')==='image'">
+  <label>
+    <span x-text="getActiveBgProp('type') === 'color' ? themeBgColorLabel() : themeBgCssLabel()"></span>
+    <button type="button" class="help-icon" @click="showHelp('theme.background.value')" title="?">?</button>
+  </label>
+  <input type="text" :value="getActiveBgProp('value')" @input="setActiveBgProp('value', $event.target.value)" placeholder="linear-gradient(135deg, #0f172a, #1e3a8a)" />
+</div>
+
+<div class="form-row">
+  <div class="form-group">
+    <label>
+      <span x-text="themeBlurLabel()">{t('admin.theme.background.blur', 'Blur')}</span>
+      (<span x-text="getActiveBgProp('blur')"></span>px)
+      <button type="button" class="help-icon" @click="showHelp('theme.background.blur')" title="?">?</button>
+    </label>
+    <input type="range" min="0" max="40" :value="getActiveBgProp('blur')" @input="setActiveBgProp('blur', +$event.target.value)" />
+  </div>
+  <div class="form-group">
+    <label>
+      <span x-text="themeOverlayLabel()">{t('admin.theme.background.overlay', 'Overlay')}</span>
+      (<span x-text="getActiveBgProp('overlay')"></span>)
+      <button type="button" class="help-icon" @click="showHelp('theme.background.overlay')" title="?">?</button>
+    </label>
+    <input type="range" min="0" max="1" step="0.05" :value="getActiveBgProp('overlay')" @input="setActiveBgProp('overlay', +$event.target.value)" />
+  </div>
+  <div class="form-group">
+    <label>
+      <span x-text="themeOverlayColorLabel()">{t('admin.theme.background.overlayColor', 'Color overlay')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.background.overlayColor')" title="?">?</button>
+    </label>
+    <input type="color" :value="getActiveBgProp('overlayColor')" @input="setActiveBgProp('overlayColor', $event.target.value)" />
+  </div>
+</div>

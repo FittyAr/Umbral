@@ -453,11 +453,13 @@ Si necesitás una fuente custom (la de tu marca, por ejemplo), andá a Hardening
   'theme.colorMode': {
     title: 'Modo de color',
     short: 'Auto, oscuro, o claro.',
-    body: `**Auto** (default): el portal detecta el \`prefers-color-scheme\` del browser del user y elige light/dark automáticamente. Cambia solo si el user cambia su pref.
+    body: `**Auto** (default): el portal elige light/dark según \`theme.autoStrategy\`:
+- **system** (default): \`prefers-color-scheme\` del navegador/OS.
+- **schedule**: claro entre 7 y 19, oscuro el resto.
 
-**Oscuro** / **Claro**: fuerza el modo. Útil si querés un look consistente sin importar el sistema.
+**Oscuro** / **Claro**: fuerza el modo. Útil si querés un look consistente.
 
-El "modo" sólo afecta las variables CSS de la portada — la data en config no cambia.`,
+Podés ocultar el toggle de la portada con \`theme.showModeToggle\`. El override del user persiste en \`localStorage\`.`,
   },
 
   // ── Layout (los que faltan) ───────────────────────────────────────

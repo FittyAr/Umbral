@@ -1,0 +1,48 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<h3 x-text="themeSectionTypography()">{t('admin.theme.section.typography', 'Tipografía')}</h3>
+
+<div class="form-row">
+  <div class="form-group">
+    <label>
+      <span x-text="themeFontLabel()">{t('admin.theme.typography.font', 'Tipografía')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.fontFamily')" title="?">?</button>
+    </label>
+    <select x-model="cfg.theme.fontFamily" @change="updateFontUrl()">
+      <option>Inter</option><option>Roboto</option><option>Open Sans</option>
+      <option>Lato</option><option>Poppins</option><option>Montserrat</option>
+      <option>Source Sans 3</option><option>Nunito</option><option>Raleway</option>
+      <option>system-ui</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label x-text="themeFontWeightLabel()">{t('admin.theme.typography.weight', 'Peso')}</label>
+    <select x-model="cfg.theme.fontWeight">
+      <option value="400">400 — Regular</option>
+      <option value="500">500 — Medium</option>
+      <option value="600">600 — Semibold</option>
+      <option value="700">700 — Bold</option>
+    </select>
+  </div>
+</div>
+
+<div class="form-group">
+  <label style="display:flex;align-items:center;gap:0.5rem">
+    <input type="checkbox" x-model="cfg.theme.useGoogleFonts" @change="updateFontUrl()" />
+    <span x-text="themeGoogleFontsLabel()">{t('admin.theme.typography.googleFonts', 'Cargar desde Google Fonts (requiere conexión)')}</span>
+  </label>
+</div>
+
+<div style="margin-top:0.75rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm)" :style="`font-family:'${cfg.theme.fontFamily}', system-ui; font-weight:${cfg.theme.fontWeight || 400}`">
+  <div style="font-size:1.25rem;font-weight:600;margin-bottom:0.25rem" x-text="themeTypeSampleTitle()">{t('admin.theme.typography.sampleTitle', 'Título de ejemplo')}</div>
+  <div style="font-size:0.9rem;opacity:0.85" x-text="themeTypeSampleBody()">{t('admin.theme.typography.sampleBody', 'Texto de cuerpo con la tipografía seleccionada.')}</div>
+  <div style="font-size:0.75rem;opacity:0.6;margin-top:0.25rem" x-text="themeTypeSampleCaption()">{t('admin.theme.typography.sampleCaption', 'Caption / metadata')}</div>
+</div>

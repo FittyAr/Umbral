@@ -8,6 +8,8 @@ import { AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS } from '~/lib/ai-prompts';
 import { FEATURE_META, FEATURE_NAMES, isFeatureEnabled } from '~/lib/features';
 import { APP_PRESETS } from '~/lib/presets';
 import { PREDEFINED_ICON_PACKS } from '~/lib/icon-packs';
+import { BUILTIN_THEME_PRESETS } from '~/lib/theme-presets';
+import ThemePanel from '~/components/admin/theme/ThemePanel.astro';
 import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
 // Modo demo (UMBRAL_DEMO=true en build): el visitor del demo entra directo
@@ -45,6 +47,14 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
   deps: FEATURE_META[name].deps ?? [],
   enabled: isFeatureEnabled(config, name),
 }));
+
+const THEME_PRESET_I18N = {
+  variantDark: trf('admin.theme.preset.variant.dark'),
+  variantLight: trf('admin.theme.preset.variant.light'),
+  applyCustom: trf('admin.theme.preset.apply'),
+  names: Object.fromEntries(BUILTIN_THEME_PRESETS.map((p) => [p.id, trf(p.nameKey)])),
+  descs: Object.fromEntries(BUILTIN_THEME_PRESETS.map((p) => [p.id, trf(p.descriptionKey)])),
+};
 ---
 <AdminLayout title="Dashboard" csrfToken={csrfToken} isAuthed={true}>
   <div class="admin-wrap">
@@ -110,121 +120,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
     </div>
 
     <!-- THEME -->
-    <div class="panel" :class="tab==='theme' && 'active'">
-      <h2 style="margin-top:0">Tema</h2>
-      <div class="form-group">
-        <label>Tipo de fondo <button type="button" class="help-icon" @click="showHelp('theme.background.type')" title="¿Qué hace esto?">?</button></label>
-        <select x-model="cfg.theme.background.type">
-          <option value="gradient">Gradiente / Color CSS</option>
-          <option value="color">Color sólido</option>
-          <option value="image">Imagen subida</option>
-        </select>
-      </div>
-      <div class="form-group" x-show="cfg.theme.background.type==='image'">
-        <label>Imagen de fondo <button type="button" class="help-icon" @click="showHelp('theme.background.value')" title="¿Qué hace esto?">?</button></label>
-        <select x-model="cfg.theme.background.value">
-          <option value="">— Seleccionar imagen —</option>
-          <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp)$/i.test(a.name))" :key="a.name">
-            <option :value="a.url" x-text="a.name"></option>
-          </template>
-        </select>
-      </div>
-      <div class="form-group" x-show="cfg.theme.background.type!=='image'">
-        <label>
-          <span x-text="cfg.theme.background.type==='color' ? 'Color' : 'CSS (gradient/color)'"></span>
-          <button type="button" class="help-icon" @click="showHelp('theme.background.value')" title="¿Qué hace esto?">?</button>
-        </label>
-        <input type="text" x-model="cfg.theme.background.value" :placeholder="cfg.theme.background.type==='color' ? '#0f172a' : 'linear-gradient(135deg, #0f172a, #1e3a8a)'" />
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Blur (<span x-text="cfg.theme.background.blur"></span>px) <button type="button" class="help-icon" @click="showHelp('theme.background.blur')" title="¿Qué hace esto?">?</button></label>
-          <input type="range" min="0" max="40" x-model.number="cfg.theme.background.blur" />
-        </div>
-        <div class="form-group">
-          <label>Overlay opacity (<span x-text="cfg.theme.background.overlay"></span>) <button type="button" class="help-icon" @click="showHelp('theme.background.overlay')" title="¿Qué hace esto?">?</button></label>
-          <input type="range" min="0" max="1" step="0.05" x-model.number="cfg.theme.background.overlay" />
-        </div>
-        <div class="form-group">
-          <label>Color overlay <button type="button" class="help-icon" @click="showHelp('theme.background.overlayColor')" title="¿Qué hace esto?">?</button></label>
-          <input type="color" x-model="cfg.theme.background.overlayColor" />
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Color de acento <button type="button" class="help-icon" @click="showHelp('theme.accentColor')" title="¿Qué hace esto?">?</button></label>
-          <input type="color" x-model="cfg.theme.accentColor" />
-        </div>
-        <div class="form-group">
-          <label>Color de texto <button type="button" class="help-icon" @click="showHelp('theme.textColor')" title="¿Qué hace esto?">?</button></label>
-          <input type="color" x-model="cfg.theme.textColor" />
-        </div>
-        <div class="form-group">
-          <label>Estilo de tarjeta <button type="button" class="help-icon" @click="showHelp('theme.cardStyle')" title="¿Qué hace esto?">?</button></label>
-          <select x-model="cfg.theme.cardStyle">
-            <option value="glass">Glass (blur)</option>
-            <option value="flat">Flat</option>
-            <option value="outlined">Outlined</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Tipografía <button type="button" class="help-icon" @click="showHelp('theme.fontFamily')" title="¿Qué hace esto?">?</button></label>
-          <select x-model="cfg.theme.fontFamily" @change="updateFontUrl()">
-            <option>Inter</option><option>Roboto</option><option>Open Sans</option>
-            <option>Lato</option><option>Poppins</option><option>Montserrat</option>
-            <option>Source Sans 3</option><option>Nunito</option><option>Raleway</option>
-            <option>system-ui</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Modo de color <button type="button" class="help-icon" @click="showHelp('theme.colorMode')" title="¿Qué hace esto?">?</button></label>
-          <select x-model="cfg.theme.colorMode">
-            <option value="auto">Auto (según hora)</option>
-            <option value="dark">Oscuro</option>
-            <option value="light">Claro</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Disposición de grupos <button type="button" class="help-icon" @click="showHelp('theme.groupLayout')" title="¿Qué hace esto?">?</button></label>
-          <select x-model="cfg.theme.groupLayout">
-            <option value="vertical">Vertical (apilados)</option>
-            <option value="horizontal">Horizontal (en columnas)</option>
-          </select>
-        </div>
-      </div>
-
-      <h3 style="margin:1.25rem 0 0.5rem;font-size:0.95rem">Widgets opcionales</h3>
-      <p style="color:var(--text-subtle);font-size:0.82rem;margin:0 0 0.75rem">
-        Encendé los que quieras en el header / pie. Apagados = cero overhead.
-      </p>
-      <div class="form-row">
-        <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.theme.showClock" /> Mostrar reloj <button type="button" class="help-icon" @click="showHelp('theme.showClock')" title="¿Qué hace esto?">?</button></label>
-        </div>
-        <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.theme.showRefresh" /> Mostrar botón de refresh <button type="button" class="help-icon" @click="showHelp('theme.showRefresh')" title="¿Qué hace esto?">?</button></label>
-        </div>
-        <div class="form-group">
-          <label><input type="checkbox" x-model="cfg.theme.showStatusBar" /> Mostrar status bar (versión + última actualización) <button type="button" class="help-icon" @click="showHelp('theme.showStatusBar')" title="¿Qué hace esto?">?</button></label>
-        </div>
-      </div>
-
-      <h3>Vista previa</h3>
-      <div class="preview-box" :style="previewStyle()">
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
-          <div :data-style="cfg.theme.cardStyle" :style="`background:${cfg.theme.cardStyle==='glass'?'rgba(255,255,255,0.08)':'transparent'};border:1px solid rgba(255,255,255,0.12);padding:1rem;border-radius:12px;color:${cfg.theme.textColor};min-width:120px;text-align:center`">
-            <div :style="`width:40px;height:40px;border-radius:10px;background:${cfg.theme.accentColor};margin:0 auto 0.4rem;opacity:0.3`"></div>
-            <div style="font-weight:600">Tarjeta</div>
-          </div>
-          <div :data-style="cfg.theme.cardStyle" :style="`background:${cfg.theme.cardStyle==='glass'?'rgba(255,255,255,0.08)':'transparent'};border:1px solid rgba(255,255,255,0.12);padding:1rem;border-radius:12px;color:${cfg.theme.textColor};min-width:120px;text-align:center`">
-            <div :style="`width:40px;height:40px;border-radius:10px;background:${cfg.theme.accentColor};margin:0 auto 0.4rem;opacity:0.5`"></div>
-            <div style="font-weight:600">Ejemplo</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ThemePanel useI18n={useI18n} tr={trf} />
 
     <!-- LAYOUT -->
     <div class="panel" :class="tab==='layout' && 'active'">
@@ -2040,7 +1936,7 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
   </div>
 
   <!-- Alpine.js + Sortable + dashboard logic -->
-  <script is:inline define:vars={{ initialConfig: config, builtinIcons, appPresets: APP_PRESETS, predefinedIconPacks: PREDEFINED_ICON_PACKS, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS, FEATURE_LIST, I18N: useI18n ? { dirty: trf('admin.dashboard.dirty'), reload: trf('admin.dashboard.reload'), save: trf('admin.dashboard.save'), saving: trf('admin.dashboard.saving'), saved: trf('admin.dashboard.saved'), savedClamped: trf('admin.dashboard.savedClamped'), reloaded: trf('admin.dashboard.reloaded'), error: trf('admin.dashboard.error'), tabs: { branding: trf('admin.tab.branding'), theme: trf('admin.tab.theme'), layout: trf('admin.tab.layout'), categories: trf('admin.tab.categories'), cards: trf('admin.tab.cards'), assets: trf('admin.tab.assets'), status: trf('admin.tab.status'), hardening: trf('admin.tab.hardening'), password: trf('admin.tab.password'), ai: trf('admin.tab.ai'), webhooks: trf('admin.tab.webhooks'), maintenance: trf('admin.tab.maintenance'), audit: trf('admin.tab.audit'), metrics: trf('admin.tab.metrics'), oidc: trf('admin.tab.oidc'), tokens: trf('admin.tab.tokens'), portals: trf('admin.tab.portals'), iconPacks: trf('admin.tab.iconPacks'), advanced: trf('admin.tab.advanced'), }, featuresTitle: trf('admin.features.title'), featuresIntro: trf('admin.features.intro'), webhooks: { title: trf('admin.webhooks.title'), intro: trf('admin.webhooks.intro'), add: trf('admin.webhooks.add'), testNew: trf('admin.webhooks.testNew'), }, maintenance: { title: trf('admin.maintenance.title'), intro: trf('admin.maintenance.intro'), add: trf('admin.maintenance.add'), }, audit: { title: trf('admin.audit.title'), reset: trf('admin.audit.reset'), download: trf('admin.audit.download'), loading: trf('admin.audit.loading'), empty: trf('admin.audit.empty'), downloadError: trf('admin.audit.downloadError'), }, metrics: { title: trf('admin.metrics.title'), intro: trf('admin.metrics.intro'), reload: trf('admin.metrics.reload'), loading: trf('admin.metrics.loading'), }, users: { intro: trf('admin.users.intro'), accessModeHelp: trf('admin.users.accessModeHelp'), }, card: { markdown: trf('admin.card.markdown'), refreshPreview: trf('admin.card.refreshPreview'), previewLabel: trf('admin.card.previewLabel'), tags: trf('admin.card.tags'), tagsPlaceholder: trf('admin.card.tagsPlaceholder'), tagsHelp: trf('admin.card.tagsHelp'), tagsAdd: trf('admin.card.tagsAdd'), pinned: trf('admin.card.pinned'), }, } : null }}>
+  <script is:inline define:vars={{ initialConfig: config, builtinIcons, appPresets: APP_PRESETS, predefinedIconPacks: PREDEFINED_ICON_PACKS, builtinThemePresets: BUILTIN_THEME_PRESETS, themePresetI18n: THEME_PRESET_I18N, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS, FEATURE_LIST, I18N: useI18n ? { dirty: trf('admin.dashboard.dirty'), reload: trf('admin.dashboard.reload'), save: trf('admin.dashboard.save'), saving: trf('admin.dashboard.saving'), saved: trf('admin.dashboard.saved'), savedClamped: trf('admin.dashboard.savedClamped'), reloaded: trf('admin.dashboard.reloaded'), error: trf('admin.dashboard.error'), tabs: { branding: trf('admin.tab.branding'), theme: trf('admin.tab.theme'), layout: trf('admin.tab.layout'), categories: trf('admin.tab.categories'), cards: trf('admin.tab.cards'), assets: trf('admin.tab.assets'), status: trf('admin.tab.status'), hardening: trf('admin.tab.hardening'), password: trf('admin.tab.password'), ai: trf('admin.tab.ai'), webhooks: trf('admin.tab.webhooks'), maintenance: trf('admin.tab.maintenance'), audit: trf('admin.tab.audit'), metrics: trf('admin.tab.metrics'), oidc: trf('admin.tab.oidc'), tokens: trf('admin.tab.tokens'), portals: trf('admin.tab.portals'), iconPacks: trf('admin.tab.iconPacks'), advanced: trf('admin.tab.advanced'), }, featuresTitle: trf('admin.features.title'), featuresIntro: trf('admin.features.intro'), webhooks: { title: trf('admin.webhooks.title'), intro: trf('admin.webhooks.intro'), add: trf('admin.webhooks.add'), testNew: trf('admin.webhooks.testNew'), }, maintenance: { title: trf('admin.maintenance.title'), intro: trf('admin.maintenance.intro'), add: trf('admin.maintenance.add'), }, audit: { title: trf('admin.audit.title'), reset: trf('admin.audit.reset'), download: trf('admin.audit.download'), loading: trf('admin.audit.loading'), empty: trf('admin.audit.empty'), downloadError: trf('admin.audit.downloadError'), }, metrics: { title: trf('admin.metrics.title'), intro: trf('admin.metrics.intro'), reload: trf('admin.metrics.reload'), loading: trf('admin.metrics.loading'), }, users: { intro: trf('admin.users.intro'), accessModeHelp: trf('admin.users.accessModeHelp'), }, card: { markdown: trf('admin.card.markdown'), refreshPreview: trf('admin.card.refreshPreview'), previewLabel: trf('admin.card.previewLabel'), tags: trf('admin.card.tags'), tagsPlaceholder: trf('admin.card.tagsPlaceholder'), tagsHelp: trf('admin.card.tagsHelp'), tagsAdd: trf('admin.card.tagsAdd'), pinned: trf('admin.card.pinned'), }, theme: { title: trf('admin.theme.title'), sectionPresets: trf('admin.theme.section.presets'), sectionBackground: trf('admin.theme.section.background'), sectionColors: trf('admin.theme.section.colors'), sectionTypography: trf('admin.theme.section.typography'), sectionCards: trf('admin.theme.section.cards'), sectionWidgets: trf('admin.theme.section.widgets'), sectionAdvanced: trf('admin.theme.section.advanced'), presetsIntro: trf('admin.theme.presets.intro'), saveCustomPreset: trf('admin.theme.preset.saveCustom'), resetDefaults: trf('admin.theme.preset.reset'), previewTitle: trf('admin.theme.preview.title'), openPreviewTab: trf('admin.theme.preview.openTab'), gradientBuilder: trf('admin.theme.background.gradientBuilder'), advancedCss: trf('admin.theme.background.advancedCss'), widgetsIntro: trf('admin.theme.widgets.intro'), advancedIntro: trf('admin.theme.advanced.intro'), deriveAccent: trf('admin.theme.advanced.deriveAccent'), exportTheme: trf('admin.theme.advanced.export'), importTheme: trf('admin.theme.advanced.import'), tokenSearchPlaceholder: trf('admin.theme.advanced.tokenSearch'), presetApplied: trf('admin.theme.preset.applied'), presetSaved: trf('admin.theme.preset.saved'), themeImported: trf('admin.theme.advanced.imported'), themeExported: trf('admin.theme.advanced.exported'), }, } : null }}>
     // Mirror trustedProxies (array) into a text form so the textarea can edit it.
     initialConfig.security.network.trustedProxiesText = (initialConfig.security.network.trustedProxies || []).join('\n');
     // Si el config legacy no tiene `features`, lo inicializamos como objeto
@@ -2060,17 +1956,48 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
     window.__aiLanguages = AI_LANGUAGES;
     window.__defaultAiSystemPrompts = DEFAULT_AI_SYSTEM_PROMPTS;
     window.__featureList = FEATURE_LIST;
+    window.__builtinThemePresets = builtinThemePresets;
+    window.__themePresetI18n = themePresetI18n;
     window.__i18n = I18N;
   </script>
   <script>
     import Alpine from 'alpinejs';
     import Sortable from 'sortablejs';
+    import * as themeClient from '~/lib/theme-admin-client';
+    import { applyThemePreset, getBuiltinPreset, getPresetVariant } from '~/lib/theme-presets';
+    import { mergeThemePartial, deriveTokensFromAccent, TOKEN_KEY_MAP, applyThemePartialInPlace, replaceThemeInPlace, computeThemeVars, contrastRatio, colorToHexApprox } from '~/lib/theme-tokens';
     window.Alpine = Alpine;
     window.Sortable = Sortable;
+    window.__themeClient = themeClient;
+    window.__mergeThemePartial = mergeThemePartial;
+    window.__applyThemePartialInPlace = applyThemePartialInPlace;
+    window.__replaceThemeInPlace = replaceThemeInPlace;
+    window.__deriveTokensFromAccent = deriveTokensFromAccent;
+    window.__TOKEN_KEY_MAP = TOKEN_KEY_MAP;
+    window.__applyThemePreset = applyThemePreset;
+    window.__getBuiltinPreset = getBuiltinPreset;
+    window.__getPresetVariant = getPresetVariant;
+    window.__computeThemeVars = computeThemeVars;
+    window.__contrastRatio = contrastRatio;
+    window.__colorToHexApprox = colorToHexApprox;
 
     document.addEventListener('alpine:init', () => {
       Alpine.data('adminApp', () => ({
         tab: 'cards',
+        themeSection: 'presets',
+        themePreviewMode: 'auto',
+        themePreviewRev: 0,
+        themeAdvancedMode: 'dark',
+        themeBgEditMode: 'dark',
+        themeTextEditMode: 'dark',
+        themeUseAdvancedCss: false,
+        themeGradientAngle: 135,
+        themeGradientStops: [
+          { color: '#0f172a', pos: 0 },
+          { color: '#1e3a8a', pos: 50 },
+          { color: '#0f172a', pos: 100 },
+        ],
+        themeTokenSearch: '',
         cfg: null,
         original: null,
         dirty: false,
@@ -2602,6 +2529,9 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           if (typeof this.cfg.theme.showRefresh !== 'boolean') this.cfg.theme.showRefresh = false;
           if (typeof this.cfg.theme.showStatusBar !== 'boolean') this.cfg.theme.showStatusBar = false;
           if (typeof this.cfg.theme.groupLayout !== 'string') this.cfg.theme.groupLayout = 'vertical';
+          this.ensureThemeDefaults();
+          this.parseGradientFromBackground();
+          this.syncThemePreviewStorage();
           if (typeof this.cfg.layout.healthCheckInterval !== 'number') this.cfg.layout.healthCheckInterval = 60;
           this.iconPacks = this.seedIconPacksCatalog();
           // Defer refreshAssets until after the page's umbralAdmin is defined.
@@ -2620,7 +2550,13 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
           // Auto-mark dirty on any cfg change. x-model alone doesn't fire markDirty,
           // so we deep-watch cfg and re-check after each mutation. Cheap because
           // we only stringify when something actually changes.
-          this.$watch('cfg', () => this.markDirty());
+          this.$watch(() => JSON.stringify(this.cfg), () => {
+            this.markDirty();
+            this.syncThemePreviewStorage();
+          });
+          this.$watch('themePreviewMode', () => {
+            this.syncThemePreviewStorage();
+          });
           // Auto-detectar el preset de IA según el baseUrl actual. Si el user
           // tenía OpenAI y eligió OpenAI en el preset, o si su config actual
           // matchea un preset, lo dejamos pre-seleccionado.
@@ -3737,17 +3673,477 @@ const FEATURE_LIST = FEATURE_NAMES.map((name) => ({
         },
 
         updateFontUrl() {
-          // Mantener fontUrl vacío por defecto para garantizar funcionamiento 100% offline y sin CDN
-          this.cfg.theme.fontUrl = '';
+          const t = this.cfg.theme;
+          if (t.useGoogleFonts && t.fontFamily && t.fontFamily !== 'system-ui') {
+            t.fontUrl = window.__themeClient.googleFontUrl(t.fontFamily, t.fontWeight || '400');
+          } else {
+            t.fontUrl = '';
+          }
           this.markDirty();
         },
 
-        previewStyle() {
-          const t = this.cfg.theme;
-          if (t.background.type === 'image') {
-            return `background-image:url('${t.background.value}');background-size:cover;${t.background.blur>0?`filter:blur(${t.background.blur}px)`:''}`;
+        ensureThemeDefaults() {
+          const th = this.cfg.theme;
+          if (!th) return;
+          if (!th.fontWeight) th.fontWeight = '400';
+          if (typeof th.useGoogleFonts !== 'boolean') th.useGoogleFonts = false;
+          if (!th.autoStrategy) th.autoStrategy = 'system';
+          if (typeof th.showModeToggle !== 'boolean') th.showModeToggle = true;
+          if (!th.clockPosition) th.clockPosition = 'header-right';
+          if (!th.clockFormat) th.clockFormat = '24h';
+          if (typeof th.headerOpacity !== 'number') th.headerOpacity = 1;
+          if (typeof th.footerOpacity !== 'number') th.footerOpacity = 1;
+          if (!Array.isArray(th.customPresets)) th.customPresets = [];
+          if (!th.tokens) th.tokens = {};
+          if (!th.tokens.shared) th.tokens.shared = {};
+          if (!th.iconTint) th.iconTint = 'original';
+        },
+
+        themeTitle() { return this.i18n?.theme?.title || 'Tema'; },
+        themeSectionPresets() { return this.i18n?.theme?.sectionPresets || 'Presets'; },
+        themeSectionBackground() { return this.i18n?.theme?.sectionBackground || 'Fondo'; },
+        themeSectionColors() { return this.i18n?.theme?.sectionColors || 'Colores'; },
+        themeSectionTypography() { return this.i18n?.theme?.sectionTypography || 'Tipografía'; },
+        themeSectionCards() { return this.i18n?.theme?.sectionCards || 'Tarjetas'; },
+        themeSectionWidgets() { return this.i18n?.theme?.sectionWidgets || 'Widgets'; },
+        themeSectionAdvanced() { return this.i18n?.theme?.sectionAdvanced || 'Avanzado'; },
+        themePresetsIntro() { return this.i18n?.theme?.presetsIntro || 'Elegí un punto de partida.'; },
+        themeSaveCustomPreset() { return this.i18n?.theme?.saveCustomPreset || 'Guardar como preset'; },
+        themeResetDefaults() { return this.i18n?.theme?.resetDefaults || 'Restaurar defaults'; },
+        themePreviewLabel() { return this.i18n?.theme?.previewTitle || 'Vista previa'; },
+        themeOpenPreviewTabLabel() { return this.i18n?.theme?.openPreviewTab || 'Abrir preview en pestaña'; },
+        themeGradientBuilderLabel() { return this.i18n?.theme?.gradientBuilder || 'Constructor de gradiente'; },
+        themeAdvancedCssLabel() { return this.i18n?.theme?.advancedCss || 'CSS avanzado'; },
+        themeWidgetsIntro() { return this.i18n?.theme?.widgetsIntro || 'Widgets opcionales del header/pie.'; },
+        themeAdvancedIntro() { return this.i18n?.theme?.advancedIntro || 'Override de design tokens.'; },
+        themeDeriveAccentLabel() { return this.i18n?.theme?.deriveAccent || 'Derivar del acento'; },
+        themeResetSurfacesLabel() { return 'Reset superficies'; },
+        themeResetBordersLabel() { return 'Reset bordes'; },
+        themeExportLabel() { return this.i18n?.theme?.exportTheme || 'Exportar tema'; },
+        themeImportLabel() { return this.i18n?.theme?.importTheme || 'Importar tema'; },
+        themeTokenSearchPlaceholder() { return this.i18n?.theme?.tokenSearchPlaceholder || 'Buscar token…'; },
+        themeBgTypeLabel() { return 'Tipo de fondo'; },
+        themeBgImageLabel() { return 'Imagen de fondo'; },
+        themeBgColorLabel() { return 'Color'; },
+        themeBgCssLabel() { return 'CSS (gradient/color)'; },
+        themeBlurLabel() { return 'Blur'; },
+        themeOverlayLabel() { return 'Overlay'; },
+        themeOverlayColorLabel() { return 'Color overlay'; },
+        themeGradientAngleLabel() { return 'Ángulo'; },
+        themeAccentLabel() { return 'Color de acento'; },
+        themeTextLabel() { return 'Color de texto'; },
+        themeColorModeLabel() { return 'Modo de color'; },
+        themeAutoStrategyLabel() { return 'Estrategia auto'; },
+        themePalettePreviewLabel() { return 'Paleta derivada'; },
+        themeFontLabel() { return 'Tipografía'; },
+        themeFontWeightLabel() { return 'Peso'; },
+        themeGoogleFontsLabel() { return 'Google Fonts'; },
+        themeTypeSampleTitle() { return 'Título de ejemplo'; },
+        themeTypeSampleBody() { return 'Texto de cuerpo.'; },
+        themeTypeSampleCaption() { return 'Caption'; },
+        themeCardStyleLabel() { return 'Estilo de tarjeta'; },
+        themeCardBlurLabel() { return 'Blur glass'; },
+        themeCardBorderLabel() { return 'Ancho borde'; },
+        themeGroupLayoutLabel() { return 'Disposición de grupos'; },
+        themeShowClockLabel() { return 'Mostrar reloj'; },
+        themeShowRefreshLabel() { return 'Mostrar refresh'; },
+        themeShowStatusBarLabel() { return 'Status bar'; },
+        themeShowModeToggleLabel() { return 'Toggle claro/oscuro'; },
+        themeClockPositionLabel() { return 'Posición reloj'; },
+        themeClockFormatLabel() { return 'Formato reloj'; },
+        themeHeaderOpacityLabel() { return 'Opacidad header'; },
+        themeFooterOpacityLabel() { return 'Opacidad footer'; },
+        themeRadiusLabel() { return 'Radio base'; },
+        themeShadowIntensityLabel() { return 'Sombras'; },
+
+        themePresetsList() {
+          const builtin = window.__builtinThemePresets || [];
+          const custom = (this.cfg?.theme?.customPresets || []).map((cp) => ({
+            id: cp.id,
+            nameKey: cp.name,
+            descriptionKey: cp.name,
+            previewColors: [cp.theme?.accentColor || '#60a5fa', '#0f172a', cp.theme?.textColor || '#f1f5f9'],
+            theme: cp.theme,
+            custom: true,
+          }));
+          return [...builtin, ...custom];
+        },
+
+        presetLabel(preset) {
+          if (preset.custom) return preset.nameKey;
+          return window.__themePresetI18n?.names?.[preset.id] || preset.id;
+        },
+
+        presetDesc(preset) {
+          if (preset.custom) return '';
+          return window.__themePresetI18n?.descs?.[preset.id] || '';
+        },
+
+        presetVariantDarkLabel() {
+          return window.__themePresetI18n?.variantDark || 'Oscuro';
+        },
+
+        presetVariantLightLabel() {
+          return window.__themePresetI18n?.variantLight || 'Claro';
+        },
+
+        presetApplyCustomLabel() {
+          return window.__themePresetI18n?.applyCustom || 'Aplicar';
+        },
+
+        presetThumbStyle(preset, variant = 'dark') {
+          if (preset.custom) {
+            const [a, b, c] = preset.previewColors || ['#0f172a', '#1e3a8a', '#0f172a'];
+            return `background:linear-gradient(135deg, ${a}, ${b}, ${c})`;
           }
-          return `background:${t.background.value};${t.background.blur>0?`filter:blur(${t.background.blur}px)`:''}`;
+          const colors = preset.previewColors?.[variant]
+            || preset.previewColors?.dark
+            || ['#0f172a', '#1e3a8a', '#0f172a'];
+          const [a, b, c] = colors;
+          return `background:linear-gradient(135deg, ${a}, ${b}, ${c})`;
+        },
+
+        applyThemePresetById(id, variant = 'dark') {
+          const builtin = window.__getBuiltinPreset?.(id);
+          const custom = (this.cfg.theme.customPresets || []).find((p) => p.id === id);
+          if (custom) {
+            window.__applyThemePartialInPlace(this.cfg.theme, custom.theme);
+          } else if (builtin) {
+            window.__applyThemePartialInPlace(this.cfg.theme, { ...builtin.theme, colorMode: variant });
+          } else return;
+          if (!custom) this.themePreviewMode = variant;
+          this.parseGradientFromBackground();
+          this.updateFontUrl();
+          this.themePreviewRev++;
+          this.syncThemePreviewStorage();
+          this.markDirty();
+          window.umbralAdmin.toast(this.i18n?.theme?.presetApplied || 'Preset aplicado', 'success');
+        },
+
+        saveCustomThemePreset() {
+          const name = prompt('Nombre del preset:', 'Mi tema');
+          if (!name) return;
+          const id = 'custom-' + Date.now().toString(36);
+          if (!this.cfg.theme.customPresets) this.cfg.theme.customPresets = [];
+          if (this.cfg.theme.customPresets.length >= 5) {
+            window.umbralAdmin.toast('Máximo 5 presets custom', 'error');
+            return;
+          }
+          const snapshot = JSON.parse(JSON.stringify(this.cfg.theme));
+          delete snapshot.customPresets;
+          delete snapshot.tokens;
+          this.cfg.theme.customPresets.push({ id, name, theme: snapshot });
+          this.markDirty();
+          window.umbralAdmin.toast(this.i18n?.theme?.presetSaved || 'Preset guardado', 'success');
+        },
+
+        resetThemeToDefaults() {
+          if (!confirm('¿Restaurar tema a defaults?')) return;
+          const defaults = window.__initialConfig?.theme || {};
+          window.__replaceThemeInPlace(this.cfg.theme, JSON.parse(JSON.stringify(defaults)));
+          this.ensureThemeDefaults();
+          this.parseGradientFromBackground();
+          this.updateFontUrl();
+          this.themePreviewRev++;
+          this.syncThemePreviewStorage();
+          this.markDirty();
+        },
+
+        buildGradientCss() {
+          return window.__themeClient.buildGradientCss(this.themeGradientAngle, this.themeGradientStops);
+        },
+
+        syncGradientToBackground() {
+          const bg = this.getActiveBackgroundRef();
+          if (bg.type === 'gradient' && !this.themeUseAdvancedCss) {
+            bg.value = this.buildGradientCss();
+            this.themePreviewRev++;
+            this.syncThemePreviewStorage();
+          }
+        },
+
+        parseGradientFromBackground() {
+          const val = this.getActiveBackgroundRef()?.value || '';
+          const m = val.match(/linear-gradient\((\d+)deg,\s*(.+)\)/);
+          if (!m) return;
+          this.themeGradientAngle = parseInt(m[1], 10);
+          const stops = m[2].split(',').map((s) => s.trim());
+          this.themeGradientStops = stops.slice(0, 4).map((s, i) => {
+            const parts = s.split(/\s+/);
+            return { color: parts[0], pos: parseInt(parts[1], 10) || Math.round((i / Math.max(stops.length - 1, 1)) * 100) };
+          });
+        },
+
+        onBackgroundTypeChange() {
+          if (this.getActiveBackgroundRef().type === 'gradient') this.syncGradientToBackground();
+        },
+
+        getActiveBackgroundRef() {
+          if (this.themeBgEditMode === 'light') {
+            if (!this.cfg.theme.backgroundLight) {
+              this.cfg.theme.backgroundLight = JSON.parse(JSON.stringify(this.cfg.theme.background));
+            }
+            return this.cfg.theme.backgroundLight;
+          }
+          return this.cfg.theme.background;
+        },
+
+        getActiveBgProp(key) {
+          return this.getActiveBackgroundRef()?.[key];
+        },
+
+        setActiveBgProp(key, value) {
+          this.getActiveBackgroundRef()[key] = value;
+          this.themePreviewRev++;
+          this.syncThemePreviewStorage();
+          this.markDirty();
+        },
+
+        copyBackgroundFromOtherMode() {
+          const src = this.themeBgEditMode === 'light'
+            ? this.cfg.theme.background
+            : (this.cfg.theme.backgroundLight || this.cfg.theme.background);
+          const dst = this.getActiveBackgroundRef();
+          Object.assign(dst, JSON.parse(JSON.stringify(src)));
+          this.parseGradientFromBackground();
+          this.themePreviewRev++;
+          this.syncThemePreviewStorage();
+          this.markDirty();
+        },
+
+        themeBgModeDarkLabel() { return this.i18n?.theme?.bgModeDark || 'Modo oscuro'; },
+        themeBgModeLightLabel() { return this.i18n?.theme?.bgModeLight || 'Modo claro'; },
+        themeBgCopyOtherLabel() { return this.i18n?.theme?.bgCopyOther || 'Copiar del otro modo'; },
+        themeIconTintLabel() { return this.i18n?.theme?.iconTint || 'Tinte de iconos'; },
+        themeIconCustomLabel() { return this.i18n?.theme?.iconCustom || 'Color de icono'; },
+        themeTextRampTitle() { return this.i18n?.theme?.textRamp || 'Rampa de texto por modo'; },
+        themeTextColorLegacyHint() { return this.i18n?.theme?.textLegacyHint || ''; },
+
+        tokenColorInputForMode(key) {
+          const v = this.getModeToken(key);
+          if (v && v.startsWith('#')) return v;
+          return '#888888';
+        },
+
+        themeTokenDefaultPlaceholder(key) {
+          return '(default)';
+        },
+
+        themeTextContrastRatio() {
+          const mode = this.themeTextEditMode;
+          const vars = window.__computeThemeVars?.(this.cfg.theme, mode);
+          if (!vars) return 0;
+          const text = window.__colorToHexApprox?.(vars['--text'] || '');
+          const surface = window.__colorToHexApprox?.(vars['--surface'] || '');
+          if (!text || !surface) return 0;
+          return window.__contrastRatio?.(text, surface) ?? 0;
+        },
+
+        themeContrastLabel(key) {
+          if (key !== 'text') return '';
+          const ratio = this.themeTextContrastRatio();
+          if (!ratio) return '';
+          const pass = this.i18n?.theme?.contrastPass || 'AA ✓';
+          const fail = this.i18n?.theme?.contrastFail || 'Bajo contraste';
+          const label = ratio >= 4.5 ? pass : fail;
+          return `${ratio.toFixed(1)}:1 · ${label}`;
+        },
+
+        themeContrastClass(key) {
+          if (key !== 'text') return '';
+          return this.themeTextContrastRatio() >= 4.5 ? 'theme-contrast-ok' : 'theme-contrast-fail';
+        },
+
+        themePreviewActiveBg() {
+          const mode = this.effectivePreviewMode();
+          if (mode === 'light' && this.cfg.theme.backgroundLight) {
+            return { ...this.cfg.theme.background, ...this.cfg.theme.backgroundLight };
+          }
+          return this.cfg.theme.background;
+        },
+
+        themePreviewBgStyleForMode() {
+          return window.__themeClient.backgroundPreviewStyle(this.themePreviewActiveBg());
+        },
+
+        themePreviewOverlayStyleForMode() {
+          const bg = this.themePreviewActiveBg();
+          return `background:${bg.overlayColor};opacity:${bg.overlay}`;
+        },
+
+        themePreviewCardIconStyle(card) {
+          const tint = this.cfg.theme.iconTint ?? 'original';
+          const svg = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="black" d="M12 2L2 7l10 5 10-5-10-5z"/></svg>');
+          if (tint === 'original') {
+            return `background:${card.color};`;
+          }
+          return `--icon-url:url("data:image/svg+xml,${svg}");`;
+        },
+
+        onAdvancedCssToggle() {
+          if (!this.themeUseAdvancedCss && this.cfg.theme.background.type === 'gradient') {
+            this.syncGradientToBackground();
+          }
+        },
+
+        effectivePreviewMode() {
+          return window.__themeClient.resolvePreviewMode(
+            this.themePreviewMode,
+            this.cfg.theme.colorMode,
+            this.cfg.theme.autoStrategy || 'system',
+          );
+        },
+
+        themePreviewFrameStyle() {
+          return window.__themeClient.themeFrameInlineStyle(this.cfg.theme, this.effectivePreviewMode());
+        },
+
+        themePreviewBgStyle() {
+          return window.__themeClient.backgroundPreviewStyle(this.cfg.theme.background);
+        },
+
+        themePreviewOverlayStyle() {
+          const bg = this.cfg.theme.background;
+          return `background:${bg.overlayColor};opacity:${bg.overlay}`;
+        },
+
+        themePreviewCards() {
+          const accent = this.cfg.theme.accentColor;
+          return [
+            { title: 'App', color: accent },
+            { title: 'Docs', color: accent },
+            { title: 'Admin', color: accent },
+          ];
+        },
+
+        themePreviewAccentMutedStyle() {
+          const mode = this.effectivePreviewMode();
+          const d = window.__themeClient.deriveAccentVariants(this.cfg.theme.accentColor, mode);
+          return `width:32px;height:32px;border-radius:6px;background:${d.accentMuted}`;
+        },
+
+        themePreviewAccentStrongStyle() {
+          const mode = this.effectivePreviewMode();
+          const d = window.__themeClient.deriveAccentVariants(this.cfg.theme.accentColor, mode);
+          return `width:32px;height:32px;border-radius:6px;background:${d.accentStrong}`;
+        },
+
+        syncThemePreviewStorage() {
+          window.__themeClient?.persistThemePreviewDraft?.({
+            ...this.cfg?.theme,
+            _previewMode: this.themePreviewMode,
+          });
+        },
+
+        openThemePreviewTab() {
+          this.syncThemePreviewStorage();
+          const base = window.umbralAdmin?.baseUrl || '/';
+          const url = base + (base.endsWith('/') ? '' : '/') + '?themePreview=1';
+          window.open(url, '_blank');
+        },
+
+        setSharedToken(key, value) {
+          if (!this.cfg.theme.tokens) this.cfg.theme.tokens = {};
+          if (!this.cfg.theme.tokens.shared) this.cfg.theme.tokens.shared = {};
+          this.cfg.theme.tokens.shared[key] = value;
+          this.markDirty();
+        },
+
+        ensureModeTokens(mode) {
+          const m = mode || this.themeAdvancedMode;
+          if (!this.cfg.theme.tokens) this.cfg.theme.tokens = {};
+          if (!this.cfg.theme.tokens[m]) {
+            this.cfg.theme.tokens[m] = {};
+          }
+        },
+
+        tokenModeForKey(key) {
+          const textKeys = ['text', 'textMuted', 'textSubtle', 'textFaint', 'icon'];
+          if (textKeys.includes(key)) return this.themeTextEditMode;
+          return this.themeAdvancedMode;
+        },
+
+        getModeToken(key) {
+          const mode = this.tokenModeForKey(key);
+          return this.cfg.theme.tokens?.[mode]?.[key] || '';
+        },
+
+        setModeToken(key, value) {
+          const mode = this.tokenModeForKey(key);
+          this.ensureModeTokens(mode);
+          if (!value) {
+            delete this.cfg.theme.tokens[mode][key];
+          } else {
+            this.cfg.theme.tokens[mode][key] = value;
+          }
+          this.themePreviewRev++;
+          this.syncThemePreviewStorage();
+          this.markDirty();
+        },
+
+        tokenColorInput(key) {
+          const v = this.getModeToken(key);
+          return v.startsWith('#') ? v : '#000000';
+        },
+
+        themeFilteredTokenKeys() {
+          const keys = window.__themeTokenKeys || Object.keys(window.__TOKEN_KEY_MAP || {});
+          const q = (this.themeTokenSearch || '').toLowerCase();
+          return keys.filter((k) => !q || k.toLowerCase().includes(q) || k.replace(/([A-Z])/g, '-$1').toLowerCase().includes(q));
+        },
+
+        deriveThemeTokensFromAccent() {
+          const mode = this.themeAdvancedMode;
+          const derived = window.__deriveTokensFromAccent(this.cfg.theme.accentColor, mode);
+          this.ensureModeTokens();
+          Object.assign(this.cfg.theme.tokens[mode], derived);
+          this.markDirty();
+        },
+
+        resetThemeTokenCategory(category) {
+          const cats = window.__themeTokenCategories || {};
+          const keys = cats[category] || [];
+          this.ensureModeTokens();
+          for (const k of keys) delete this.cfg.theme.tokens[this.themeAdvancedMode][k];
+          this.markDirty();
+        },
+
+        exportThemeJson() {
+          const blob = new Blob([JSON.stringify({ theme: this.cfg.theme }, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'umbral-theme.json';
+          a.click();
+          window.umbralAdmin.toast(this.i18n?.theme?.themeExported || 'Tema exportado', 'success');
+        },
+
+        importThemeJson() {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'application/json,.json';
+          input.onchange = async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            try {
+              const data = JSON.parse(await file.text());
+              if (!data.theme) throw new Error('JSON inválido: falta theme');
+              window.__applyThemePartialInPlace(this.cfg.theme, data.theme);
+              this.ensureThemeDefaults();
+              this.parseGradientFromBackground();
+              this.updateFontUrl();
+              this.themePreviewRev++;
+              this.syncThemePreviewStorage();
+              this.markDirty();
+              window.umbralAdmin.toast(this.i18n?.theme?.themeImported || 'Tema importado', 'success');
+            } catch (e) {
+              window.umbralAdmin.toast(e.message, 'error');
+            }
+          };
+          input.click();
+        },
+
+        previewStyle() {
+          return this.themePreviewBgStyle();
         },
 
         // Icon Packs (opt-in: features.iconPacks)

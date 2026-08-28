@@ -79,19 +79,35 @@ const groupEntries = Array.from(grouped.entries())
   .filter(([catId]) => !subpageCategoryIds.has(catId))
   .sort(([a], [b]) => (catOrder.get(a) ?? Infinity) - (catOrder.get(b) ?? Infinity));
 const isHorizontal = t.groupLayout === 'horizontal';
+const isThemePreview = Astro.url.searchParams.get('themePreview') === '1';
 ---
 <PublicLayout config={config}>
   <main class="page-wrap" data-group-layout={t.groupLayout}>
-    <header class="header">
+    <header class="header" data-header-opacity={t.headerOpacity < 1 ? '1' : undefined} style={t.headerOpacity < 1 ? `--header-opacity:${t.headerOpacity}` : undefined}>
       <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
       <h1 class="header-title">{config.branding.companyName}</h1>
-      {t.showClock && <Clock config={config} request={Astro.request} />}
+      {(t.showClock || isThemePreview) && (
+        <div
+          data-theme-widget="clock"
+          class={t.clockPosition === 'header-left' ? 'header-clock-left' : 'header-clock-right'}
+          style={(!t.showClock && isThemePreview) ? 'display:none' : undefined}
+        >
+          <Clock config={config} request={Astro.request} />
+        </div>
+      )}
       <Search config={config} request={Astro.request} />
-      {t.showRefresh && <RefreshButton config={config} request={Astro.request} />}
+      {(t.showRefresh || isThemePreview) && (
+        <div data-theme-widget="refresh" style={(!t.showRefresh && isThemePreview) ? 'display:none' : undefined}>
+          <RefreshButton config={config} request={Astro.request} />
+        </div>
+      )}
       {useI18n && <LanguageSwitcher config={config} current={locale} />}
+      {(t.showModeToggle !== false || isThemePreview) && (
       <button
+        data-theme-widget="modeToggle"
         data-action="toggle-mode"
         class="mode-toggle"
+        style={isThemePreview && t.showModeToggle === false ? 'display:none' : undefined}
         aria-label={useI18n ? trf('home.modeToggle') : 'Cambiar modo claro/oscuro'}
         title={useI18n ? trf('home.modeToggleTitle') : 'Cambiar modo claro/oscuro'}
       >
@@ -99,6 +115,7 @@ const isHorizontal = t.groupLayout === 'horizontal';
           <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
         </svg>
       </button>
+      )}
     </header>
 
     {enabledCards.length === 0 ? (
@@ -167,7 +184,7 @@ const isHorizontal = t.groupLayout === 'horizontal';
 
               <div class="category-cards-wrap" style={isLocked ? 'display: none;' : undefined}>
                 <div class="grid">
-                  {cards.map((c) => <Card card={c} layout={l} maintenanceReason={cardMaintenance.get(c.id) || ''} qrEnabled={qrEnabled} />)}
+                  {cards.map((c) => <Card card={c} layout={l} cardStyle={t.cardStyle} maintenanceReason={cardMaintenance.get(c.id) || ''} qrEnabled={qrEnabled} />)}
                 </div>
               </div>
             </section>
@@ -235,7 +252,7 @@ const isHorizontal = t.groupLayout === 'horizontal';
 
               <div class="category-cards-wrap" style={isLocked ? 'display: none;' : undefined}>
                 <div class="grid">
-                  {cards.map((c) => <Card card={c} layout={l} maintenanceReason={cardMaintenance.get(c.id) || ''} qrEnabled={qrEnabled} />)}
+                  {cards.map((c) => <Card card={c} layout={l} cardStyle={t.cardStyle} maintenanceReason={cardMaintenance.get(c.id) || ''} qrEnabled={qrEnabled} />)}
                 </div>
               </div>
             </section>
@@ -244,7 +261,18 @@ const isHorizontal = t.groupLayout === 'horizontal';
       </div>
     )}
 
-    {t.showStatusBar && <StatusBar config={config} />}
+    {(t.showStatusBar || isThemePreview) && (
+      <div
+        class="status-bar-wrap"
+        data-theme-widget="statusBar"
+        style={[
+          t.footerOpacity < 1 ? `opacity:${t.footerOpacity}` : '',
+          !t.showStatusBar && isThemePreview ? 'display:none' : '',
+        ].filter(Boolean).join(';') || undefined}
+      >
+        <StatusBar config={config} />
+      </div>
+    )}
   </main>
 </PublicLayout>
 

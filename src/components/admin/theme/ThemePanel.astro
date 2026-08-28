@@ -1,0 +1,80 @@
+---
+/** Main shell for the Theme admin tab — split layout with sidebar + preview. */
+import ThemePresets from './ThemePresets.astro';
+import ThemeBackground from './ThemeBackground.astro';
+import ThemeColors from './ThemeColors.astro';
+import ThemeTypography from './ThemeTypography.astro';
+import ThemeCards from './ThemeCards.astro';
+import ThemeWidgets from './ThemeWidgets.astro';
+import ThemeAdvanced from './ThemeAdvanced.astro';
+import ThemePreview from './ThemePreview.astro';
+
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel theme-panel-root" :class="tab==='theme' && 'active'">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+    <h2 style="margin:0" x-text="themeTitle()">{t('admin.theme.title', 'Tema')}</h2>
+  </div>
+
+  <div class="theme-panel">
+    <nav class="theme-sidebar" aria-label={t('admin.theme.nav.aria', 'Secciones de tema')}>
+      <button type="button" class="theme-nav-btn" :class="themeSection==='presets' && 'active'" @click="themeSection='presets'">
+        <span x-text="themeSectionPresets()">{t('admin.theme.section.presets', 'Presets')}</span>
+      </button>
+      <button type="button" class="theme-nav-btn" :class="themeSection==='background' && 'active'" @click="themeSection='background'">
+        <span x-text="themeSectionBackground()">{t('admin.theme.section.background', 'Fondo')}</span>
+      </button>
+      <button type="button" class="theme-nav-btn" :class="themeSection==='colors' && 'active'" @click="themeSection='colors'">
+        <span x-text="themeSectionColors()">{t('admin.theme.section.colors', 'Colores')}</span>
+      </button>
+      <button type="button" class="theme-nav-btn" :class="themeSection==='typography' && 'active'" @click="themeSection='typography'">
+        <span x-text="themeSectionTypography()">{t('admin.theme.section.typography', 'Tipografía')}</span>
+      </button>
+      <button type="button" class="theme-nav-btn" :class="themeSection==='cards' && 'active'" @click="themeSection='cards'">
+        <span x-text="themeSectionCards()">{t('admin.theme.section.cards', 'Tarjetas')}</span>
+      </button>
+      <button type="button" class="theme-nav-btn" :class="themeSection==='widgets' && 'active'" @click="themeSection='widgets'">
+        <span x-text="themeSectionWidgets()">{t('admin.theme.section.widgets', 'Widgets')}</span>
+      </button>
+      <button type="button" class="theme-nav-btn" :class="themeSection==='advanced' && 'active'" @click="themeSection='advanced'">
+        <span x-text="themeSectionAdvanced()">{t('admin.theme.section.advanced', 'Avanzado')}</span>
+        <span class="badge-pro">Pro</span>
+      </button>
+    </nav>
+
+    <div class="theme-content">
+      <div class="theme-section" :class="themeSection==='presets' && 'active'">
+        <ThemePresets useI18n={useI18n} tr={tr} />
+      </div>
+      <div class="theme-section" :class="themeSection==='background' && 'active'">
+        <ThemeBackground useI18n={useI18n} tr={tr} />
+      </div>
+      <div class="theme-section" :class="themeSection==='colors' && 'active'">
+        <ThemeColors useI18n={useI18n} tr={tr} />
+      </div>
+      <div class="theme-section" :class="themeSection==='typography' && 'active'">
+        <ThemeTypography useI18n={useI18n} tr={tr} />
+      </div>
+      <div class="theme-section" :class="themeSection==='cards' && 'active'">
+        <ThemeCards useI18n={useI18n} tr={tr} />
+      </div>
+      <div class="theme-section" :class="themeSection==='widgets' && 'active'">
+        <ThemeWidgets useI18n={useI18n} tr={tr} />
+      </div>
+      <div class="theme-section" :class="themeSection==='advanced' && 'active'">
+        <ThemeAdvanced useI18n={useI18n} tr={tr} />
+      </div>
+    </div>
+
+    <div class="theme-panel-preview-col">
+      <ThemePreview useI18n={useI18n} tr={tr} />
+    </div>
+  </div>
+</div>

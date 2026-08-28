@@ -32,8 +32,77 @@ export const BackgroundSchema = z.object({
   overlayColor: z.string().default('#000000'),
 });
 
+/** Safe color for token overrides: hex or rgba()/rgb(). */
+const SAFE_COLOR_VALUE = /^(#([0-9a-fA-F]{3}){1,2}|rgba?\([0-9,.\s%]+\))$/;
+
+export const TokenOverridesSchema = z.object({
+  bg: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  bgElev: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  surface: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  surfaceHover: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  surfaceStrong: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  text: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  textMuted: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  textSubtle: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  textFaint: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  textInverse: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  border: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  borderStrong: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  accent: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  accentMuted: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  accentStrong: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  accentFg: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+  shadowCard: z.string().max(200).regex(SAFE_CSS_VALUE, 'Valor CSS inválido').optional(),
+  shadowCardHover: z.string().max(200).regex(SAFE_CSS_VALUE, 'Valor CSS inválido').optional(),
+  shadowModal: z.string().max(200).regex(SAFE_CSS_VALUE, 'Valor CSS inválido').optional(),
+  icon: z.string().max(80).regex(SAFE_COLOR_VALUE, 'Color inválido').optional(),
+}).optional();
+
+export const SharedTokensSchema = z.object({
+  radius: z.number().min(0).max(24).optional(),
+  radiusSm: z.number().min(0).max(24).optional(),
+  radiusLg: z.number().min(0).max(24).optional(),
+  cardBlur: z.number().min(0).max(40).optional(),
+  cardBorderWidth: z.number().min(0).max(4).optional(),
+  shadowIntensity: z.enum(['none', 'subtle', 'normal', 'strong']).optional(),
+}).optional();
+
+export const ThemeTokensSchema = z.object({
+  dark: TokenOverridesSchema,
+  light: TokenOverridesSchema,
+  shared: SharedTokensSchema,
+}).optional();
+
+export const CustomThemePresetSchema = z.object({
+  id: z.string().min(1).max(40).regex(/^[a-z0-9-]+$/, 'ID debe ser kebab-case'),
+  name: z.string().min(1).max(40),
+  theme: z.object({
+    background: BackgroundSchema.partial().optional(),
+    backgroundLight: BackgroundSchema.partial().optional(),
+    cardStyle: z.enum(['flat', 'glass', 'outlined']).optional(),
+    accentColor: z.string().regex(/^#([0-9a-fA-F]{3}){1,2}$/).optional(),
+    textColor: z.string().regex(/^#([0-9a-fA-F]{3}){1,2}$/).optional(),
+    fontFamily: z.string().max(60).regex(SAFE_FONT_FAMILY).optional(),
+    fontWeight: z.enum(['400', '500', '600', '700']).optional(),
+    colorMode: z.enum(['light', 'dark', 'auto']).optional(),
+    autoStrategy: z.enum(['system', 'schedule']).optional(),
+    groupLayout: z.enum(['vertical', 'horizontal']).optional(),
+    showClock: z.boolean().optional(),
+    showRefresh: z.boolean().optional(),
+    showStatusBar: z.boolean().optional(),
+    showModeToggle: z.boolean().optional(),
+    clockPosition: z.enum(['header-left', 'header-right']).optional(),
+    clockFormat: z.enum(['12h', '24h']).optional(),
+    headerOpacity: z.number().min(0).max(1).optional(),
+    footerOpacity: z.number().min(0).max(1).optional(),
+    iconTint: z.enum(['original', 'accent', 'text', 'custom']).optional(),
+    tokens: ThemeTokensSchema,
+  }),
+});
+
 export const ThemeSchema = z.object({
   background: BackgroundSchema,
+  backgroundLight: BackgroundSchema.optional(),
   cardStyle: z.enum(['flat', 'glass', 'outlined']).default('glass'),
   accentColor: z
     .string()
@@ -49,6 +118,7 @@ export const ThemeSchema = z.object({
     .max(60)
     .regex(SAFE_FONT_FAMILY, 'Tipografía contiene caracteres no permitidos')
     .default('Inter'),
+  fontWeight: z.enum(['400', '500', '600', '700']).default('400'),
   fontUrl: z
     .string()
     .max(500)
@@ -61,18 +131,22 @@ export const ThemeSchema = z.object({
       'fontUrl debe venir de fonts.googleapis.com o estar vacío',
     )
     .default(''),
+  useGoogleFonts: z.boolean().default(false),
   colorMode: z.enum(['light', 'dark', 'auto']).default('auto'),
+  autoStrategy: z.enum(['system', 'schedule']).default('system'),
   // ── Optional widgets (off by default — opt-in) ──
-  // groupLayout: 'vertical' = apila secciones (default actual);
-  //              'horizontal' = pone varias categorías side-by-side en columnas.
   groupLayout: z.enum(['vertical', 'horizontal']).default('vertical'),
-  // showClock: agrega un reloj en vivo al header (HH:MM:SS, formato del navegador).
   showClock: z.boolean().default(false),
-  // showRefresh: agrega un botón de refresh en el header que recarga el cfg
-  // (no la página entera — más rápido y conserva scroll/state del browser).
   showRefresh: z.boolean().default(false),
-  // showStatusBar: pie de página con versión + última actualización del config.
   showStatusBar: z.boolean().default(false),
+  showModeToggle: z.boolean().default(true),
+  clockPosition: z.enum(['header-left', 'header-right']).default('header-right'),
+  clockFormat: z.enum(['12h', '24h']).default('24h'),
+  headerOpacity: z.number().min(0).max(1).default(1),
+  footerOpacity: z.number().min(0).max(1).default(1),
+  iconTint: z.enum(['original', 'accent', 'text', 'custom']).default('original'),
+  customPresets: z.array(CustomThemePresetSchema).max(5).default([]),
+  tokens: ThemeTokensSchema,
 });
 
 // ──────────────────────────────────────────────────────────────────────────

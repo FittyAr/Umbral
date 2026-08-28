@@ -11,9 +11,6 @@ interface Props {
 }
 const { theme, config, request } = Astro.props;
 
-// Strings para el aria-label del toggle. Se resuelven acá si el config
-// está disponible; si no, defaults en español (compat con usos legacy
-// donde ThemeScript se llama sin config — ej: AdminLayout).
 const useI18n = config ? isFeatureEnabled(config, 'i18n') : false;
 const locale: Locale = (useI18n && request)
   ? resolveLocale(request, config, readLocaleCookie(request))
@@ -21,22 +18,100 @@ const locale: Locale = (useI18n && request)
 const trf = t(locale);
 const labelToLight = useI18n ? trf('home.modeToggleToLight') : 'Cambiar a modo claro';
 const labelToDark = useI18n ? trf('home.modeToggleToDark') : 'Cambiar a modo oscuro';
+const previewBannerText = useI18n ? trf('admin.theme.preview.banner') : 'Modo preview — cambios no guardados';
 ---
-<script is:inline define:vars={{ theme, labelToLight, labelToDark }}>
+<script is:inline define:vars={{ theme, labelToLight, labelToDark, previewBannerText }}>
   // Color mode: apply on first paint, before body renders, to avoid flash.
   (function () {
+    const params = new URLSearchParams(window.location.search);
+    const isPreview = params.get('themePreview') === '1';
+
+    function resolveAutoMode(themeCfg) {
+      const strategy = themeCfg.autoStrategy || 'system';
+      if (strategy === 'schedule') {
+        const h = new Date().getHours();
+        return (h >= 7 && h < 19) ? 'light' : 'dark';
+      }
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light';
+      }
+      return 'dark';
+    }
+
+    // Minimal first-paint apply for preview tab (full apply in module script below).
+    if (isPreview) {
+      try {
+        const draft = localStorage.getItem('umbral-theme-preview');
+        if (draft) {
+          const t = JSON.parse(draft);
+          document.documentElement.setAttribute('data-theme-preview', '1');
+          document.documentElement.style.background = 'transparent';
+          if (document.body) document.body.style.background = 'transparent';
+          if (t.accentColor) document.documentElement.style.setProperty('--accent', t.accentColor);
+          if (t.textColor) document.documentElement.style.setProperty('--text', t.textColor);
+          if (t.fontFamily) {
+            document.documentElement.style.setProperty('--font', "'" + t.fontFamily + "', system-ui, sans-serif");
+          }
+          const previewMode = t._previewMode;
+          let actual;
+          if (previewMode === 'light' || previewMode === 'dark') {
+            actual = previewMode;
+          } else if (t.colorMode === 'light' || t.colorMode === 'dark') {
+            actual = t.colorMode;
+          } else {
+            actual = resolveAutoMode(t);
+          }
+          document.documentElement.setAttribute('data-mode', actual);
+          if (t.background && t.background.value) {
+            const bg = t.background;
+            const blur = bg.blur > 0 ? 'filter:blur(' + bg.blur + 'px);' : '';
+            const bgCss = bg.type === 'image'
+              ? "background-image:url('" + bg.value + "');background-size:cover;background-position:center;" + blur
+              : 'background:' + bg.value + ';' + blur;
+            var darkLayer = document.querySelector('.bg-layer[data-bg-mode="dark"]') || document.querySelector('.bg-layer:not([data-bg-mode])');
+            if (darkLayer) {
+              darkLayer.setAttribute('data-bg-mode', 'dark');
+              darkLayer.setAttribute('style', bgCss);
+            }
+            var bgLight = t.backgroundLight || t.background;
+            if (bgLight && bgLight.value) {
+              var lightLayer = document.querySelector('.bg-layer[data-bg-mode="light"]');
+              if (!lightLayer && darkLayer && darkLayer.parentNode) {
+                lightLayer = document.createElement('div');
+                lightLayer.className = 'bg-layer';
+                lightLayer.setAttribute('data-bg-mode', 'light');
+                darkLayer.parentNode.appendChild(lightLayer);
+              }
+              if (lightLayer) {
+                var blurL = bgLight.blur > 0 ? 'filter:blur(' + bgLight.blur + 'px);' : '';
+                var bgCssL = bgLight.type === 'image'
+                  ? "background-image:url('" + bgLight.value + "');background-size:cover;background-position:center;" + blurL
+                  : 'background:' + bgLight.value + ';' + blurL;
+                lightLayer.setAttribute('style', bgCssL);
+              }
+            }
+          }
+        }
+      } catch (e) { /* invalid draft */ }
+      return;
+    }
+
     const stored = localStorage.getItem('umbral-color-mode');
     const mode = stored || theme.colorMode || 'auto';
     let actual = mode;
-    if (mode === 'auto') {
-      const h = new Date().getHours();
-      actual = (h >= 7 && h < 19) ? 'light' : 'dark';
-    }
+    if (mode === 'auto') actual = resolveAutoMode(theme);
     document.documentElement.setAttribute('data-mode', actual);
   })();
 
-  // Wire up search + color toggle + keyboard shortcuts (after DOM ready)
   document.addEventListener('DOMContentLoaded', function () {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('themePreview') === '1') {
+      const banner = document.createElement('div');
+      banner.className = 'theme-preview-banner';
+      banner.textContent = previewBannerText;
+      document.body.appendChild(banner);
+    }
+
     const search = document.getElementById('search-input');
     if (search) {
       const cards = document.querySelectorAll('.card');
@@ -48,10 +123,6 @@ const labelToDark = useI18n ? trf('home.modeToggleToDark') : 'Cambiar a modo osc
             c.classList.add('hidden-by-filter');
             return;
           }
-          // Tags (opt-in: features.tags): las tags se exponen como data-tags
-          // (separadas por espacio) en el card. Las incluimos en la búsqueda
-          // junto con el textContent. Si la feature está apagada, data-tags
-          // es "" y no aporta nada.
           const tags = (c.getAttribute('data-tags') || '').toLowerCase();
           const text = (c.textContent + ' ' + tags).toLowerCase();
           c.classList.toggle('hidden-by-filter', q.length > 0 && text.indexOf(q) === -1);
@@ -70,7 +141,6 @@ const labelToDark = useI18n ? trf('home.modeToggleToDark') : 'Cambiar a modo osc
       });
     }
 
-    // Color mode toggle (button with data-action="toggle-mode")
     const toggle = document.querySelector('[data-action="toggle-mode"]');
     if (toggle) {
       toggle.addEventListener('click', function () {
@@ -78,10 +148,29 @@ const labelToDark = useI18n ? trf('home.modeToggleToDark') : 'Cambiar a modo osc
         const next = current === 'dark' ? 'light' : 'dark';
         localStorage.setItem('umbral-color-mode', next);
         document.documentElement.setAttribute('data-mode', next);
-        // aria-label cambia según el modo actual. Strings del server (i18n)
-        // o defaults históricos si i18n está apagada.
         toggle.setAttribute('aria-label', next === 'dark' ? labelToLight : labelToDark);
       });
     }
   });
+</script>
+<script>
+  import { applyThemeDraft, THEME_PREVIEW_STORAGE_KEY } from '~/lib/theme-admin-client';
+
+  const params = new URLSearchParams(window.location.search);
+  const isPreview = params.get('themePreview') === '1';
+
+  function applyDraftFromStorage() {
+    const draft = localStorage.getItem(THEME_PREVIEW_STORAGE_KEY);
+    if (draft) applyThemeDraft(draft);
+  }
+
+  if (isPreview) {
+    applyDraftFromStorage();
+    document.addEventListener('DOMContentLoaded', applyDraftFromStorage);
+    window.addEventListener('storage', (e) => {
+      if (e.key === THEME_PREVIEW_STORAGE_KEY && e.newValue) {
+        applyThemeDraft(e.newValue);
+      }
+    });
+  }
 </script>

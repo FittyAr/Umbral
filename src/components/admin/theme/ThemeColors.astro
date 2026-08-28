@@ -1,0 +1,98 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<h3 x-text="themeSectionColors()">{t('admin.theme.section.colors', 'Colores')}</h3>
+
+<div class="form-row">
+  <div class="form-group">
+    <label>
+      <span x-text="themeAccentLabel()">{t('admin.theme.colors.accent', 'Color de acento')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.accentColor')" title="?">?</button>
+    </label>
+    <div class="theme-color-field">
+      <input type="color" x-model="cfg.theme.accentColor" />
+      <input type="text" x-model="cfg.theme.accentColor" />
+    </div>
+  </div>
+  <div class="form-group">
+    <label x-text="themeIconTintLabel()">{t('admin.theme.colors.iconTint', 'Tinte de iconos')}</label>
+    <select x-model="cfg.theme.iconTint">
+      <option value="original">{t('admin.theme.colors.iconTintOriginal', 'Original (sin tintar)')}</option>
+      <option value="accent">{t('admin.theme.colors.iconTintAccent', 'Color de acento')}</option>
+      <option value="text">{t('admin.theme.colors.iconTintText', 'Color de texto')}</option>
+      <option value="custom">{t('admin.theme.colors.iconTintCustom', 'Color personalizado')}</option>
+    </select>
+  </div>
+</div>
+
+<div class="form-group" x-show="cfg.theme.iconTint==='custom'">
+  <label x-text="themeIconCustomLabel()">{t('admin.theme.colors.iconCustom', 'Color de icono (por modo)')}</label>
+  <div class="theme-advanced-tabs" style="margin-bottom:0.5rem">
+    <button type="button" :class="themeTextEditMode==='dark' && 'active'" @click="themeTextEditMode='dark'">Dark</button>
+    <button type="button" :class="themeTextEditMode==='light' && 'active'" @click="themeTextEditMode='light'">Light</button>
+  </div>
+  <div class="theme-color-field">
+    <input type="color" :value="getModeToken('icon')" @input="setModeToken('icon', $event.target.value)" />
+    <input type="text" :value="getModeToken('icon')" @input="setModeToken('icon', $event.target.value)" placeholder="#60a5fa" />
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-group">
+    <label>
+      <span x-text="themeColorModeLabel()">{t('admin.theme.colors.mode', 'Modo de color')}</span>
+      <button type="button" class="help-icon" @click="showHelp('theme.colorMode')" title="?">?</button>
+    </label>
+    <select x-model="cfg.theme.colorMode">
+      <option value="auto">{t('admin.theme.colors.modeAuto', 'Auto')}</option>
+      <option value="dark">{t('admin.theme.colors.modeDark', 'Oscuro')}</option>
+      <option value="light">{t('admin.theme.colors.modeLight', 'Claro')}</option>
+    </select>
+  </div>
+  <div class="form-group" x-show="cfg.theme.colorMode==='auto'">
+    <label x-text="themeAutoStrategyLabel()">{t('admin.theme.colors.autoStrategy', 'Estrategia auto')}</label>
+    <select x-model="cfg.theme.autoStrategy">
+      <option value="system">{t('admin.theme.colors.autoSystem', 'Sistema (prefers-color-scheme)')}</option>
+      <option value="schedule">{t('admin.theme.colors.autoSchedule', 'Horario (7–19 claro)')}</option>
+    </select>
+  </div>
+</div>
+
+<h4 style="margin:1rem 0 0.5rem;font-size:0.9rem" x-text="themeTextRampTitle()">{t('admin.theme.colors.textRamp', 'Rampa de texto por modo')}</h4>
+<div class="theme-advanced-tabs" style="margin-bottom:0.75rem">
+  <button type="button" :class="themeTextEditMode==='dark' && 'active'" @click="themeTextEditMode='dark'">Dark</button>
+  <button type="button" :class="themeTextEditMode==='light' && 'active'" @click="themeTextEditMode='light'">Light</button>
+</div>
+
+<div class="theme-token-list">
+  <template x-for="key in ['text','textMuted','textSubtle','textFaint']" :key="key">
+    <div class="theme-token-row">
+      <label x-text="'--' + key.replace(/([A-Z])/g, '-$1').toLowerCase()"></label>
+      <input type="color" :value="tokenColorInputForMode(key)" @input="setModeToken(key, $event.target.value)" />
+      <input type="text" :value="getModeToken(key)" @input="setModeToken(key, $event.target.value)" :placeholder="themeTokenDefaultPlaceholder(key)" />
+      <span class="theme-contrast-badge" :class="themeContrastClass(key)" x-text="themeContrastLabel(key)" x-show="key==='text'"></span>
+    </div>
+  </template>
+</div>
+
+<p class="theme-section-desc" style="margin-top:0.35rem;font-size:0.78rem" x-text="themeTextColorLegacyHint()">
+  {t('admin.theme.colors.textLegacyHint', 'El campo legacy textColor del JSON se asigna automáticamente al modo que corresponda por luminancia.')}
+</p>
+
+<div style="margin-top:0.75rem;padding:0.65rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)">
+  <div style="font-size:0.78rem;color:var(--text-subtle);margin-bottom:0.45rem" x-text="themePalettePreviewLabel()">
+    {t('admin.theme.colors.palettePreview', 'Paleta derivada del acento')}
+  </div>
+  <div style="display:flex;gap:0.35rem;flex-wrap:wrap">
+    <div :style="`width:32px;height:32px;border-radius:6px;background:${cfg.theme.accentColor}`" :title="cfg.theme.accentColor"></div>
+    <div :style="themePreviewAccentMutedStyle()" title="accent-muted"></div>
+    <div :style="themePreviewAccentStrongStyle()" title="accent-strong"></div>
+  </div>
+</div>

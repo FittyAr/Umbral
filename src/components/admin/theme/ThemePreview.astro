@@ -1,0 +1,69 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="theme-preview-wrap">
+  <div class="theme-preview-toolbar">
+    <label x-text="themePreviewLabel()">{t('admin.theme.preview.title', 'Vista previa')}</label>
+    <div class="theme-preview-mode-btns">
+      <button type="button" :class="themePreviewMode==='dark' && 'active'" @click="themePreviewMode='dark'">Dark</button>
+      <button type="button" :class="themePreviewMode==='light' && 'active'" @click="themePreviewMode='light'">Light</button>
+      <button type="button" :class="themePreviewMode==='auto' && 'active'" @click="themePreviewMode='auto'">Auto</button>
+    </div>
+  </div>
+
+  <div
+    class="theme-preview-frame"
+    :key="themePreviewRev"
+    :style="themePreviewFrameStyle()"
+    :data-mode="effectivePreviewMode()"
+  >
+    <div class="theme-preview-bg" :style="themePreviewBgStyleForMode()"></div>
+    <div
+      class="theme-preview-overlay"
+      x-show="themePreviewActiveBg().overlay > 0"
+      :style="themePreviewOverlayStyleForMode()"
+    ></div>
+    <div class="theme-preview-inner">
+      <div class="theme-preview-header" :style="`opacity:${cfg.theme.headerOpacity ?? 1}`">
+        <div class="theme-preview-logo" :style="`background:${cfg.theme.accentColor}`"></div>
+        <div class="theme-preview-title" x-text="cfg.branding?.companyName || 'Mi Empresa'"></div>
+        <div class="theme-preview-clock" x-show="cfg.theme.showClock" x-text="'12:34:56'"></div>
+      </div>
+      <div class="theme-preview-cards">
+        <template x-for="(card, i) in themePreviewCards()" :key="i">
+          <div
+            class="theme-preview-card card"
+            :data-style="cfg.theme.cardStyle"
+          >
+            <div
+              class="theme-preview-card-icon card-icon"
+              :data-icon-tint="cfg.theme.iconTint !== 'original' ? cfg.theme.iconTint : null"
+              :style="themePreviewCardIconStyle(card)"
+            ></div>
+            <span class="card-title" x-text="card.title"></span>
+          </div>
+        </template>
+      </div>
+      <div
+        class="theme-preview-footer"
+        x-show="cfg.theme.showStatusBar"
+        :style="`opacity:${cfg.theme.footerOpacity ?? 1}`"
+      >
+        v1.0 · actualizado hace 2 min
+      </div>
+    </div>
+  </div>
+
+  <div class="theme-preview-actions">
+    <button type="button" class="btn btn-sm btn-primary" style="width:100%" @click="openThemePreviewTab()" x-text="themeOpenPreviewTabLabel()">
+      {t('admin.theme.preview.openTab', 'Abrir preview en pestaña')}
+    </button>
+  </div>
+</div>

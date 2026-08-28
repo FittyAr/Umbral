@@ -31,7 +31,21 @@
 
 ## Tema
 
-### Fondo (`theme.background`)
+El tab **Tema** del admin está organizado en secciones: **Presets**, **Fondo**, **Colores**, **Tipografía**, **Tarjetas**, **Widgets** y **Avanzado** (design tokens).
+
+### Presets (`theme` — galería)
+
+Ocho presets built-in (Midnight, Ocean, Forest, Sunset, Corporate, Terminal, Glass Aurora, Minimal Mono) más hasta **5 presets custom** guardados desde el panel. Cada preset built-in define una **paleta dual completa**: fondo oscuro (`background`), fondo claro (`backgroundLight`) y tokens por modo (`theme.tokens.dark` / `theme.tokens.light`) con rampa de texto, superficies, bordes y acento. Los botones **Oscuro** / **Claro** aplican el preset y fijan el `colorMode` inicial; el toggle de la portada alterna entre ambas mitades de la paleta.
+
+### Vista previa
+
+- **Preview embebido** en el panel con toggle Dark / Light / Auto.
+- **Abrir preview en pestaña** (`/?themePreview=1`) aplica el draft desde `localStorage` sin persistir.
+
+### Fondo (`theme.background` / `theme.backgroundLight`)
+
+- **`background`:** fondo del modo oscuro.
+- **`backgroundLight` (opcional):** fondo del modo claro. Si falta, se reutiliza `background`.
 
 Tres tipos:
 
@@ -71,11 +85,12 @@ white
 
 ### Colores
 
-- **`accentColor`** — color de los highlights, íconos hover, focus rings. Default `#60a5fa` (azul).
-- **`textColor`** — color del texto principal. Default `#f1f5f9` (gris claro, para fondos oscuros).
-- Cambialos con el color picker del panel.
+- **`accentColor`** — color de los highlights, focus rings y (opcionalmente) tinte de iconos.
+- **`textColor` (legacy)** — color escalar heredado; se asigna automáticamente al modo que corresponda por luminancia (claro → oscuro, oscuro → claro). Preferí overrides en `theme.tokens.dark.text` / `theme.tokens.light.text`.
+- **`iconTint`** — `original` (default, sin tintar logos de marca) | `accent` | `text` | `custom` (usa `tokens[mode].icon`).
+- Rampa de texto por modo: `text`, `textMuted`, `textSubtle`, `textFaint` en `theme.tokens.dark` / `theme.tokens.light`.
 
-> **Tip:** Si ponés `textColor` claro, mantené el fondo oscuro. Si claro, invertí.
+> **Tip:** El panel muestra un badge de contraste WCAG (AA ≥ 4.5:1) al editar `--text` contra `--surface`.
 
 ### Tipografía (`theme.fontFamily`)
 
@@ -96,11 +111,45 @@ Si necesitás otra font de Google, editá el array en el admin (es un `<select>`
 
 ### Modo de color (`theme.colorMode`)
 
-- **`auto` (default):** la app detecta `prefers-color-scheme` del OS. Si no hay nada, usa la hora local: claro entre 7 y 19, oscuro en otros rangos.
-- **`light`:** forzado a claro. Útil si tu branding es claro.
+- **`auto` (default):** respeta `theme.autoStrategy`:
+  - **`system` (default):** `prefers-color-scheme` del OS/navegador.
+  - **`schedule`:** claro entre 7 y 19, oscuro en otros rangos.
+- **`light`:** forzado a claro.
 - **`dark`:** forzado a oscuro.
 
-El toggle en la portada (icono sol/luna) override el `colorMode` y persiste en `localStorage` del browser.
+El toggle en la portada (icono sol/luna) override el `colorMode` y persiste en `localStorage`. Se puede ocultar con `theme.showModeToggle: false`.
+
+### Widgets (`theme.showClock`, `showRefresh`, `showStatusBar`)
+
+- **`showClock`:** reloj en vivo. Configurable: `clockPosition` (`header-left` | `header-right`), `clockFormat` (`12h` | `24h`).
+- **`showRefresh`:** botón para recargar config sin refresh completo.
+- **`showStatusBar`:** pie con versión + última actualización.
+- **`headerOpacity` / `footerOpacity`:** opacidad del header y status bar (0–1).
+
+### Tipografía avanzada
+
+- **`fontWeight`:** 400 | 500 | 600 | 700.
+- **`useGoogleFonts`:** si está activo, genera `fontUrl` apuntando a Google Fonts. Por defecto off (offline-first).
+
+### Design tokens avanzados (`theme.tokens`)
+
+Override opcional por modo:
+
+```json
+{
+  "theme": {
+    "tokens": {
+      "shared": { "radius": 10, "cardBlur": 12, "shadowIntensity": "normal" },
+      "dark": { "bg": "#0b1220", "surface": "rgba(255,255,255,0.04)" },
+      "light": { "bg": "#f6f8fb" }
+    }
+  }
+}
+```
+
+Campos soportados en `dark`/`light`: `bg`, `bgElev`, `surface`, `surfaceHover`, `surfaceStrong`, `text`, `textMuted`, `textSubtle`, `textFaint`, `border`, `borderStrong`, `accent`, `accentMuted`, `accentFg`, `icon`, `shadowCard`, etc. (ver `TokenOverridesSchema` en `src/lib/schema.ts`).
+
+Import/export de tema solo: botones en sección **Avanzado** del panel.
 
 ## Layout
 

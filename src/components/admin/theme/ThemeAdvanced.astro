@@ -1,0 +1,76 @@
+---
+import { TOKEN_KEY_MAP, TOKEN_CATEGORIES } from '~/lib/theme-tokens';
+
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+
+const tokenKeys = Object.keys(TOKEN_KEY_MAP);
+const categories = TOKEN_CATEGORIES;
+---
+
+<h3 x-text="themeSectionAdvanced()">{t('admin.theme.section.advanced', 'Avanzado')}</h3>
+<p class="theme-section-desc" x-text="themeAdvancedIntro()">{t('admin.theme.advanced.intro', 'Override de design tokens por modo claro/oscuro. Los campos vacíos usan los defaults del sistema.')}</p>
+
+<div class="theme-advanced-tabs">
+  <button type="button" :class="themeAdvancedMode==='dark' && 'active'" @click="themeAdvancedMode='dark'">Dark</button>
+  <button type="button" :class="themeAdvancedMode==='light' && 'active'" @click="themeAdvancedMode='light'">Light</button>
+</div>
+
+<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+  <button type="button" class="btn btn-sm btn-ghost" @click="deriveThemeTokensFromAccent()" x-text="themeDeriveAccentLabel()">
+    {t('admin.theme.advanced.deriveAccent', 'Derivar del acento')}
+  </button>
+  <button type="button" class="btn btn-sm btn-ghost" @click="resetThemeTokenCategory('surfaces')" x-text="themeResetSurfacesLabel()">
+    {t('admin.theme.advanced.resetSurfaces', 'Reset superficies')}
+  </button>
+  <button type="button" class="btn btn-sm btn-ghost" @click="resetThemeTokenCategory('borders')" x-text="themeResetBordersLabel()">
+    {t('admin.theme.advanced.resetBorders', 'Reset bordes')}
+  </button>
+</div>
+
+<input type="search" class="theme-token-search" x-model="themeTokenSearch" :placeholder="themeTokenSearchPlaceholder()" />
+
+<div class="form-row" style="margin-bottom:0.75rem">
+  <div class="form-group">
+    <label x-text="themeRadiusLabel()">{t('admin.theme.advanced.radius', 'Radio base')} (<span x-text="cfg.theme.tokens?.shared?.radius ?? 10"></span>px)</label>
+    <input type="range" min="0" max="24" :value="cfg.theme.tokens?.shared?.radius ?? 10" @input="setSharedToken('radius', +$event.target.value)" />
+  </div>
+  <div class="form-group">
+    <label x-text="themeShadowIntensityLabel()">{t('admin.theme.advanced.shadowIntensity', 'Intensidad sombras')}</label>
+    <select :value="cfg.theme.tokens?.shared?.shadowIntensity ?? 'normal'" @change="setSharedToken('shadowIntensity', $event.target.value)">
+      <option value="none">{t('admin.theme.advanced.shadowNone', 'Ninguna')}</option>
+      <option value="subtle">{t('admin.theme.advanced.shadowSubtle', 'Sutil')}</option>
+      <option value="normal">{t('admin.theme.advanced.shadowNormal', 'Normal')}</option>
+      <option value="strong">{t('admin.theme.advanced.shadowStrong', 'Fuerte')}</option>
+    </select>
+  </div>
+</div>
+
+<div class="theme-token-list">
+  <template x-for="key in themeFilteredTokenKeys()" :key="key">
+    <div class="theme-token-row">
+      <label x-text="'--' + key.replace(/([A-Z])/g, '-$1').toLowerCase()"></label>
+      <input type="color" :value="tokenColorInput(key)" @input="setModeToken(key, $event.target.value)" />
+      <input type="text" :value="getModeToken(key)" @input="setModeToken(key, $event.target.value)" placeholder="(default)" />
+    </div>
+  </template>
+</div>
+
+<div class="theme-import-export">
+  <button type="button" class="btn btn-sm btn-ghost" @click="exportThemeJson()" x-text="themeExportLabel()">
+    {t('admin.theme.advanced.export', 'Exportar tema (JSON)')}
+  </button>
+  <button type="button" class="btn btn-sm btn-ghost" @click="importThemeJson()" x-text="themeImportLabel()">
+    {t('admin.theme.advanced.import', 'Importar tema (JSON)')}
+  </button>
+</div>
+
+<script define:vars={{ tokenKeys, categories }}>
+  window.__themeTokenKeys = tokenKeys;
+  window.__themeTokenCategories = categories;
+</script>

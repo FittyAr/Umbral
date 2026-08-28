@@ -1,0 +1,54 @@
+---
+import { BUILTIN_THEME_PRESETS } from '~/lib/theme-presets';
+
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<h3 x-text="themeSectionPresets()">{t('admin.theme.section.presets', 'Presets')}</h3>
+<p class="theme-section-desc" x-text="themePresetsIntro()">{t('admin.theme.presets.intro', 'Elegí un punto de partida y ajustá los detalles después.')}</p>
+
+<div class="theme-presets-grid">
+  <template x-for="preset in themePresetsList()" :key="preset.id">
+    <div class="theme-preset-card">
+      <div class="theme-preset-thumb" :style="presetThumbStyle(preset, 'dark')"></div>
+      <div class="theme-preset-meta">
+        <span class="theme-preset-name" x-text="presetLabel(preset)"></span>
+        <span class="theme-preset-desc" x-text="presetDesc(preset)"></span>
+      </div>
+      <div class="theme-preset-variant-btns">
+        <template x-if="preset.custom">
+          <button type="button" class="btn btn-sm btn-ghost theme-preset-variant-btn" @click="applyThemePresetById(preset.id, 'dark')" x-text="presetApplyCustomLabel()">
+            {t('admin.theme.preset.apply', 'Aplicar')}
+          </button>
+        </template>
+        <template x-if="!preset.custom">
+          <button type="button" class="btn btn-sm btn-ghost theme-preset-variant-btn" @click="applyThemePresetById(preset.id, 'dark')" x-text="presetVariantDarkLabel()">
+            {t('admin.theme.preset.variant.dark', 'Oscuro')}
+          </button>
+          <button type="button" class="btn btn-sm btn-ghost theme-preset-variant-btn" @click="applyThemePresetById(preset.id, 'light')" x-text="presetVariantLightLabel()">
+            {t('admin.theme.preset.variant.light', 'Claro')}
+          </button>
+        </template>
+      </div>
+    </div>
+  </template>
+</div>
+
+<div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+  <button type="button" class="btn btn-sm btn-ghost" @click="saveCustomThemePreset()" x-text="themeSaveCustomPreset()">
+    {t('admin.theme.preset.saveCustom', 'Guardar tema actual como preset')}
+  </button>
+  <button type="button" class="btn btn-sm btn-ghost" @click="resetThemeToDefaults()" x-text="themeResetDefaults()">
+    {t('admin.theme.preset.reset', 'Restaurar defaults')}
+  </button>
+</div>
+
+<script define:vars={{ builtinPresets: BUILTIN_THEME_PRESETS }}>
+  window.__builtinThemePresets = builtinPresets;
+</script>

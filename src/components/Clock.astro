@@ -10,14 +10,16 @@ import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 interface Props {
   config: Config;
   request?: Request;
+  class?: string;
 }
-const { config, request } = Astro.props as Props & { request?: Request };
+const { config, request, class: className = '' } = Astro.props as Props & { request?: Request };
 
 const useI18n = isFeatureEnabled(config, 'i18n');
 const locale: Locale = useI18n
   ? resolveLocale(request, config, request ? readLocaleCookie(request) : undefined)
   : 'es';
 const tr = t(locale);
+const hour12 = config.theme.clockFormat === '12h';
 
 // El aria-label se traduce. El formato de fecha/hora del Intl.DateTimeFormat
 // usa el locale nativo del browser (es-AR, en-US, pt-BR, etc.). Mapeamos
@@ -28,12 +30,12 @@ const intlLocale = useI18n
   : 'es-AR';
 const ariaLabel = useI18n ? tr('home.clock.aria') : 'Hora actual';
 ---
-<time class="clock" datetime="" aria-label={ariaLabel}>
+<time class:list={['clock', className]} datetime="" aria-label={ariaLabel}>
   <span class="clock-time">--:--:--</span>
   <span class="clock-date" aria-hidden="true"></span>
 </time>
 
-<script define:vars={{ intlLocale }}>
+<script define:vars={{ intlLocale, hour12 }}>
   // El locale efectivo llega como var del server. Encapsulado: corre una
   // vez por page load, vive hasta el siguiente reload.
   const el = document.querySelector('.clock');
@@ -45,7 +47,7 @@ const ariaLabel = useI18n ? tr('home.clock.aria') : 'Hora actual';
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     });
     const timeFmt = new Intl.DateTimeFormat(intlLocale, {
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12,
     });
     const tick = () => {
       const now = new Date();

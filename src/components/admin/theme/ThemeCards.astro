@@ -1,0 +1,42 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<h3 x-text="themeSectionCards()">{t('admin.theme.section.cards', 'Tarjetas')}</h3>
+
+<div class="form-group">
+  <label>
+    <span x-text="themeCardStyleLabel()">{t('admin.theme.cards.style', 'Estilo de tarjeta')}</span>
+    <button type="button" class="help-icon" @click="showHelp('theme.cardStyle')" title="?">?</button>
+  </label>
+  <select x-model="cfg.theme.cardStyle">
+    <option value="glass">{t('admin.theme.cards.glass', 'Glass (blur)')}</option>
+    <option value="flat">{t('admin.theme.cards.flat', 'Flat')}</option>
+    <option value="outlined">{t('admin.theme.cards.outlined', 'Outlined')}</option>
+  </select>
+</div>
+
+<div class="form-row" x-show="cfg.theme.tokens">
+  <div class="form-group">
+    <label x-text="themeCardBlurLabel()">{t('admin.theme.cards.blur', 'Blur glass')} (<span x-text="cfg.theme.tokens?.shared?.cardBlur ?? 12"></span>px)</label>
+    <input type="range" min="0" max="40" :value="cfg.theme.tokens?.shared?.cardBlur ?? 12" @input="setSharedToken('cardBlur', +$event.target.value)" />
+  </div>
+  <div class="form-group">
+    <label x-text="themeCardBorderLabel()">{t('admin.theme.cards.border', 'Ancho borde')} (<span x-text="cfg.theme.tokens?.shared?.cardBorderWidth ?? 1.5"></span>px)</label>
+    <input type="range" min="0" max="4" step="0.5" :value="cfg.theme.tokens?.shared?.cardBorderWidth ?? 1.5" @input="setSharedToken('cardBorderWidth', +$event.target.value)" />
+  </div>
+</div>
+
+<div class="form-group">
+  <label x-text="themeGroupLayoutLabel()">{t('admin.theme.cards.groupLayout', 'Disposición de grupos')}</label>
+  <select x-model="cfg.theme.groupLayout">
+    <option value="vertical">{t('admin.theme.cards.groupVertical', 'Vertical (apilados)')}</option>
+    <option value="horizontal">{t('admin.theme.cards.groupHorizontal', 'Horizontal (columnas)')}</option>
+  </select>
+</div>

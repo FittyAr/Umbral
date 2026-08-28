@@ -1,23 +1,25 @@
 ---
-import type { Background } from '~/lib/schema';
+import type { Background, Theme } from '~/lib/schema';
+import { computeBackgroundStyle, resolveBackground } from '~/lib/theme-tokens';
+
 interface Props {
-  background: Background;
+  theme: Theme;
 }
-const { background } = Astro.props;
-const blurStyle = background.blur > 0 ? `filter: blur(${background.blur}px);` : '';
-const overlayOpacity = Math.max(0, Math.min(1, background.overlay));
-let bgStyle = '';
-if (background.type === 'image') {
-  bgStyle = `background-image: url('${background.value}'); ${blurStyle}`;
-} else {
-  bgStyle = `background: ${background.value}; ${blurStyle}`;
+
+const { theme } = Astro.props;
+const bgDark = theme.background;
+const bgLight = resolveBackground(theme, 'light');
+const bgDarkStyle = computeBackgroundStyle(bgDark);
+const bgLightStyle = computeBackgroundStyle(bgLight);
+
+function overlayStyle(bg: Background): string {
+  const opacity = Math.max(0, Math.min(1, bg.overlay));
+  if (opacity <= 0) return 'opacity:0;display:none;pointer-events:none;';
+  return `background:${bg.overlayColor};opacity:${opacity};`;
 }
 ---
 
-<div class="bg-layer" style={bgStyle}></div>
-{overlayOpacity > 0 && (
-  <div
-    class="bg-overlay"
-    style={`background: ${background.overlayColor}; opacity: ${overlayOpacity};`}
-  ></div>
-)}
+<div class="bg-layer" data-bg-mode="dark" style={bgDarkStyle}></div>
+<div class="bg-layer" data-bg-mode="light" style={bgLightStyle}></div>
+<div class="bg-overlay" data-bg-mode="dark" style={overlayStyle(bgDark)}></div>
+<div class="bg-overlay" data-bg-mode="light" style={overlayStyle(bgLight)}></div>

@@ -3,6 +3,7 @@ import type { Config } from '~/lib/schema';
 import { resolveIconUrl } from '~/lib/icons';
 import ThemeScript from '~/components/ThemeScript.astro';
 import { isFeatureEnabled } from '~/lib/features';
+import { computeThemeCssBlocks, computeBackgroundStyle, resolveBackground } from '~/lib/theme-tokens';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 import '~/styles/global.css';
 
@@ -35,11 +36,22 @@ const locale: Locale = useI18n
 const trf = tr(locale);
 
 // Theme variables injected as inline style
-const themeVars = [
-  `--accent:${t.accentColor}`,
-  `--text:${t.textColor}`,
-  `--font:'${t.fontFamily}', system-ui, -apple-system, 'Segoe UI', sans-serif`,
-].join(';');
+const cssBlocks = computeThemeCssBlocks(t);
+const bgDarkStyle = computeBackgroundStyle(t.background);
+const bgLightStyle = computeBackgroundStyle(resolveBackground(t, 'light'));
+const bgLightResolved = resolveBackground(t, 'light');
+
+function overlayStyle(bg: typeof t.background): string {
+  if (bg.overlay <= 0) return 'opacity:0;display:none;pointer-events:none;';
+  return `background:${bg.overlayColor};opacity:${bg.overlay};`;
+}
+const sharedStyle = [
+  cssBlocks.shared,
+  t.headerOpacity < 1 ? `--header-opacity:${t.headerOpacity}` : '',
+  t.footerOpacity < 1 ? `--footer-opacity:${t.footerOpacity}` : '',
+  t.tokens?.shared?.cardBlur !== undefined ? `--card-blur:${t.tokens.shared.cardBlur}px` : '',
+  t.tokens?.shared?.cardBorderWidth !== undefined ? `--card-border-width:${t.tokens.shared.cardBorderWidth}px` : '',
+].filter(Boolean).join(';');
 
 const gridStyle = `--cols-mobile:${l.columnsMobile};--cols-tablet:${l.columnsTablet};--cols-desktop:${l.columnsDesktop};`;
 
@@ -69,17 +81,21 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
 
     {t.fontUrl && <link rel="stylesheet" href={t.fontUrl} />}
 
-    <style is:inline set:html={`:root{${themeVars}}`}></style>
+    <style is:inline set:html={`:root{${cssBlocks.root}${sharedStyle ? ';' + sharedStyle : ''}}`}></style>
+    {cssBlocks.light && <style is:inline set:html={`html[data-mode="light"]{${cssBlocks.light}}`}></style>}
     <style is:inline set:html={`.page-wrap{${gridStyle}}`}></style>
+    {t.fontWeight && t.fontWeight !== '400' && (
+      <style is:inline set:html={`body{font-weight:${t.fontWeight}}`}></style>
+    )}
   </head>
   <body data-demo={isDemoBuild ? '1' : '0'}>
     <slot />
 
     {/* Background as last child so it sits behind everything via fixed positioning */}
-    <div class="bg-layer" style={t.background.type === 'image' ? `background-image:url('${t.background.value}');${t.background.blur > 0 ? `filter:blur(${t.background.blur}px);` : ''}` : `background:${t.background.value};${t.background.blur > 0 ? `filter:blur(${t.background.blur}px);` : ''}`}></div>
-    {t.background.overlay > 0 && (
-      <div class="bg-overlay" style={`background:${t.background.overlayColor};opacity:${t.background.overlay};`}></div>
-    )}
+    <div class="bg-layer" data-bg-mode="dark" style={bgDarkStyle}></div>
+    <div class="bg-layer" data-bg-mode="light" style={bgLightStyle}></div>
+    <div class="bg-overlay" data-bg-mode="dark" style={overlayStyle(t.background)}></div>
+    <div class="bg-overlay" data-bg-mode="light" style={overlayStyle(bgLightResolved)}></div>
 
     {/* Inline JS: color mode, search, keyboard shortcuts */}
     <ThemeScript theme={t} config={config} request={Astro.request} />
