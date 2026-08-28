@@ -19,9 +19,9 @@ declare global {
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   const cfg = await getConfig();
-  const ip = locals.clientIp || clientAddress || 'unknown';
+  const ip = locals.clientIp || 'unknown';
 
   // Rate limit (configurable: defaults to 30 attempts / 60s per IP).
   const rl = checkRateLimit(

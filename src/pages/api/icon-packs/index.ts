@@ -15,7 +15,7 @@ export const GET: APIRoute = async () => {
 
   try {
     const data = await listIconPacksWithStatus();
-    const availableIcons = await getBuiltinIconNames();
+    const availableIcons = await getAvailableIconNames();
     return json({ ...data, availableIcons });
   } catch (err: any) {
     return error(err?.message || 'Error al listar paquetes de íconos.', 500);

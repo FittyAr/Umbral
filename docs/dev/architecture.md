@@ -148,7 +148,7 @@ CRUD de assets (sin el upload en sí).
 Resolución de íconos.
 
 - `getAvailableIconNames()` — lista íconos de packs instalados en `data/icon-packs/`.
-- `resolveIconUrl(icon)` — dado un string, devuelve la URL. Si es path absoluto o `http(s)://`, lo devuelve. Si es nombre de Lucide, `/icons/<name>.svg`. Si parece filename con extensión, `/api/assets/<name>`.
+- `resolveIconUrl(icon)` — URL absoluta/`http(s)`/`/` se devuelve tal cual; `pack/name` → `/api/icons/pack/name.svg`; archivo de imagen → `/api/assets/<name>`; nombres bare (sin pack) → `null`.
 
 ### 4. `components/`
 

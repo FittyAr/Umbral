@@ -145,4 +145,15 @@ describe('admin dashboard boolean attribute bindings', () => {
     const offenders = expressions.filter((expr) => /[\w)\]]\s*\[/.test(expr));
     assert.deepEqual(offenders, []);
   });
+
+  test('icon-packs GET uses getAvailableIconNames', async () => {
+    const src = await readFile(new URL('../src/pages/api/icon-packs/index.ts', import.meta.url), 'utf8');
+    assert.match(src, /getAvailableIconNames/);
+    assert.equal(src.includes('getBuiltinIconNames()'), false);
+  });
+
+  test('client resolveIcon does not request built-in /icons/*.svg', async () => {
+    const markup = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
+    assert.equal(markup.includes("prefix + 'icons/'"), false);
+  });
 });

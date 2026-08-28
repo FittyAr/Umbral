@@ -246,7 +246,7 @@ const THEME_PRESET_I18N = {
           <div class="card-item" :data-id="card.id" :class="isSystemCard(card) && 'card-system'">
             <div class="drag-handle" title="Arrastrar para reordenar">⋮⋮</div>
             <div class="icon-preview">
-              <template x-if="card.icon">
+              <template x-if="resolveIcon(card.icon)">
                 <img :src="resolveIcon(card.icon)" :alt="card.icon" />
               </template>
             </div>
@@ -1719,10 +1719,10 @@ const THEME_PRESET_I18N = {
 
                 <div class="icon-picker-preview">
                   <span class="icon-picker-preview-img" aria-hidden="true">
-                    <template x-if="editingCard.icon">
+                    <template x-if="resolveIcon(editingCard.icon)">
                       <img :src="resolveIcon(editingCard.icon)" :alt="editingCard.icon" />
                     </template>
-                    <template x-if="!editingCard.icon">
+                    <template x-if="!resolveIcon(editingCard.icon)">
                       <span style="font-size:1.5rem">🚫</span>
                     </template>
                   </span>
@@ -1924,7 +1924,7 @@ const THEME_PRESET_I18N = {
               >
                 <div style="display:flex;align-items:center;gap:0.5rem;width:100%;margin-bottom:0.4rem">
                   <div class="icon-preview" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">
-                    <img :src="resolveIcon(p.icon)" style="max-width:20px;max-height:20px" :alt="p.name" />
+                    <img x-show="resolveIcon(p.icon)" :src="resolveIcon(p.icon)" style="max-width:20px;max-height:20px" :alt="p.name" />
                   </div>
                   <strong style="font-size:0.9rem;flex:1" x-text="p.name"></strong>
                   <span class="color-dot" :style="`background:${p.color}`"></span>
@@ -4423,7 +4423,6 @@ const THEME_PRESET_I18N = {
           const base = window.__BASE_URL__ || '/';
           const prefix = base.endsWith('/') ? base : base + '/';
           if (icon.startsWith('/')) {
-            // Si el icon ya incluye el prefix, lo devolvemos tal cual.
             if (icon.startsWith(prefix)) return icon;
             return prefix + icon.slice(1);
           }
@@ -4433,7 +4432,8 @@ const THEME_PRESET_I18N = {
           if (/\.(png|jpg|jpeg|webp|gif|ico)$/i.test(icon)) {
             return prefix + 'api/assets/' + icon;
           }
-          return prefix + 'icons/' + icon.replace(/\.svg$/, '') + '.svg';
+          // Bare names are no longer built-in SVGs — don't hit /icons/*.svg.
+          return '';
         },
       }));
     });

@@ -26,6 +26,16 @@ function isPublic(pathname: string): boolean {
   return false;
 }
 
+function safeClientAddress(context: { clientAddress?: string }): string {
+  try {
+    return context.clientAddress || 'unknown';
+  } catch {
+    // @astrojs/node can throw ClientAddressNotAvailable in some
+    // adapter/dev-server paths. Never let that abort the request.
+    return 'unknown';
+  }
+}
+
 function clientIp(request: Request, trustForwarded: boolean, socketIp: string): string {
   if (trustForwarded) {
     const xff = request.headers.get('x-forwarded-for');
@@ -80,7 +90,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const auth = await buildAuthContext(request);
   context.locals.auth = auth;
-  context.locals.clientIp = clientIp(request, netCfg.trustForwardedFor, context.clientAddress);
+  context.locals.clientIp = clientIp(request, netCfg.trustForwardedFor, safeClientAddress(context));
 
   // Body size cap para endpoints que aceptan JSON grande. Si el cliente
   // declara Content-Length mayor al cap, rechazamos sin leer el body
