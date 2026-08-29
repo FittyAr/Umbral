@@ -34,10 +34,53 @@ export const SCROLL_IN_CLASS = 'is-anim-in';
  */
 export const SCROLL_ARMED_ATTR = 'data-anim-armed';
 
-/** Selectores de los elementos que anima cada opción de entrada. */
-const CARD_SELECTOR = '.card';
-const CATEGORY_SELECTOR = '.category-section';
-const HEADER_SELECTOR = '.header';
+/**
+ * A qué elementos apunta el CSS generado.
+ *
+ * Existe para que la vista previa del admin use exactamente el mismo
+ * generador que la portada, apuntando a su propio markup en miniatura, en vez
+ * de mantener una segunda implementación que se desincroniza.
+ */
+export interface AnimationTargets {
+  /** Prefijo de todos los selectores. La portada no necesita ninguno. */
+  scope: string;
+  card: string;
+  /** Contenedor de las tarjetas, para los `nth-child` del escalonado. */
+  cardParent: string;
+  /** `null` en markups que no tienen bloques de categoría. */
+  category: string | null;
+  categoryParents: string[];
+  header: string;
+  /**
+   * Sufijo de los nombres de los `@keyframes`. La miniatura del admin lo usa
+   * con un número que cambia en cada edición: renombrar la animación es lo
+   * que hace que el navegador la vuelva a reproducir, que es justamente lo
+   * que el admin necesita ver al mover un control.
+   */
+  nameSuffix?: string;
+}
+
+export const PUBLIC_TARGETS: AnimationTargets = {
+  scope: '',
+  card: '.card',
+  cardParent: '.grid',
+  category: '.category-section',
+  categoryParents: ['.groups-vertical', '.groups-horizontal'],
+  header: '.header',
+};
+
+/**
+ * La miniatura del admin no tiene bloques de categoría, así que la entrada de
+ * categorías no se puede mostrar ahí. El resto de los efectos sí.
+ */
+export const PREVIEW_TARGETS: AnimationTargets = {
+  scope: '.theme-preview-frame ',
+  card: '.theme-preview-card',
+  cardParent: '.theme-preview-cards',
+  category: null,
+  categoryParents: [],
+  header: '.theme-preview-header',
+};
 
 /**
  * La distancia de los desplazamientos entra por custom property para que un
@@ -46,14 +89,14 @@ const HEADER_SELECTOR = '.header';
  */
 const DISTANCE_VAR = '--umbral-enter-distance';
 
-const KEYFRAMES: Record<Exclude<AnimationEffect, 'none'>, string> = {
-  fade: '@keyframes umbral-enter-fade{from{opacity:0}to{opacity:1}}',
-  scale: '@keyframes umbral-enter-scale{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}',
-  'slide-up': `@keyframes umbral-enter-slide-up{from{opacity:0;transform:translateY(var(${DISTANCE_VAR}))}to{opacity:1;transform:none}}`,
-  'slide-down': `@keyframes umbral-enter-slide-down{from{opacity:0;transform:translateY(calc(-1 * var(${DISTANCE_VAR})))}to{opacity:1;transform:none}}`,
-  'slide-left': `@keyframes umbral-enter-slide-left{from{opacity:0;transform:translateX(var(${DISTANCE_VAR}))}to{opacity:1;transform:none}}`,
-  'slide-right': `@keyframes umbral-enter-slide-right{from{opacity:0;transform:translateX(calc(-1 * var(${DISTANCE_VAR})))}to{opacity:1;transform:none}}`,
-  blur: '@keyframes umbral-enter-blur{from{opacity:0;filter:blur(8px)}to{opacity:1;filter:none}}',
+const KEYFRAME_BODIES: Record<Exclude<AnimationEffect, 'none'>, string> = {
+  fade: '{from{opacity:0}to{opacity:1}}',
+  scale: '{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}',
+  'slide-up': `{from{opacity:0;transform:translateY(var(${DISTANCE_VAR}))}to{opacity:1;transform:none}}`,
+  'slide-down': `{from{opacity:0;transform:translateY(calc(-1 * var(${DISTANCE_VAR})))}to{opacity:1;transform:none}}`,
+  'slide-left': `{from{opacity:0;transform:translateX(var(${DISTANCE_VAR}))}to{opacity:1;transform:none}}`,
+  'slide-right': `{from{opacity:0;transform:translateX(calc(-1 * var(${DISTANCE_VAR})))}to{opacity:1;transform:none}}`,
+  blur: '{from{opacity:0;filter:blur(8px)}to{opacity:1;filter:none}}',
 };
 
 /**
@@ -131,7 +174,10 @@ function staggerRules(parent: string, child: string, stagger: number): string[] 
  * transparente, pero sólo dentro del guard: si el navegador ignora la
  * animación, se ve normal en vez de quedar invisible.
  */
-export function computeAnimationCss(animations: ThemeAnimations | undefined): string {
+export function computeAnimationCss(
+  animations: ThemeAnimations | undefined,
+  targets: AnimationTargets = PUBLIC_TARGETS,
+): string {
   if (!animations || !hasAnimations(animations)) return '';
 
   const {
@@ -160,48 +206,54 @@ export function computeAnimationCss(animations: ThemeAnimations | undefined): st
    * pone el script. Sin JavaScript no se cumple ninguna de las dos, así que
    * el contenido queda visible y quieto.
    */
+  const suffix = targets.nameSuffix ?? '';
+  const animationName = (effect: Exclude<AnimationEffect, 'none'>) => `umbral-enter-${effect}${suffix}`;
+
+  /** Devuelve el selector del hijo sin scope, para los `nth-child`. */
   const animate = (selector: string, effect: Exclude<AnimationEffect, 'none'>) => {
-    keyframes.add(KEYFRAMES[effect]);
-    const target = onScroll ? `${selector}.${SCROLL_IN_CLASS}` : selector;
+    keyframes.add(`@keyframes ${animationName(effect)}${KEYFRAME_BODIES[effect]}`);
+    const child = onScroll ? `${selector}.${SCROLL_IN_CLASS}` : selector;
     if (onScroll) {
-      rules.push(`html[${SCROLL_ARMED_ATTR}] ${selector}{opacity:0}`);
+      rules.push(`html[${SCROLL_ARMED_ATTR}] ${targets.scope}${selector}{opacity:0}`);
     }
     rules.push(
-      `${target}{${distanceFor(effect, entranceDistance)}animation:umbral-enter-${effect} ${cardEntranceDuration}ms ${easing} both}`,
+      `${targets.scope}${child}{${distanceFor(effect, entranceDistance)}animation:${animationName(effect)} ${cardEntranceDuration}ms ${easing} both}`,
     );
-    return target;
+    return child;
   };
 
   if (cardEntrance !== 'none') {
-    const target = animate(CARD_SELECTOR, cardEntrance);
-    rules.push(...staggerRules('.grid', target, cardEntranceStagger));
+    const child = animate(targets.card, cardEntrance);
+    rules.push(...staggerRules(`${targets.scope}${targets.cardParent}`, child, cardEntranceStagger));
   }
 
-  if (categoryEntrance !== 'none') {
-    const target = animate(CATEGORY_SELECTOR, categoryEntrance);
-    rules.push(...staggerRules('.groups-vertical', target, cardEntranceStagger));
-    rules.push(...staggerRules('.groups-horizontal', target, cardEntranceStagger));
+  if (targets.category && categoryEntrance !== 'none') {
+    const child = animate(targets.category, categoryEntrance);
+    for (const parent of targets.categoryParents) {
+      rules.push(...staggerRules(`${targets.scope}${parent}`, child, cardEntranceStagger));
+    }
   }
 
   // El header está siempre arriba de todo, así que animarlo por scroll no
   // tendría sentido: entra al cargar aunque el resto espere al viewport.
   if (headerEffect !== 'none') {
-    keyframes.add(KEYFRAMES[headerEffect]);
+    keyframes.add(`@keyframes ${animationName(headerEffect)}${KEYFRAME_BODIES[headerEffect]}`);
     rules.push(
-      `${HEADER_SELECTOR}{${distanceFor(headerEffect, entranceDistance)}animation:umbral-enter-${headerEffect} ${cardEntranceDuration}ms ${easing} both}`,
+      `${targets.scope}${targets.header}{${distanceFor(headerEffect, entranceDistance)}animation:${animationName(headerEffect)} ${cardEntranceDuration}ms ${easing} both}`,
     );
   }
 
+  const card = `${targets.scope}${targets.card}`;
   if (cardHover === 'none') {
     // Apagar el hover no es una animación: va fuera del guard para que valga
     // también con movimiento reducido, donde igual no debería haber transform.
-    unguarded.push('.card:hover{transform:none}');
+    unguarded.push(`${card}:hover{transform:none}`);
   } else if (cardHover !== 'default') {
-    rules.push(`.card:hover{${HOVER_RULES[cardHover]}}`);
+    rules.push(`${card}:hover{${HOVER_RULES[cardHover]}}`);
   }
 
   if (hoverDuration !== DEFAULT_HOVER_DURATION_MS) {
-    unguarded.push(`.card{transition-duration:${hoverDuration}ms}`);
+    unguarded.push(`${card}{transition-duration:${hoverDuration}ms}`);
   }
 
   const guardedRules = guarded(rules.join(''), respectReducedMotion);
@@ -222,8 +274,10 @@ export function computeAnimationScript(animations: ThemeAnimations | undefined):
   if (!animations || animations.entranceTrigger !== 'scroll') return '';
 
   const selectors: string[] = [];
-  if (animations.cardEntrance !== 'none') selectors.push(CARD_SELECTOR);
-  if (animations.categoryEntrance !== 'none') selectors.push(CATEGORY_SELECTOR);
+  if (animations.cardEntrance !== 'none') selectors.push(PUBLIC_TARGETS.card);
+  if (animations.categoryEntrance !== 'none' && PUBLIC_TARGETS.category) {
+    selectors.push(PUBLIC_TARGETS.category);
+  }
   if (!selectors.length) return '';
 
   const selector = JSON.stringify(selectors.join(','));

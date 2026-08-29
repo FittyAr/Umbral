@@ -1,4 +1,5 @@
 ---
+import Badge from '../ui/Badge.astro';
 import RangeField from '../ui/RangeField.astro';
 import SelectField from '../ui/SelectField.astro';
 import ToggleField from '../ui/ToggleField.astro';
@@ -43,13 +44,38 @@ const hoverOptions = [
   { value: 'tilt', key: 'admin.theme.animations.hoverTilt', label: 'Inclinar' },
 ];
 
-/** Con todo en 'none' los controles compartidos no afectan nada. */
-const anyEntrance =
-  "cfg.theme.animations.cardEntrance !== 'none' || cfg.theme.animations.categoryEntrance !== 'none' || cfg.theme.animations.headerEffect !== 'none'";
-const anySlide = "['slide-up','slide-down','slide-left','slide-right'].includes(cfg.theme.animations.cardEntrance) || ['slide-up','slide-down','slide-left','slide-right'].includes(cfg.theme.animations.categoryEntrance) || ['slide-up','slide-down','slide-left','slide-right'].includes(cfg.theme.animations.headerEffect)";
+const a = 'cfg.theme.animations';
+const SLIDES = "['slide-up','slide-down','slide-left','slide-right']";
+
+/** Los controles compartidos no afectan nada si no hay ninguna entrada. */
+const anyEntrance = `${a}.cardEntrance !== 'none' || ${a}.categoryEntrance !== 'none' || ${a}.headerEffect !== 'none'`;
+/** La distancia sólo la usan los slides. */
+const anySlide = [`${a}.cardEntrance`, `${a}.categoryEntrance`, `${a}.headerEffect`]
+  .map((path) => `${SLIDES}.includes(${path})`)
+  .join(' || ');
+const anyHover = `${a}.cardHover !== 'default' || ${a}.hoverDuration !== 180`;
+const anyText = `${a}.titleTypewriter || ${a}.counters`;
 ---
 
-<h3 x-text="themeSectionAnimations()">{t('admin.theme.section.animations', 'Animaciones')}</h3>
+<div class="anim-head">
+  <h3 x-text="themeSectionAnimations()">{t('admin.theme.section.animations', 'Animaciones')}</h3>
+  <div class="anim-head-actions">
+    <button type="button" class="btn btn-sm" @click="themeAnimationsReplay()" x-text="themeAnimationsReplayLabel()">
+      {t('admin.theme.animations.replay', 'Repetir en la vista previa')}
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm"
+      x-show={`${anyEntrance} || ${anyHover} || ${anyText}`}
+      x-cloak
+      @click="themeAnimationsResetAll()"
+      x-text="themeAnimationsResetLabel()"
+    >
+      {t('admin.theme.animations.reset', 'Apagar todo')}
+    </button>
+  </div>
+</div>
+
 <p class="theme-section-desc" x-text="themeAnimationsIntro()">
   {
     t(
@@ -59,164 +85,236 @@ const anySlide = "['slide-up','slide-down','slide-left','slide-right'].includes(
   }
 </p>
 
-<SelectField
-  useI18n={useI18n}
-  tr={tr}
-  model="cfg.theme.animations.cardEntrance"
-  options={effectOptions}
-  labelKey="admin.theme.animations.cardEntrance"
-  labelFallback="Entrada de las tarjetas"
-  labelExpr="themeCardEntranceLabel()"
-  helpKey="theme.animations.cardEntrance"
-/>
+<div class="anim-groups">
+  <section class="anim-group">
+    <header class="anim-group-head">
+      <h4 x-text="themeAnimationsGroupEntrance()">
+        {t('admin.theme.animations.groupEntrance', 'Entrada')}
+      </h4>
+      <Badge
+        useI18n={useI18n}
+        tr={tr}
+        textKey="admin.theme.animations.badgeOn"
+        textFallback="activo"
+        textExpr="themeAnimationsBadgeOnLabel()"
+        show={anyEntrance}
+        class="anim-badge"
+      />
+    </header>
 
-<div class="form-row">
-  <SelectField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.categoryEntrance"
-    options={effectOptions}
-    labelKey="admin.theme.animations.categoryEntrance"
-    labelFallback="Entrada de las categorías"
-    labelExpr="themeCategoryEntranceLabel()"
-    helpKey="theme.animations.categoryEntrance"
-  />
-  <SelectField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.headerEffect"
-    options={effectOptions}
-    labelKey="admin.theme.animations.headerEffect"
-    labelFallback="Efecto del header"
-    labelExpr="themeHeaderEffectLabel()"
-    helpKey="theme.animations.headerEffect"
-  />
+    <div class="form-row">
+      <SelectField
+        useI18n={useI18n}
+        tr={tr}
+        model={`${a}.cardEntrance`}
+        options={effectOptions}
+        labelKey="admin.theme.animations.cardEntrance"
+        labelFallback="Entrada de las tarjetas"
+        labelExpr="themeCardEntranceLabel()"
+        helpKey="theme.animations.cardEntrance"
+      />
+      <SelectField
+        useI18n={useI18n}
+        tr={tr}
+        model={`${a}.categoryEntrance`}
+        options={effectOptions}
+        labelKey="admin.theme.animations.categoryEntrance"
+        labelFallback="Entrada de las categorías"
+        labelExpr="themeCategoryEntranceLabel()"
+        helpKey="theme.animations.categoryEntrance"
+      />
+      <SelectField
+        useI18n={useI18n}
+        tr={tr}
+        model={`${a}.headerEffect`}
+        options={effectOptions}
+        labelKey="admin.theme.animations.headerEffect"
+        labelFallback="Efecto del header"
+        labelExpr="themeHeaderEffectLabel()"
+        helpKey="theme.animations.headerEffect"
+      />
+    </div>
+
+    <div class="anim-group-body" x-show={anyEntrance} x-cloak>
+      <div class="form-row">
+        <RangeField
+          useI18n={useI18n}
+          tr={tr}
+          model={`${a}.cardEntranceDuration`}
+          min={100}
+          max={2000}
+          step={50}
+          labelKey="admin.theme.animations.cardEntranceDuration"
+          labelFallback="Duración"
+          labelExpr="themeCardEntranceDurationLabel()"
+          helpKey="theme.animations.cardEntranceDuration"
+          unit="ms"
+          withNumber
+        />
+        <RangeField
+          useI18n={useI18n}
+          tr={tr}
+          model={`${a}.cardEntranceStagger`}
+          min={0}
+          max={300}
+          step={10}
+          labelKey="admin.theme.animations.cardEntranceStagger"
+          labelFallback="Retardo entre tarjetas"
+          labelExpr="themeCardEntranceStaggerLabel()"
+          helpKey="theme.animations.cardEntranceStagger"
+          unit="ms"
+          withNumber
+        />
+      </div>
+
+      <div class="form-row">
+        <SelectField
+          useI18n={useI18n}
+          tr={tr}
+          model={`${a}.entranceEasing`}
+          options={easingOptions}
+          labelKey="admin.theme.animations.entranceEasing"
+          labelFallback="Curva del movimiento"
+          labelExpr="themeEntranceEasingLabel()"
+          helpKey="theme.animations.entranceEasing"
+        />
+        <SelectField
+          useI18n={useI18n}
+          tr={tr}
+          model={`${a}.entranceTrigger`}
+          options={triggerOptions}
+          labelKey="admin.theme.animations.entranceTrigger"
+          labelFallback="Cuándo se dispara"
+          labelExpr="themeEntranceTriggerLabel()"
+          helpKey="theme.animations.entranceTrigger"
+        />
+      </div>
+
+      <RangeField
+        useI18n={useI18n}
+        tr={tr}
+        model={`${a}.entranceDistance`}
+        min={4}
+        max={64}
+        step={2}
+        labelKey="admin.theme.animations.entranceDistance"
+        labelFallback="Distancia del desplazamiento"
+        labelExpr="themeEntranceDistanceLabel()"
+        helpKey="theme.animations.entranceDistance"
+        unit="px"
+        withNumber
+        show={anySlide}
+      />
+
+      <p class="anim-group-note" x-show={`${a}.entranceTrigger === 'scroll'`} x-cloak
+        x-text="themeAnimationsScrollNote()">
+        {
+          t(
+            'admin.theme.animations.scrollNote',
+            'La vista previa siempre muestra la entrada al cargar: en la miniatura no hay scroll que la dispare.',
+          )
+        }
+      </p>
+    </div>
+  </section>
+
+  <section class="anim-group">
+    <header class="anim-group-head">
+      <h4 x-text="themeAnimationsGroupHover()">
+        {t('admin.theme.animations.groupHover', 'Al pasar el mouse')}
+      </h4>
+      <Badge
+        useI18n={useI18n}
+        tr={tr}
+        textKey="admin.theme.animations.badgeOn"
+        textFallback="activo"
+        textExpr="themeAnimationsBadgeOnLabel()"
+        show={anyHover}
+        class="anim-badge"
+      />
+    </header>
+
+    <div class="form-row">
+      <SelectField
+        useI18n={useI18n}
+        tr={tr}
+        model={`${a}.cardHover`}
+        options={hoverOptions}
+        labelKey="admin.theme.animations.cardHover"
+        labelFallback="Hover de las tarjetas"
+        labelExpr="themeCardHoverLabel()"
+        helpKey="theme.animations.cardHover"
+      />
+      <RangeField
+        useI18n={useI18n}
+        tr={tr}
+        model={`${a}.hoverDuration`}
+        min={0}
+        max={600}
+        step={10}
+        labelKey="admin.theme.animations.hoverDuration"
+        labelFallback="Duración del hover"
+        labelExpr="themeHoverDurationLabel()"
+        helpKey="theme.animations.hoverDuration"
+        unit="ms"
+        withNumber
+      />
+    </div>
+  </section>
+
+  <section class="anim-group">
+    <header class="anim-group-head">
+      <h4 x-text="themeAnimationsGroupText()">
+        {t('admin.theme.animations.groupText', 'Texto y números')}
+      </h4>
+      <Badge
+        useI18n={useI18n}
+        tr={tr}
+        textKey="admin.theme.animations.badgeOn"
+        textFallback="activo"
+        textExpr="themeAnimationsBadgeOnLabel()"
+        show={anyText}
+        class="anim-badge"
+      />
+    </header>
+
+    <div class="form-row">
+      <ToggleField
+        useI18n={useI18n}
+        tr={tr}
+        model={`${a}.titleTypewriter`}
+        labelKey="admin.theme.animations.titleTypewriter"
+        labelFallback="Título con máquina de escribir"
+        labelExpr="themeTitleTypewriterLabel()"
+        helpKey="theme.animations.titleTypewriter"
+      />
+      <ToggleField
+        useI18n={useI18n}
+        tr={tr}
+        model={`${a}.counters`}
+        labelKey="admin.theme.animations.counters"
+        labelFallback="Contadores animados"
+        labelExpr="themeCountersLabel()"
+        helpKey="theme.animations.counters"
+      />
+    </div>
+  </section>
+
+  <section class="anim-group anim-group--a11y">
+    <header class="anim-group-head">
+      <h4 x-text="themeAnimationsGroupA11y()">
+        {t('admin.theme.animations.groupA11y', 'Accesibilidad')}
+      </h4>
+    </header>
+
+    <ToggleField
+      useI18n={useI18n}
+      tr={tr}
+      model={`${a}.respectReducedMotion`}
+      labelKey="admin.theme.animations.respectReducedMotion"
+      labelFallback="Respetar «reducir movimiento» del sistema"
+      labelExpr="themeRespectReducedMotionLabel()"
+      helpKey="theme.animations.respectReducedMotion"
+    />
+  </section>
 </div>
-
-<div class="form-row" x-show={anyEntrance} x-cloak>
-  <RangeField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.cardEntranceDuration"
-    min={100}
-    max={2000}
-    step={50}
-    labelKey="admin.theme.animations.cardEntranceDuration"
-    labelFallback="Duración"
-    labelExpr="themeCardEntranceDurationLabel()"
-    helpKey="theme.animations.cardEntranceDuration"
-    unit="ms"
-    withNumber
-  />
-  <RangeField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.cardEntranceStagger"
-    min={0}
-    max={300}
-    step={10}
-    labelKey="admin.theme.animations.cardEntranceStagger"
-    labelFallback="Retardo entre tarjetas"
-    labelExpr="themeCardEntranceStaggerLabel()"
-    helpKey="theme.animations.cardEntranceStagger"
-    unit="ms"
-    withNumber
-  />
-</div>
-
-<div class="form-row" x-show={anyEntrance} x-cloak>
-  <SelectField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.entranceEasing"
-    options={easingOptions}
-    labelKey="admin.theme.animations.entranceEasing"
-    labelFallback="Curva del movimiento"
-    labelExpr="themeEntranceEasingLabel()"
-    helpKey="theme.animations.entranceEasing"
-  />
-  <SelectField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.entranceTrigger"
-    options={triggerOptions}
-    labelKey="admin.theme.animations.entranceTrigger"
-    labelFallback="Cuándo se dispara"
-    labelExpr="themeEntranceTriggerLabel()"
-    helpKey="theme.animations.entranceTrigger"
-  />
-</div>
-
-<RangeField
-  useI18n={useI18n}
-  tr={tr}
-  model="cfg.theme.animations.entranceDistance"
-  min={4}
-  max={64}
-  step={2}
-  labelKey="admin.theme.animations.entranceDistance"
-  labelFallback="Distancia del desplazamiento"
-  labelExpr="themeEntranceDistanceLabel()"
-  helpKey="theme.animations.entranceDistance"
-  unit="px"
-  withNumber
-  show={anySlide}
-/>
-
-<div class="form-row">
-  <SelectField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.cardHover"
-    options={hoverOptions}
-    labelKey="admin.theme.animations.cardHover"
-    labelFallback="Hover de las tarjetas"
-    labelExpr="themeCardHoverLabel()"
-    helpKey="theme.animations.cardHover"
-  />
-  <RangeField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.hoverDuration"
-    min={0}
-    max={600}
-    step={10}
-    labelKey="admin.theme.animations.hoverDuration"
-    labelFallback="Duración del hover"
-    labelExpr="themeHoverDurationLabel()"
-    helpKey="theme.animations.hoverDuration"
-    unit="ms"
-    withNumber
-  />
-</div>
-
-<div class="form-row">
-  <ToggleField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.titleTypewriter"
-    labelKey="admin.theme.animations.titleTypewriter"
-    labelFallback="Título con máquina de escribir"
-    labelExpr="themeTitleTypewriterLabel()"
-    helpKey="theme.animations.titleTypewriter"
-  />
-  <ToggleField
-    useI18n={useI18n}
-    tr={tr}
-    model="cfg.theme.animations.counters"
-    labelKey="admin.theme.animations.counters"
-    labelFallback="Contadores animados"
-    labelExpr="themeCountersLabel()"
-    helpKey="theme.animations.counters"
-  />
-</div>
-
-<ToggleField
-  useI18n={useI18n}
-  tr={tr}
-  model="cfg.theme.animations.respectReducedMotion"
-  labelKey="admin.theme.animations.respectReducedMotion"
-  labelFallback="Respetar «reducir movimiento» del sistema"
-  labelExpr="themeRespectReducedMotionLabel()"
-  helpKey="theme.animations.respectReducedMotion"
-/>

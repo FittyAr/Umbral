@@ -27,6 +27,10 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     :style="themePreviewFrameStyle()"
     :data-mode="effectivePreviewMode()"
   >
+    {/* Animaciones de la miniatura: mismo generador que la portada, apuntando
+        al markup del preview. `is:inline` para que Astro no lo hoistee al head,
+        donde x-text no lo alcanzaría. */}
+    <style is:inline x-text="themePreviewAnimationCss()"></style>
     <div class="theme-preview-bg" :style="themePreviewBgStyleForMode()"></div>
     <div
       class="theme-preview-overlay"

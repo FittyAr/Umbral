@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   DEFAULT_HOVER_DURATION_MS,
   MAX_STAGGERED_CARDS,
+  PREVIEW_TARGETS,
   SCROLL_ARMED_ATTR,
   SCROLL_IN_CLASS,
   computeAnimationCss,
@@ -187,6 +188,49 @@ describe('disparo por scroll', () => {
     assert.match(computeAnimationScript(scrolled), /"\.card"/);
     const both = computeAnimationScript(anim({ ...scrolled, categoryEntrance: 'fade' }));
     assert.match(both, /"\.card,\.category-section"/);
+  });
+});
+
+describe('vista previa del admin', () => {
+  it('todo el CSS queda scopeado a la miniatura', () => {
+    const css = computeAnimationCss(
+      anim({ cardEntrance: 'fade', headerEffect: 'fade', cardHover: 'lift', cardEntranceStagger: 30 }),
+      PREVIEW_TARGETS,
+    );
+    const withoutKeyframes = css.replace(/@keyframes [^{]+\{.*?\}\}/g, '');
+    for (const rule of withoutKeyframes.split('}').filter((r) => r.includes('{') && !r.includes('@'))) {
+      assert.ok(
+        rule.includes('.theme-preview-'),
+        `regla sin scopear, se escaparia al resto del admin: ${rule}}`,
+      );
+    }
+  });
+
+  it('apunta al markup de la miniatura, no al de la portada', () => {
+    const css = computeAnimationCss(anim({ cardEntrance: 'fade', cardEntranceStagger: 30 }), PREVIEW_TARGETS);
+    assert.match(css, /\.theme-preview-frame \.theme-preview-card\{/);
+    assert.match(css, /\.theme-preview-cards>\.theme-preview-card:nth-child\(2\)/);
+    assert.doesNotMatch(css, /(^|[ ,])\.card\{/);
+  });
+
+  it('la entrada de categorias se omite: la miniatura no tiene categorias', () => {
+    assert.equal(PREVIEW_TARGETS.category, null);
+    assert.equal(computeAnimationCss(anim({ categoryEntrance: 'fade' }), PREVIEW_TARGETS), '');
+  });
+
+  it('el sufijo renombra los keyframes para poder repetir la animacion', () => {
+    const first = computeAnimationCss(anim({ cardEntrance: 'fade' }), { ...PREVIEW_TARGETS, nameSuffix: '-p1' });
+    const second = computeAnimationCss(anim({ cardEntrance: 'fade' }), { ...PREVIEW_TARGETS, nameSuffix: '-p2' });
+    assert.match(first, /@keyframes umbral-enter-fade-p1\{/);
+    assert.match(first, /animation:umbral-enter-fade-p1 /);
+    // Renombrar es lo que hace que el navegador la vuelva a reproducir.
+    assert.notEqual(first, second);
+  });
+
+  it('la portada no lleva sufijo ni scope', () => {
+    const css = computeAnimationCss(anim({ cardEntrance: 'fade' }));
+    assert.match(css, /@keyframes umbral-enter-fade\{/);
+    assert.doesNotMatch(css, /theme-preview/);
   });
 });
 

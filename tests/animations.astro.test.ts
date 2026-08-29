@@ -5,6 +5,11 @@ import CountUp from '@astroanimate/core/CountUp';
 import ScaleIn from '@astroanimate/core/ScaleIn';
 import TypewriterText from '@astroanimate/core/TypewriterText';
 
+import ThemeAnimations from '../src/components/admin/theme/ThemeAnimations.astro';
+import ThemePreview from '../src/components/admin/theme/ThemePreview.astro';
+
+const adminProps = { props: { useI18n: false, tr: (key: string) => key } } as never;
+
 /**
  * @astroanimate/core declara `peerDependencies: astro ^4 || ^5 || ^6` y el
  * proyecto está en 7, así que el peer se fuerza con un override en
@@ -68,5 +73,65 @@ describe('@astroanimate/core bajo Astro 7', () => {
     for (const html of rendered) {
       expect(html).not.toMatch(/https?:\/\//);
     }
+  });
+});
+
+describe('vista previa del admin', () => {
+  it('el style de animaciones queda dentro del frame, no hoisteado al head', async () => {
+    const html = await container.renderToString(ThemePreview as never, adminProps);
+
+    // Sin `is:inline` Astro se lo lleva al head, donde el x-text del preview
+    // nunca lo alcanzaría y las animaciones no se verían.
+    const frame = html.slice(html.indexOf('theme-preview-frame'));
+    expect(frame).toContain('<style x-text="themePreviewAnimationCss()">');
+  });
+
+  it('la miniatura tiene los elementos a los que apunta el CSS generado', async () => {
+    const html = await container.renderToString(ThemePreview as never, adminProps);
+
+    expect(html).toContain('theme-preview-header');
+    expect(html).toContain('theme-preview-cards');
+    expect(html).toContain('theme-preview-card ');
+  });
+});
+
+describe('panel de animaciones', () => {
+  it('agrupa los controles y no deja ninguno suelto', async () => {
+    const html = await container.renderToString(ThemeAnimations as never, adminProps);
+
+    const groups = html.match(/class="anim-group[ "]/g) ?? [];
+    expect(groups.length).toBe(4);
+    for (const model of [
+      'cardEntrance',
+      'categoryEntrance',
+      'headerEffect',
+      'cardEntranceDuration',
+      'cardEntranceStagger',
+      'entranceEasing',
+      'entranceTrigger',
+      'entranceDistance',
+      'cardHover',
+      'hoverDuration',
+      'titleTypewriter',
+      'counters',
+      'respectReducedMotion',
+    ]) {
+      expect(html).toContain(`cfg.theme.animations.${model}`);
+    }
+  });
+
+  it('los controles compartidos sólo aparecen cuando hay algo que ajustar', async () => {
+    const html = await container.renderToString(ThemeAnimations as never, adminProps);
+
+    expect(html).toContain("cfg.theme.animations.cardEntrance !== 'none'");
+    // La distancia es exclusiva de los slides.
+    expect(html).toContain("'slide-up','slide-down','slide-left','slide-right'");
+  });
+
+  it('ofrece repetir la animación y apagar todo', async () => {
+    const html = await container.renderToString(ThemeAnimations as never, adminProps);
+
+    expect(html).toContain('themeAnimationsReplay()');
+    expect(html).toContain('themeAnimationsResetAll()');
   });
 });
