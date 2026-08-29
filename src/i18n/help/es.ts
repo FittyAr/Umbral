@@ -176,6 +176,36 @@ export const helpEs = {
     short: "Cuánto espera cada tarjeta respecto de la anterior.",
     body: "En 0 (default) todas entran juntas. Con 60-80 ms se genera el efecto de cascada.\n\nEl escalonado se corta en la tarjeta 12: más allá de eso el retardo acumulado sería tan largo que la última aparecería mucho después de que el usuario ya scrolleó, así que el resto entra junto.",
   },
+  "theme.animations.categoryEntrance": {
+    title: "Entrada de las categorías",
+    short: "Anima el bloque entero de cada categoría, no sólo sus tarjetas.",
+    body: "Se puede combinar con la entrada de tarjetas: la categoría entra y las tarjetas entran dentro de ella. Si las dos usan el mismo efecto puede sentirse doble, así que suele quedar mejor una sutil (`fade` en la categoría) y otra más marcada (`slide-up` en las tarjetas), o directamente una sola.\n\nUsa la misma duración, curva y retardo que la entrada de tarjetas.",
+  },
+  "theme.animations.entranceEasing": {
+    title: "Curva del movimiento",
+    short: "Cómo reparte la velocidad la animación a lo largo de su duración.",
+    body: "**Frena al final (default)**: arranca rápido y desacelera. Es lo que se siente más natural para algo que aparece.\n\n**Suave en ambas puntas**: arranca y termina lento.\n\n**Constante**: velocidad pareja, se siente mecánico.\n\n**Rebote**: se pasa del valor final y vuelve. Con `scale` o los slides queda simpático; con duraciones cortas casi no se nota.",
+  },
+  "theme.animations.entranceTrigger": {
+    title: "Cuándo se dispara la entrada",
+    short: "Al cargar la página, o cuando el elemento entra en pantalla.",
+    body: "**Al cargar (default)**: todo anima una vez, al abrir el portal. No necesita JavaScript.\n\n**Al entrar en pantalla**: cada tarjeta o categoría anima cuando aparece al scrollear. Es la única animación que usa JavaScript (un `IntersectionObserver` de unas pocas líneas, inline, sin dependencias). **Sin JavaScript no se esconde nada**: el portal se ve completo y quieto, nunca vacío.\n\nEn portales que entran enteros en una pantalla las dos opciones se ven igual.\n\nEl header siempre anima al cargar, porque está arriba de todo.",
+  },
+  "theme.animations.entranceDistance": {
+    title: "Distancia del desplazamiento",
+    short: "Cuántos píxeles recorre el elemento en los efectos de slide.",
+    body: "Entre 4 y 64 px, default 16. Sólo afecta a los efectos de slide; `fade`, `scale` y `blur` lo ignoran, por eso el control aparece recién cuando elegís un slide.\n\nValores altos se sienten dramáticos pero pueden hacer que el contenido \"salte\" en pantallas chicas.",
+  },
+  "theme.animations.cardHover": {
+    title: "Hover de las tarjetas",
+    short: "Qué hace la tarjeta cuando pasás el mouse por encima.",
+    body: "**El de siempre (default)**: sube 2 px y cambia el sombreado, que es lo que Umbral hizo siempre.\n\n**Sin movimiento**: deja el cambio de color pero saca el desplazamiento. Útil en pantallas táctiles o en portales tipo kiosk.\n\n**Levantar**: sube más (6 px).\n\n**Agrandar**: escala un 3%.\n\n**Resplandor**: agrega un halo con el color de acento.\n\n**Inclinar**: sube y rota un grado.",
+  },
+  "theme.animations.hoverDuration": {
+    title: "Duración del hover",
+    short: "Cuánto tarda la transición al pasar el mouse, en milisegundos.",
+    body: "Entre 0 y 600 ms, default 180 (el valor histórico de Umbral). En 0 el cambio es instantáneo. Arriba de 300 se empieza a sentir pesado, porque el hover es una respuesta directa a lo que hace la mano.\n\nAfecta a todas las transiciones de la tarjeta: transform, sombra, fondo y borde.",
+  },
   "theme.animations.headerEffect": {
     title: "Efecto del header",
     short: "Misma animación de entrada, aplicada al header de la portada.",

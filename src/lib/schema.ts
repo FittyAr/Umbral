@@ -81,13 +81,39 @@ export const ThemeTokensSchema = z.object({
 // implementan (@astroanimate/core) se degradan a contenido visible sin JS,
 // así que una animación nunca puede esconder una tarjeta.
 // ──────────────────────────────────────────────────────────────────────────
+const AnimationEffectSchema = z.enum([
+  'none',
+  'fade',
+  'scale',
+  'slide-up',
+  'slide-down',
+  'slide-left',
+  'slide-right',
+  'blur',
+]);
+
 export const ThemeAnimationsSchema = z
   .object({
-    cardEntrance: z.enum(['none', 'fade', 'scale']).default('none'),
+    cardEntrance: AnimationEffectSchema.default('none'),
     cardEntranceDuration: z.number().int().min(100).max(2000).default(600),
     /** Retardo acumulado por tarjeta, en ms. 0 = todas entran juntas. */
     cardEntranceStagger: z.number().int().min(0).max(300).default(0),
-    headerEffect: z.enum(['none', 'fade', 'scale']).default('none'),
+    /** Entrada de cada bloque de categoría, además de la de sus tarjetas. */
+    categoryEntrance: AnimationEffectSchema.default('none'),
+    /** Cuánto se desplaza el elemento en los efectos de slide, en px. */
+    entranceDistance: z.number().int().min(4).max(64).default(16),
+    entranceEasing: z.enum(['ease-out', 'ease-in-out', 'linear', 'spring']).default('ease-out'),
+    /**
+     * `load` anima al cargar la página; `scroll` espera a que el elemento
+     * entre en pantalla. El disparo por scroll necesita JavaScript: sin él
+     * no se esconde nada, simplemente no hay animación.
+     */
+    entranceTrigger: z.enum(['load', 'scroll']).default('load'),
+    /** `default` deja el hover que ya tenían las tarjetas. */
+    cardHover: z.enum(['default', 'none', 'lift', 'grow', 'glow', 'tilt']).default('default'),
+    /** Duración de la transición de hover, en ms. 180 es el valor histórico. */
+    hoverDuration: z.number().int().min(0).max(600).default(180),
+    headerEffect: AnimationEffectSchema.default('none'),
     /** Título del header letra por letra. El texto se sirve completo igual. */
     titleTypewriter: z.boolean().default(false),
     counters: z.boolean().default(false),

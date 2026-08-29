@@ -15,7 +15,38 @@ const effectOptions = [
   { value: 'none', key: 'admin.theme.animations.effectNone', label: 'Sin animación' },
   { value: 'fade', key: 'admin.theme.animations.effectFade', label: 'Aparecer (fade)' },
   { value: 'scale', key: 'admin.theme.animations.effectScale', label: 'Crecer (scale)' },
+  { value: 'slide-up', key: 'admin.theme.animations.effectSlideUp', label: 'Subir (slide)' },
+  { value: 'slide-down', key: 'admin.theme.animations.effectSlideDown', label: 'Bajar (slide)' },
+  { value: 'slide-left', key: 'admin.theme.animations.effectSlideLeft', label: 'Desde la derecha' },
+  { value: 'slide-right', key: 'admin.theme.animations.effectSlideRight', label: 'Desde la izquierda' },
+  { value: 'blur', key: 'admin.theme.animations.effectBlur', label: 'Desenfoque (blur)' },
 ];
+
+const easingOptions = [
+  { value: 'ease-out', key: 'admin.theme.animations.easingEaseOut', label: 'Frena al final (ease-out)' },
+  { value: 'ease-in-out', key: 'admin.theme.animations.easingEaseInOut', label: 'Suave en ambas puntas' },
+  { value: 'linear', key: 'admin.theme.animations.easingLinear', label: 'Constante (linear)' },
+  { value: 'spring', key: 'admin.theme.animations.easingSpring', label: 'Rebote (spring)' },
+];
+
+const triggerOptions = [
+  { value: 'load', key: 'admin.theme.animations.triggerLoad', label: 'Al cargar la página' },
+  { value: 'scroll', key: 'admin.theme.animations.triggerScroll', label: 'Al entrar en pantalla' },
+];
+
+const hoverOptions = [
+  { value: 'default', key: 'admin.theme.animations.hoverDefault', label: 'El de siempre' },
+  { value: 'none', key: 'admin.theme.animations.hoverNone', label: 'Sin movimiento' },
+  { value: 'lift', key: 'admin.theme.animations.hoverLift', label: 'Levantar' },
+  { value: 'grow', key: 'admin.theme.animations.hoverGrow', label: 'Agrandar' },
+  { value: 'glow', key: 'admin.theme.animations.hoverGlow', label: 'Resplandor' },
+  { value: 'tilt', key: 'admin.theme.animations.hoverTilt', label: 'Inclinar' },
+];
+
+/** Con todo en 'none' los controles compartidos no afectan nada. */
+const anyEntrance =
+  "cfg.theme.animations.cardEntrance !== 'none' || cfg.theme.animations.categoryEntrance !== 'none' || cfg.theme.animations.headerEffect !== 'none'";
+const anySlide = "['slide-up','slide-down','slide-left','slide-right'].includes(cfg.theme.animations.cardEntrance) || ['slide-up','slide-down','slide-left','slide-right'].includes(cfg.theme.animations.categoryEntrance) || ['slide-up','slide-down','slide-left','slide-right'].includes(cfg.theme.animations.headerEffect)";
 ---
 
 <h3 x-text="themeSectionAnimations()">{t('admin.theme.section.animations', 'Animaciones')}</h3>
@@ -39,7 +70,30 @@ const effectOptions = [
   helpKey="theme.animations.cardEntrance"
 />
 
-<div class="form-row" x-show="cfg.theme.animations.cardEntrance !== 'none'" x-cloak>
+<div class="form-row">
+  <SelectField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.categoryEntrance"
+    options={effectOptions}
+    labelKey="admin.theme.animations.categoryEntrance"
+    labelFallback="Entrada de las categorías"
+    labelExpr="themeCategoryEntranceLabel()"
+    helpKey="theme.animations.categoryEntrance"
+  />
+  <SelectField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.headerEffect"
+    options={effectOptions}
+    labelKey="admin.theme.animations.headerEffect"
+    labelFallback="Efecto del header"
+    labelExpr="themeHeaderEffectLabel()"
+    helpKey="theme.animations.headerEffect"
+  />
+</div>
+
+<div class="form-row" x-show={anyEntrance} x-cloak>
   <RangeField
     useI18n={useI18n}
     tr={tr}
@@ -70,16 +124,71 @@ const effectOptions = [
   />
 </div>
 
-<SelectField
+<div class="form-row" x-show={anyEntrance} x-cloak>
+  <SelectField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.entranceEasing"
+    options={easingOptions}
+    labelKey="admin.theme.animations.entranceEasing"
+    labelFallback="Curva del movimiento"
+    labelExpr="themeEntranceEasingLabel()"
+    helpKey="theme.animations.entranceEasing"
+  />
+  <SelectField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.entranceTrigger"
+    options={triggerOptions}
+    labelKey="admin.theme.animations.entranceTrigger"
+    labelFallback="Cuándo se dispara"
+    labelExpr="themeEntranceTriggerLabel()"
+    helpKey="theme.animations.entranceTrigger"
+  />
+</div>
+
+<RangeField
   useI18n={useI18n}
   tr={tr}
-  model="cfg.theme.animations.headerEffect"
-  options={effectOptions}
-  labelKey="admin.theme.animations.headerEffect"
-  labelFallback="Efecto del header"
-  labelExpr="themeHeaderEffectLabel()"
-  helpKey="theme.animations.headerEffect"
+  model="cfg.theme.animations.entranceDistance"
+  min={4}
+  max={64}
+  step={2}
+  labelKey="admin.theme.animations.entranceDistance"
+  labelFallback="Distancia del desplazamiento"
+  labelExpr="themeEntranceDistanceLabel()"
+  helpKey="theme.animations.entranceDistance"
+  unit="px"
+  withNumber
+  show={anySlide}
 />
+
+<div class="form-row">
+  <SelectField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.cardHover"
+    options={hoverOptions}
+    labelKey="admin.theme.animations.cardHover"
+    labelFallback="Hover de las tarjetas"
+    labelExpr="themeCardHoverLabel()"
+    helpKey="theme.animations.cardHover"
+  />
+  <RangeField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.hoverDuration"
+    min={0}
+    max={600}
+    step={10}
+    labelKey="admin.theme.animations.hoverDuration"
+    labelFallback="Duración del hover"
+    labelExpr="themeHoverDurationLabel()"
+    helpKey="theme.animations.hoverDuration"
+    unit="ms"
+    withNumber
+  />
+</div>
 
 <div class="form-row">
   <ToggleField

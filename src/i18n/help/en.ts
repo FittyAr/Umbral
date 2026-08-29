@@ -176,6 +176,36 @@ export const helpEn = {
     short: "How long each card waits relative to the previous one.",
     body: "At 0 (default) they all enter together. Around 60-80 ms you get a cascade effect.\n\nStaggering stops at the 12th card: beyond that the accumulated delay would be so long that the last card would appear well after the user has scrolled, so the rest enter together.",
   },
+  "theme.animations.categoryEntrance": {
+    title: "Category entrance",
+    short: "Animates each category block as a whole, not just its cards.",
+    body: "Can be combined with the card entrance: the category comes in and the cards come in inside it. If both use the same effect it can feel doubled, so it usually works better to pair a subtle one (`fade` on the category) with a stronger one (`slide up` on the cards), or to use just one.\n\nIt shares the duration, curve and stagger with the card entrance.",
+  },
+  "theme.animations.entranceEasing": {
+    title: "Motion curve",
+    short: "How the animation distributes its speed over its duration.",
+    body: "**Slows at the end (default)**: starts fast and decelerates. It's what feels most natural for something appearing.\n\n**Smooth at both ends**: starts and finishes slowly.\n\n**Constant**: even speed, feels mechanical.\n\n**Bouncy**: overshoots the final value and comes back. Nice with `scale` or the slides; barely noticeable at short durations.",
+  },
+  "theme.animations.entranceTrigger": {
+    title: "Entrance trigger",
+    short: "On page load, or when the element scrolls into view.",
+    body: "**On load (default)**: everything animates once, when the portal opens. Needs no JavaScript.\n\n**When scrolled into view**: each card or category animates as it appears. This is the only animation that uses JavaScript (a few-line inline `IntersectionObserver`, no dependencies). **Without JavaScript nothing is hidden**: the portal shows up complete and still, never empty.\n\nOn portals that fit in one screen both options look the same.\n\nThe header always animates on load, since it's at the very top.",
+  },
+  "theme.animations.entranceDistance": {
+    title: "Slide distance",
+    short: "How many pixels the element travels in the slide effects.",
+    body: "Between 4 and 64 px, default 16. It only affects the slide effects; `fade`, `scale` and `blur` ignore it, which is why the control only shows up once you pick a slide.\n\nHigh values feel dramatic but can make content \"jump\" on small screens.",
+  },
+  "theme.animations.cardHover": {
+    title: "Card hover",
+    short: "What the card does when you move the mouse over it.",
+    body: "**The usual one (default)**: lifts 2 px and changes the shadow, which is what Umbral has always done.\n\n**No movement**: keeps the color change but drops the displacement. Useful on touch screens or kiosk-style portals.\n\n**Lift**: rises further (6 px).\n\n**Grow**: scales up 3%.\n\n**Glow**: adds a halo in the accent color.\n\n**Tilt**: lifts and rotates one degree.",
+  },
+  "theme.animations.hoverDuration": {
+    title: "Hover duration",
+    short: "How long the hover transition takes, in milliseconds.",
+    body: "Between 0 and 600 ms, default 180 (Umbral's historical value). At 0 the change is instant. Above 300 it starts to feel sluggish, because hover is a direct response to what the hand is doing.\n\nIt affects every card transition: transform, shadow, background and border.",
+  },
   "theme.animations.headerEffect": {
     title: "Header effect",
     short: "Same entrance animation, applied to the home page header.",
