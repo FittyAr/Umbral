@@ -61,7 +61,7 @@ const pageTitle = `${cat.name} — ${config.branding.companyName}`;
 const base = import.meta.env.BASE_URL || '/';
 ---
 <PublicLayout config={config} title={pageTitle}>
-  <main class="page-wrap">
+  <main class="page-wrap" data-grid-align={l.gridAlign} data-compact={l.compact ? 'true' : 'false'}>
     <header class="header">
       <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
         <a href={base} class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Volver a la portada principal'}>

@@ -259,7 +259,7 @@ export const helpEs = {
   "layout.columnsDesktop": {
     title: "Columnas en desktop",
     short: "Cuántas cards por fila en pantallas grandes.",
-    body: "Default 4. Rangos:\n- **2-3**: pocas cards, una por servicio importante\n- **4-6**: el sweet spot para portales típicos\n- **7-8**: requiere cards chicas, sólo si tenés muchas\n\nMirá la vista previa abajo del form para ver cómo queda.",
+    body: "Default 4. Rangos:\n- **2-3**: pocas cards, una por servicio importante\n- **4-6**: el sweet spot para portales típicos\n- **7-8**: requiere cards chicas, sólo si tenés muchas\n\nMirá la **vista previa** a la derecha del formulario para ver cómo queda.",
   },
   "layout.columnsTablet": {
     title: "Columnas en tablet",
@@ -280,6 +280,41 @@ export const helpEs = {
     title: "Mostrar descripciones",
     short: "Si mostrar el texto debajo del título de cada card.",
     body: "Si lo desactivás, las cards muestran sólo título + ícono. Útil cuando tenés muchas cards y el espacio escasea, o cuando el user ya sabe qué es cada servicio.",
+  },
+  "layout.gap": {
+    title: "Espaciado entre tarjetas",
+    short: "Distancia entre cards en la grilla (en rem).",
+    body: "Default **1rem**. Valores bajos (0–0.5) densifican la grilla; valores altos (1.5–3) dan más aire. Mirá la vista previa a la derecha para calibrar.",
+  },
+  "layout.maxWidth": {
+    title: "Ancho máximo del contenido",
+    short: "Ancho máximo del contenedor principal en px.",
+    body: "Default **1280px**. En monitores ultra-wide evita que las cards se estiren demasiado. Valores menores (960–1120) concentran el contenido; mayores (1440–1920) aprovechan pantallas grandes.",
+  },
+  "layout.gridAlign": {
+    title: "Alineación del contenido",
+    short: "Centrado o alineado a la izquierda.",
+    body: "**Centrado** (default): el bloque de contenido queda en el medio de la pantalla.\n\n**Izquierda**: el contenido se alinea al borde izquierdo — útil en layouts asimétricos o cuando hay sidebar externo.",
+  },
+  "layout.cardRadius": {
+    title: "Radio de esquinas",
+    short: "Qué tan redondeadas son las esquinas de cada card (px).",
+    body: "Default **12px**. **0** = esquinas rectas (look más técnico). Valores altos (20–32) dan un aspecto más suave/bubble.",
+  },
+  "layout.compact": {
+    title: "Modo compacto",
+    short: "Reduce paddings verticales de secciones y tarjetas.",
+    body: "Útil cuando tenés muchas categorías y cards — encaja más contenido en pantalla sin reducir el número de columnas. Combinalo con **cardSize: chico** para máxima densidad.",
+  },
+  "layout.preview": {
+    title: "Vista previa de layout",
+    short: "Simula cómo se verá la grilla en distintos viewports.",
+    body: "El conmutador **Móvil / Tablet / Desktop** cambia cuántas columnas se aplican en el preview (los breakpoints reales no disparan dentro del panel angosto).\n\nLa preview respeta gap, tamaño de card, radio, descripciones, modo compacto y la disposición de grupos del tema.",
+  },
+  "cards.grouping": {
+    title: "Tarjetas agrupadas por categoría",
+    short: "Organizá y mové tarjetas entre categorías.",
+    body: "Las tarjetas se muestran agrupadas según el orden de categorías del tab **Categorías**.\n\n**Arrastrá** con el handle `⋮⋮` para reordenar dentro de un grupo o mover entre grupos. **Selector de categoría** en cada fila: alternativa accesible por teclado.\n\nCon **filtro de texto** activo el arrastre se deshabilita (la lista parcial no representa el orden real) — usá el selector para mover.\n\nLas tarjetas huérfanas (categoría borrada) aparecen en **Sin categoría**.",
   },
   "card.title": {
     title: "Título de la tarjeta",

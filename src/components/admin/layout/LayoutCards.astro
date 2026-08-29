@@ -1,0 +1,54 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<section class="layout-section">
+  <h3 x-text="layoutSectionCards()">{t('admin.layout.section.cards', 'Tarjetas')}</h3>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label>
+        <span x-text="layoutCardSizeLabel()">{t('admin.layout.cardSize', 'Tamaño de tarjeta')}</span>
+        <button type="button" class="help-icon" @click="showHelp('layout.cardSize')" :title="helpTooltipLabel()">?</button>
+      </label>
+      <select x-model="cfg.layout.cardSize">
+        <option value="small">{t('admin.layout.cardSize.small', 'Chico')}</option>
+        <option value="medium">{t('admin.layout.cardSize.medium', 'Mediano')}</option>
+        <option value="large">{t('admin.layout.cardSize.large', 'Grande')}</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>
+        <span x-text="layoutCardRadiusLabel()">{t('admin.layout.cardRadius', 'Radio de esquinas')}</span>
+        <button type="button" class="help-icon" @click="showHelp('layout.cardRadius')" :title="helpTooltipLabel()">?</button>
+        (<span x-text="cfg.layout.cardRadius"></span>px)
+      </label>
+      <div class="layout-range-row">
+        <input type="range" min="0" max="32" step="1" x-model.number="cfg.layout.cardRadius" />
+        <input type="number" min="0" max="32" step="1" x-model.number="cfg.layout.cardRadius" class="layout-num-input" />
+      </div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>
+      <input type="checkbox" x-model="cfg.layout.showDescriptions" />
+      <span x-text="layoutShowDescriptionsLabel()">{t('admin.layout.showDescriptions', 'Mostrar descripciones')}</span>
+      <button type="button" class="help-icon" @click="showHelp('layout.showDescriptions')" :title="helpTooltipLabel()">?</button>
+    </label>
+  </div>
+
+  <div class="form-group">
+    <label>
+      <input type="checkbox" x-model="cfg.layout.compact" />
+      <span x-text="layoutCompactLabel()">{t('admin.layout.compact', 'Modo compacto')}</span>
+      <button type="button" class="help-icon" @click="showHelp('layout.compact')" :title="helpTooltipLabel()">?</button>
+    </label>
+  </div>
+</section>

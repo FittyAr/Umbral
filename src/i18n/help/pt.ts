@@ -281,6 +281,41 @@ export const helpPt = {
     short: "Se mostra o texto abaixo do título de cada card.",
     body: "Se desativar, os cards mostram só título + ícone. Útil com muitos cards e pouco espaço, ou quando o usuário já sabe o que é cada serviço.",
   },
+  "layout.gap": {
+    title: "Espaçamento entre cards",
+    short: "Distância entre cards na grade (rem).",
+    body: "Default **1rem**. Valores baixos (0–0.5) densificam a grade; altos (1.5–3) dão mais ar. Use a pré-visualização à direita para calibrar.",
+  },
+  "layout.maxWidth": {
+    title: "Largura máxima do conteúdo",
+    short: "Largura máxima do container principal em px.",
+    body: "Default **1280px**. Em monitores ultra-wide evita que os cards estiquem demais. Valores menores (960–1120) concentram; maiores (1440–1920) aproveitam telas grandes.",
+  },
+  "layout.gridAlign": {
+    title: "Alinhamento do conteúdo",
+    short: "Centralizado ou à esquerda.",
+    body: "**Centralizado** (default): o bloco fica no meio da tela.\n\n**Esquerda**: alinha ao bordo esquerdo — útil em layouts assimétricos ou com sidebar externa.",
+  },
+  "layout.cardRadius": {
+    title: "Raio dos cantos",
+    short: "Quão arredondados ficam os cantos de cada card (px).",
+    body: "Default **12px**. **0** = cantos retos. Valores altos (20–32) dão aspecto mais suave.",
+  },
+  "layout.compact": {
+    title: "Modo compacto",
+    short: "Reduz paddings verticais de seções e cards.",
+    body: "Útil com muitas categorias e cards — encaixa mais conteúdo sem reduzir colunas. Combine com **card pequeno** para máxima densidade.",
+  },
+  "layout.preview": {
+    title: "Pré-visualização de layout",
+    short: "Simula como a grade fica em diferentes viewports.",
+    body: "O seletor **Mobile / Tablet / Desktop** muda as colunas no preview.\n\nRespeita gap, tamanho, raio, descrições, modo compacto e disposição de grupos do tema.",
+  },
+  "cards.grouping": {
+    title: "Cards agrupados por categoria",
+    short: "Organize e mova cards entre categorias.",
+    body: "Os cards seguem a ordem das categorias na aba **Categorias**.\n\n**Arraste** com `⋮⋮` para reordenar ou mover entre grupos. **Seletor de categoria** em cada linha: alternativa acessível.\n\nCom **filtro de texto** ativo o arraste fica desabilitado — use o seletor.\n\nCards órfãos aparecem em **Sem categoria**.",
+  },
   "card.title": {
     title: "Título do card",
     short: "O texto principal visível no card.",

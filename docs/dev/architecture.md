@@ -160,6 +160,14 @@ Astro components reusables.
 - `Background.astro` — div de fondo con image/gradient/color.
 - `ThemeScript.astro` — script inline para modo claro/oscuro + atajos de teclado.
 
+**Admin tabs (modularizados en `src/components/admin/`):**
+
+- `theme/ThemePanel.astro` — tab Tema con sidebar de secciones + `ThemePreview.astro` (preview en vivo del theme).
+- `layout/LayoutPanel.astro` — tab Layout con form en dos columnas + `LayoutPreview.astro` (preview de grilla con conmutador mobile/tablet/desktop).
+  - Campos de layout en `LayoutSchema`: columnas por breakpoint, `gap`, `maxWidth`, `gridAlign`, `cardSize`, `cardRadius`, `compact`, `showDescriptions`, `healthCheckInterval`.
+  - Variables CSS inyectadas en `.page-wrap` vía `PublicLayout`: `--grid-gap`, `--content-max-width`, `--card-radius`, `--cols-*`.
+- Tab **Tarjetas** (inline en `dashboard.astro`): lista agrupada por categoría con SortableJS cross-group. Lógica pura en `lib/cards-admin.ts` (`cardGroups`, `moveCardToCategory`, `syncOrderFromDom`).
+
 ### 5. `layouts/`
 
 - `PublicLayout.astro` — wrap de la portada. Inyecta CSS vars del theme, font, background, OG meta, ThemeScript.

@@ -194,7 +194,7 @@ html[data-mode="light"] .bg-overlay[data-bg-mode="light"] {
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--card-radius, var(--radius-lg));
   box-shadow: var(--shadow-card);
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
   position: relative;
@@ -292,9 +292,31 @@ html[data-mode="light"] .bg-overlay[data-bg-mode="light"] {
    Header & sections
    ───────────────────────────────────────────────────────────────────── */
 .page-wrap {
-  max-width: 1280px;
-  margin: 0 auto;
+  max-width: var(--content-max-width, 1280px);
+  margin-inline: auto;
   padding: 2rem 1.25rem 4rem;
+}
+.page-wrap[data-grid-align="left"] {
+  margin-inline: 0 auto;
+}
+.page-wrap[data-compact="true"] {
+  padding-top: 1rem;
+  padding-bottom: 2rem;
+}
+.page-wrap[data-compact="true"] .category-header {
+  margin: 1rem 0 0.5rem;
+}
+.page-wrap[data-compact="true"] .card[data-size="small"] {
+  min-height: 80px;
+  padding: 0.5rem;
+}
+.page-wrap[data-compact="true"] .card[data-size="medium"] {
+  min-height: 108px;
+  padding: 1rem;
+}
+.page-wrap[data-compact="true"] .card[data-size="large"] {
+  min-height: 140px;
+  padding: 1.25rem;
 }
 
 .header {
@@ -376,7 +398,7 @@ html[data-mode="light"] .header-title {
 
 .grid {
   display: grid;
-  gap: 1rem;
+  gap: var(--grid-gap, 1rem);
   grid-template-columns: repeat(var(--cols-mobile, 2), minmax(0, 1fr));
 }
 @media (min-width: 640px)  { .grid { grid-template-columns: repeat(var(--cols-tablet, 3), minmax(0, 1fr)); } }

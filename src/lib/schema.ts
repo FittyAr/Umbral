@@ -158,6 +158,11 @@ export const LayoutSchema = z.object({
   columnsMobile: z.number().int().min(1).max(3).default(2),
   cardSize: z.enum(['small', 'medium', 'large']).default('medium'),
   showDescriptions: z.boolean().default(true),
+  gap: z.number().min(0).max(3).default(1),
+  maxWidth: z.number().int().min(720).max(2560).default(1280),
+  gridAlign: z.enum(['left', 'center']).default('center'),
+  cardRadius: z.number().int().min(0).max(32).default(12),
+  compact: z.boolean().default(false),
   // healthCheckInterval: cada cuántos segundos volver a probar las cards con
   // healthCheck=true. Mínimo 10s (evita martillar el server), máximo 1h.
   healthCheckInterval: z.number().int().min(10).max(3600).default(60),

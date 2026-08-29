@@ -281,6 +281,41 @@ export const helpEn = {
     short: "Whether to show text below each card title.",
     body: "If disabled, cards show only title + icon. Useful when you have many cards and space is tight, or when users already know what each service is.",
   },
+  "layout.gap": {
+    title: "Gap between cards",
+    short: "Distance between cards in the grid (rem).",
+    body: "Default **1rem**. Lower values (0–0.5) densify the grid; higher values (1.5–3) add breathing room. Use the preview on the right to calibrate.",
+  },
+  "layout.maxWidth": {
+    title: "Max content width",
+    short: "Maximum width of the main container in px.",
+    body: "Default **1280px**. On ultra-wide monitors prevents cards from stretching too much. Lower values (960–1120) focus content; higher (1440–1920) use large screens.",
+  },
+  "layout.gridAlign": {
+    title: "Content alignment",
+    short: "Centered or left-aligned.",
+    body: "**Centered** (default): content block sits in the middle of the screen.\n\n**Left**: content aligns to the left edge — useful for asymmetric layouts or external sidebars.",
+  },
+  "layout.cardRadius": {
+    title: "Corner radius",
+    short: "How rounded card corners are (px).",
+    body: "Default **12px**. **0** = square corners (more technical look). Higher values (20–32) give a softer/bubble appearance.",
+  },
+  "layout.compact": {
+    title: "Compact mode",
+    short: "Reduces vertical padding of sections and cards.",
+    body: "Useful with many categories and cards — fits more content on screen without reducing column count. Combine with **small card size** for maximum density.",
+  },
+  "layout.preview": {
+    title: "Layout preview",
+    short: "Simulates how the grid looks on different viewports.",
+    body: "The **Mobile / Tablet / Desktop** switch changes column count in the preview (real breakpoints don't fire inside the narrow panel).\n\nThe preview respects gap, card size, radius, descriptions, compact mode, and theme group layout.",
+  },
+  "cards.grouping": {
+    title: "Cards grouped by category",
+    short: "Organize and move cards between categories.",
+    body: "Cards are grouped following category order from the **Categories** tab.\n\n**Drag** with the `⋮⋮` handle to reorder within a group or move between groups. **Category selector** on each row: keyboard-accessible alternative.\n\nWith an active **text filter**, drag is disabled (partial list doesn't represent real order) — use the selector to move cards.\n\nOrphan cards (deleted category) appear under **Uncategorized**.",
+  },
   "card.title": {
     title: "Card title",
     short: "The main text shown on the card.",

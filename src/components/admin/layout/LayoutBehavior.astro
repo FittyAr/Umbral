@@ -1,0 +1,28 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<section class="layout-section">
+  <h3 x-text="layoutSectionBehavior()">{t('admin.layout.section.behavior', 'Comportamiento')}</h3>
+
+  <div class="form-group">
+    <label>
+      <span x-text="layoutHealthCheckLabel()">{t('admin.layout.healthCheckInterval', 'Intervalo health check (segundos)')}</span>
+      <button type="button" class="help-icon" @click="showHelp('layout.healthCheckInterval')" :title="helpTooltipLabel()">?</button>
+      <span style="color:var(--text-faint);font-size:0.8rem" x-text="'— ' + (cfg.layout.healthCheckInterval || 60) + 's'"></span>
+    </label>
+    <div class="layout-range-row">
+      <input type="range" min="10" max="3600" step="10" x-model.number="cfg.layout.healthCheckInterval" />
+      <input type="number" min="10" max="3600" x-model.number="cfg.layout.healthCheckInterval" class="layout-num-input" />
+    </div>
+    <p class="layout-hint" x-text="layoutHealthCheckHint()">
+      {t('admin.layout.healthCheckHint', 'Cada cuánto se vuelve a probar las tarjetas con health check activado. Mín 10s, máx 1h.')}
+    </p>
+  </div>
+</section>

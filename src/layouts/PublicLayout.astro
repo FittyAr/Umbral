@@ -53,7 +53,14 @@ const sharedStyle = [
   t.tokens?.shared?.cardBorderWidth !== undefined ? `--card-border-width:${t.tokens.shared.cardBorderWidth}px` : '',
 ].filter(Boolean).join(';');
 
-const gridStyle = `--cols-mobile:${l.columnsMobile};--cols-tablet:${l.columnsTablet};--cols-desktop:${l.columnsDesktop};`;
+const gridStyle = [
+  `--cols-mobile:${l.columnsMobile}`,
+  `--cols-tablet:${l.columnsTablet}`,
+  `--cols-desktop:${l.columnsDesktop}`,
+  `--grid-gap:${l.gap}rem`,
+  `--content-max-width:${l.maxWidth}px`,
+  `--card-radius:${l.cardRadius}px`,
+].join(';');
 
 const fullTitle = title || config.branding.companyName;
 const metaDescription = useI18n

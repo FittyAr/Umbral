@@ -82,7 +82,7 @@ const isHorizontal = t.groupLayout === 'horizontal';
 const isThemePreview = Astro.url.searchParams.get('themePreview') === '1';
 ---
 <PublicLayout config={config}>
-  <main class="page-wrap" data-group-layout={t.groupLayout}>
+  <main class="page-wrap" data-group-layout={t.groupLayout} data-grid-align={l.gridAlign} data-compact={l.compact ? 'true' : 'false'}>
     <header class="header" data-header-opacity={t.headerOpacity < 1 ? '1' : undefined} style={t.headerOpacity < 1 ? `--header-opacity:${t.headerOpacity}` : undefined}>
       <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
       <h1 class="header-title">{config.branding.companyName}</h1>
