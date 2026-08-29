@@ -167,7 +167,7 @@ Tab Tarjetas: grupos + drop-zones. Cards sueltas (fuera de una categoría con t�
 - `Category.isGhost: true` — id kebab-case autogenerado (`ghost-…`), `name`/`icon` vacíos. No es un sentinel único: cada hueco entre grupos puede ser su propio ghost, así el orden global puede ser `grupo A → sueltas → grupo B → más sueltas`.
 - No se listan en el tab Categorías (no son editables). En la portada renderizan el `.grid` **sin** `.category-header`.
 - Vacías se auto-eliminan (`pruneEmptyGhosts`); dos ghosts consecutivos se fusionan.
-- En el admin, drop-zones `__gap__` (DOM-only, no se persisten) entre grupos reales y al inicio/fin. Al soltar una card se crea o reusa un ghost.
+- En el admin, drop-zones `__gap__` (DOM-only, no se persisten) entre grupos reales y al inicio/fin. Al soltar una card se crea o reusa un ghost. Cada lista Sortable tiene un filler in-flow (no vacío) y `draggable: '.card-item'`, para que SortableJS no recorra huecos vacíos en `dragover` (`lastChild` de `null`).
 - El selector de categoría incluye **Sin grupo** (`__ungrouped__`, no persistido).
 - Huérfanas de verdad (categoría borrada que ya no existe) siguen en el bucket `__orphan__` al final. `removeCategory` no reasigna cards de sistema ni cards que viven en ghosts.
 

@@ -242,7 +242,6 @@ const THEME_PRESET_I18N = {
                 >+ <span x-text="cardsAddToGroupLabel()">Agregar</span></button>
               </div>
             </div>
-            <p class="cards-gap-hint" x-show="item.type === 'gap'" x-cloak x-text="cardsUngroupedGapLabel()"></p>
             <div
               x-show="item.type === 'gap' || (item.type === 'group' && !isCardGroupCollapsed(item.group.categoryId))"
               x-cloak
@@ -252,6 +251,14 @@ const THEME_PRESET_I18N = {
                 :id="item.type === 'gap' ? ('cards-gap-' + item.key) : ('cards-group-' + item.group.categoryId)"
                 :data-category="item.type === 'gap' ? ungroupedGapId : item.group.categoryId"
               >
+                <div
+                  class="cards-drop-filler"
+                  x-show="item.type === 'gap' || (item.type === 'group' && item.group.cards.length === 0)"
+                  x-cloak
+                  aria-hidden="true"
+                >
+                  <span x-show="item.type === 'gap'" x-text="cardsUngroupedGapLabel()"></span>
+                </div>
                 <template x-for="card in (item.type === 'group' ? item.group.cards : [])" :key="card.id">
                   <div class="card-item" :data-id="card.id" :class="isSystemCard(card) && 'card-system'">
                     <div class="drag-handle" :class="cardFilter.trim() && 'drag-disabled'" :title="cardFilter.trim() ? cardsFilterDragDisabled() : cardsDragHandleLabel()">⋮⋮</div>
@@ -2102,6 +2109,8 @@ const THEME_PRESET_I18N = {
         layoutPreviewViewport: 'desktop',
         collapsedCardGroups: {},
         _cardSortables: [],
+        _cardsDragging: false,
+        _cardsDragLayout: null,
         ungroupedSelectId: UNGROUPED_SELECT_ID,
         ungroupedGapId: GAP_CATEGORY_ID,
         themePreviewMode: 'auto',
@@ -2994,12 +3003,15 @@ const THEME_PRESET_I18N = {
 
         destroyCardSortables() {
           if (this._cardSortables?.length) {
-            this._cardSortables.forEach((s) => s.destroy());
+            this._cardSortables.forEach((s) => {
+              try { s.destroy(); } catch { /* el may already be gone */ }
+            });
           }
           this._cardSortables = [];
         },
 
         initCardSortables() {
+          if (this._cardsDragging) return;
           this.destroyCardSortables();
           if (this.cardFilter.trim()) return;
 
@@ -3008,13 +3020,32 @@ const THEME_PRESET_I18N = {
 
           const groups = container.querySelectorAll('.cards-group-list[data-category]');
           groups.forEach((groupEl) => {
+            const wrap = groupEl.parentElement;
+            if (wrap && window.getComputedStyle(wrap).display === 'none') return;
+
             const sortable = Sortable.create(groupEl, {
               group: { name: 'cards', pull: true, put: true },
+              draggable: '.card-item',
               handle: '.drag-handle:not(.drag-disabled)',
               animation: 150,
-              filter: '.card-system',
+              filter: '.card-system, .cards-drop-filler',
+              preventOnFilter: false,
+              emptyInsertThreshold: 0,
+              ghostClass: 'card-sortable-ghost',
+              onStart: () => {
+                this._cardsDragging = true;
+                this._cardsDragLayout = buildAdminCardsLayout(
+                  this.cfg.categories,
+                  this.cfg.cards,
+                  this.cardFilter,
+                  this.cardsOrphanGroupLabel(),
+                  this.cardsUngroupedGroupLabel(),
+                );
+              },
               onEnd: () => {
                 syncOrderFromDom(this.cfg.categories, this.cfg.cards, container);
+                this._cardsDragLayout = null;
+                this._cardsDragging = false;
                 this.markDirty();
                 this.$nextTick(() => this.initCardSortables());
               },
@@ -3036,6 +3067,7 @@ const THEME_PRESET_I18N = {
 
         adminCardsLayout() {
           if (!this.cfg) return [];
+          if (this._cardsDragLayout) return this._cardsDragLayout;
           return buildAdminCardsLayout(
             this.cfg.categories,
             this.cfg.cards,
@@ -3059,6 +3091,9 @@ const THEME_PRESET_I18N = {
 
         toggleCardGroup(categoryId) {
           this.collapsedCardGroups[categoryId] = !this.isCardGroupCollapsed(categoryId);
+          if (this.tab === 'cards') {
+            this.$nextTick(() => this.initCardSortables());
+          }
         },
 
         isCardGroupCollapsed(categoryId) {

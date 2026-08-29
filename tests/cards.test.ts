@@ -224,10 +224,14 @@ describe('cards-admin', () => {
     const dom = new JSDOM(`
       <div id="root">
         <div data-category="${GAP_CATEGORY_ID}">
+          <div class="cards-drop-filler"></div>
           <div class="card-item" data-id="a"></div>
         </div>
-        <div data-category="prod"></div>
+        <div data-category="prod">
+          <div class="cards-drop-filler"></div>
+        </div>
         <div data-category="infra">
+          <div class="cards-drop-filler"></div>
           <div class="card-item" data-id="b"></div>
         </div>
       </div>
@@ -240,6 +244,27 @@ describe('cards-admin', () => {
     assert.equal(cats[0].id, ghost.id);
     assert.equal(cards.find((c) => c.id === 'a')?.category, ghost.id);
     assert.equal(cards.find((c) => c.id === 'b')?.category, 'infra');
+  });
+
+  test('syncOrderFromDom ignores empty gaps that only have a drop filler', () => {
+    const cats = [makeCategory('prod', 'Productividad')];
+    const cards = [makeCard('a', 'prod', 0)];
+    const dom = new JSDOM(`
+      <div id="root">
+        <div data-category="${GAP_CATEGORY_ID}">
+          <div class="cards-drop-filler"></div>
+        </div>
+        <div data-category="prod">
+          <div class="card-item" data-id="a"></div>
+        </div>
+      </div>
+    `);
+
+    syncOrderFromDom(cats, cards, dom.window.document.getElementById('root')!);
+
+    assert.equal(cats.length, 1);
+    assert.equal(cats[0].id, 'prod');
+    assert.equal(cards[0].category, 'prod');
   });
 
   test('syncOrderFromDom does not change system card category or order', () => {
@@ -317,6 +342,17 @@ describe('Card.astro kind', () => {
     assert.match(src, /data-card-kind="note"/);
     assert.match(src, /data-card-kind="link"/);
     assert.match(src, /noteBadge/);
+  });
+});
+
+describe('dashboard card Sortable', () => {
+  test('uses card-item draggable, drop filler, and frozen layout during drag', async () => {
+    const src = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
+    assert.match(src, /draggable:\s*['"]\.card-item['"]/);
+    assert.match(src, /emptyInsertThreshold:\s*0/);
+    assert.match(src, /cards-drop-filler/);
+    assert.match(src, /_cardsDragLayout/);
+    assert.match(src, /_cardsDragging/);
   });
 });
 
