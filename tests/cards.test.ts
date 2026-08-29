@@ -346,13 +346,19 @@ describe('Card.astro kind', () => {
 });
 
 describe('dashboard card Sortable', () => {
-  test('uses card-item draggable, drop filler, and frozen layout during drag', async () => {
+  test('uses card-item draggable, drop filler, frozen layout, and reconcile lifecycle', async () => {
     const src = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
+    assert.match(src, /installSortableGuard\(Sortable\)/);
     assert.match(src, /draggable:\s*['"]\.card-item['"]/);
+    assert.doesNotMatch(src, /forceFallback|fallbackOnBody/);
     assert.match(src, /emptyInsertThreshold:\s*0/);
     assert.match(src, /cards-drop-filler/);
     assert.match(src, /_cardsDragLayout/);
     assert.match(src, /_cardsDragging/);
+    assert.match(src, /reconcileCardSortables/);
+    assert.match(src, /Sortable\.get\(groupEl\)/);
+    assert.match(src, /requestAnimationFrame/);
+    assert.match(src, /pruneCardSortables/);
   });
 });
 

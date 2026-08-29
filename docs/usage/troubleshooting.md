@@ -210,6 +210,19 @@ curl -I -H "X-Forwarded-Proto: https" http://localhost:3000/ | grep -i strict-tr
 
 ---
 
+## `Alpine Expression Error: card is not defined` al arrastrar una tarjeta
+
+**Causa:** cuando SortableJS trabaja en modo *fallback* (opción `forceFallback`, o
+automáticamente en dispositivos touch) clona la tarjeta arrastrada y la inserta en el DOM.
+Ese clon queda fuera del `x-for` de Alpine, así que todos sus bindings (`card.id`,
+`isSystemCard(card)`, `resolveIcon(...)`, etc.) explotan con *is not defined*.
+
+**Fix (ya aplicado):** el dashboard usa drag nativo (sin `forceFallback`) y
+`src/lib/sortable-guard.ts` marca cualquier clon que SortableJS genere con `x-ignore`,
+de modo que Alpine nunca lo inicializa. Si volvés a activar `forceFallback`, mantené el guard.
+
+---
+
 ## La página tarda mucho en cargar
 
 **Causa probable:** una o más tarjetas están intentando cargar assets pesados (imágenes de 5MB sin procesar, fonts externos, etc).
@@ -325,3 +338,39 @@ Si nada de eso da pistas, abrí un issue con:
 - Output de `docker logs umbral` (al menos las últimas 50 líneas).
 - Output de `curl -v http://localhost:3000/api/health`.
 - Tu `docker-compose.yml` y `.env` (con secrets redactados).
+
+---
+
+## Ruido en la consola del navegador (dev) que no es de Umbral
+
+Al probar en local (`npm run dev`) o con extensiones activas, la consola puede mostrar mensajes que **no indican un bug de la app**. Umbral no los genera y no hay nada que corregir en el código del proyecto.
+
+| Mensaje | Origen | Qué hacer |
+|---------|--------|-----------|
+| `content-script.js` / `UNSUPPORTED_OS` | Extensión del navegador (Cursor, gestor de contraseñas, etc.) | Ignorar, o probar en ventana incógnita sin extensiones |
+| `WebSocket connection to 'ws://localhost:4321/?token=…' failed` + *Back-Forward Cache* | Cliente HMR de **Vite** en modo dev; al volver atrás Chrome congela la pestaña y corta el WebSocket | Ignorar en dev; en producción (`npm start`) no existe HMR |
+| `VM…` / `et.reportAllChanges` / `Cannot read properties of undefined (reading 'startTime')` | Script inyectado por herramientas del navegador o del IDE (overlay de performance) | Ignorar; el dev toolbar de Astro ya está desactivado |
+
+**Cómo distinguir un error real de Umbral:** el stack trace debe apuntar a archivos del proyecto (`src/…`, `dashboard.astro`, `sortablejs` usado desde el admin). Si el origen es `content-script.js`, `VM…` o solo menciona el WebSocket de Vite, no es un fallo de Umbral.
+
+**Bug real conocido (admin):** si al arrastrar tarjetas entre grupos o huecos fantasma ves `lastElementChild` en `sortablejs.js`, eso sí es de la app — debería estar resuelto con la reconciliación de Sortable y `sortable-guard.ts`. Hard refresh (Ctrl+Shift+R) después de actualizar.
+
+---
+
+## Login acepta la password pero vuelve al formulario (dev)
+
+**Síntoma:** POST `/api/login` responde 200, pero al ir a `/admin/dashboard` te manda otra vez a `/admin`.
+
+**Causa:** en `npm run dev` sin `SESSION_SECRET` en `.env`, Vite SSR puede cargar `auth.ts` más de una vez; cada copia generaba un secret distinto (firmaba el login una, verificaba el middleware otra).
+
+**Solución:**
+
+1. Creá `.env` desde `.env.example` y seteá un secret estable:
+   ```bash
+   cp .env.example .env
+   # Editá SESSION_SECRET (32+ chars) e INITIAL_PASSWORD si querés
+   ```
+2. Reiniciá el dev server (`Ctrl+C` y `npm run dev`).
+3. Hard refresh en el browser.
+
+Desde v1.1.x el fallback de dev también se comparte vía `globalThis.__umbralSessionSecret`, pero **seguimos recomendando `SESSION_SECRET` en `.env`** para dev y producción.

@@ -53,6 +53,13 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 let _secret: string | null = null;
 let _secretChecked = false;
 
+declare global {
+  // Vite SSR can instantiate auth.ts more than once in dev; share the dev
+  // fallback secret process-wide so login (sign) and middleware (verify) match.
+  // eslint-disable-next-line no-var
+  var __umbralSessionSecret: string | undefined;
+}
+
 // Lista de SESSION_SECRETs conocidos (de .env.example y docker-compose).
 // Si el deploy está usando uno de estos en producción, es un compromiso
 // de facto: cualquiera con acceso al repo público puede forjar sesiones.
@@ -66,6 +73,10 @@ const KNOWN_WEAK_SECRETS = new Set([
 
 function getSecret(): string {
   if (_secret) return _secret;
+  if (globalThis.__umbralSessionSecret) {
+    _secret = globalThis.__umbralSessionSecret;
+    return _secret;
+  }
   const s = process.env.SESSION_SECRET;
   if (s && s.length >= 16) {
     if (!_secretChecked && process.env.NODE_ENV === 'production' && KNOWN_WEAK_SECRETS.has(s)) {
@@ -78,6 +89,7 @@ function getSecret(): string {
     }
     _secretChecked = true;
     _secret = s;
+    globalThis.__umbralSessionSecret = _secret;
     return _secret;
   }
   // Dev fallback — in prod this is set by docker-compose.
@@ -88,6 +100,7 @@ function getSecret(): string {
   }
   _secretChecked = true;
   _secret = crypto.randomBytes(32).toString('hex');
+  globalThis.__umbralSessionSecret = _secret;
   return _secret;
 }
 
