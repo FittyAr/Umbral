@@ -42,8 +42,8 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
           :class="cfg.theme.groupLayout === 'horizontal' ? 'layout-preview-groups-horizontal' : 'layout-preview-groups-vertical'"
         >
           <template x-for="group in layoutPreviewGroups()" :key="group.id">
-            <section class="layout-preview-group">
-              <h4 class="layout-preview-group-title" x-text="group.name"></h4>
+            <section class="layout-preview-group" :data-ghost="group.isGhost ? 'true' : undefined">
+              <h4 class="layout-preview-group-title" x-show="!group.isGhost" x-text="group.name"></h4>
               <div class="layout-preview-grid">
                 <template x-for="(card, i) in group.cards" :key="group.id + '-' + i">
                   <div

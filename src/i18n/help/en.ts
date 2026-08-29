@@ -286,6 +286,16 @@ export const helpEn = {
     short: "Distance between cards in the grid (rem).",
     body: "Default **1rem**. Lower values (0–0.5) densify the grid; higher values (1.5–3) add breathing room. Use the preview on the right to calibrate.",
   },
+  "layout.categoryGap": {
+    title: "Gap between categories",
+    short: "Vertical breathing room between one category block and the next (rem).",
+    body: "Default **2rem**. It is the leading space of every titled category, so it also sets how far the first one sits from the page header.\n\nIn horizontal layout, where categories are side-by-side columns, the same value controls the space between those columns.\n\n**Note on compact mode**: when it is on, this value is applied at half strength, like the rest of the spacing.",
+  },
+  "layout.ghostCategoryGap": {
+    title: "Gap around loose cards",
+    short: "Breathing room before a block of cards with no category (rem).",
+    body: "Default **0.35rem**. Loose cards live in a *ghost category*: an untitled block that shows up between groups. Since it has no header, it needs far less room than a normal category — with the same value it would float without making clear what it belongs to.\n\nRaise it if you want loose cards to read as a separate block; drop it to 0 to keep them tight against the group above.",
+  },
   "layout.maxWidth": {
     title: "Max content width",
     short: "Maximum width of the main container in px.",

@@ -69,6 +69,16 @@ Cómo se distribuyen las tarjetas.
 
 El número de columnas es la base sobre la que se calcula el ancho de cada tarjeta: una tarjeta puede ocupar varias columnas de las que definís acá (ver [Tarjetas anchas](#tarjetas-anchas)).
 
+### Espaciados
+
+Tres controles independientes, todos en rem y con vista previa en vivo a la derecha:
+
+- **Espaciado entre tarjetas** (0-3, default 1): distancia entre cards dentro de una misma grilla.
+- **Espaciado entre categorías** (0-6, default 2): aire vertical con el que arranca cada bloque de categoría. Como es el espacio *de entrada*, también define cuánto se separa la primera categoría del encabezado de la página. En layout horizontal, donde las categorías son columnas lado a lado, el mismo valor controla el espacio entre columnas.
+- **Espaciado de tarjetas sueltas** (0-6, default 0.35): aire antes de un bloque de tarjetas sin categoría. Estas viven en una *categoría fantasma*, un bloque sin título que aparece entre grupos; al no tener encabezado necesita mucho menos aire que una categoría normal, y por eso se configura aparte. Subilo para que las sueltas se lean como un bloque propio, o bajalo a 0 para pegarlas al grupo de arriba.
+
+Si **Modo compacto** está activo, los dos espaciados de categoría se aplican a la mitad, así que siguen respetando lo que elijas en vez de saltar a un valor fijo.
+
 ---
 
 ## Categorías

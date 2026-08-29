@@ -275,6 +275,8 @@ export const en = {
   "admin.layout.columnsTablet": "Tablet columns",
   "admin.layout.columnsMobile": "Mobile columns",
   "admin.layout.gap": "Gap between cards",
+  "admin.layout.categoryGap": "Gap between categories",
+  "admin.layout.ghostCategoryGap": "Gap around loose cards",
   "admin.layout.maxWidth": "Max content width",
   "admin.layout.gridAlign": "Content alignment",
   "admin.layout.gridAlign.center": "Centered",

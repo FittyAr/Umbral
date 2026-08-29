@@ -204,8 +204,10 @@ Astro components reusables.
 
 - `theme/ThemePanel.astro` — tab Tema con sidebar de secciones + `ThemePreview.astro` (preview en vivo del theme).
 - `layout/LayoutPanel.astro` — tab Layout con form en dos columnas + `LayoutPreview.astro` (preview de grilla con conmutador mobile/tablet/desktop).
-  - Campos de layout en `LayoutSchema`: columnas por breakpoint, `gap`, `maxWidth`, `gridAlign`, `cardSize`, `cardRadius`, `compact`, `showDescriptions`, `healthCheckInterval`.
-  - Variables CSS inyectadas en `.page-wrap` vía `PublicLayout`: `--grid-gap`, `--content-max-width`, `--card-radius`, `--cols-*`.
+  - Campos de layout en `LayoutSchema`: columnas por breakpoint, `gap`, `categoryGap`, `ghostCategoryGap`, `maxWidth`, `gridAlign`, `cardSize`, `cardRadius`, `compact`, `showDescriptions`, `healthCheckInterval`.
+  - El preview incluye un grupo fantasma de muestra entre las dos categorías con título (`layoutPreviewSampleGroups`), que es lo que hace visible el control de tarjetas sueltas. Los espaciados verticales entran escalados por `PREVIEW_GAP_SCALE`: a tamaño real taparían las tarjetas de muestra.
+  - Variables CSS inyectadas en `.page-wrap` vía `PublicLayout`: `--grid-gap`, `--category-gap`, `--ghost-category-gap`, `--content-max-width`, `--card-radius`, `--cols-*`.
+  - **Espaciado entre categorías**: vive en `.category-section` (`margin-top`), no en el margen del `.category-header`. El header sólo conserva el aire hasta su propia grilla. El motivo es que las categorías fantasma no tienen header: con el modelo anterior no aportaban separación y el resultado quedaba a merced del colapso de márgenes, con un hueco distinto según si la fantasma iba antes o después de un grupo con título. Ahora cada bloque declara su espacio de entrada y el caso fantasma tiene su propia variable. Los defaults (2rem / 0.35rem) reproducen exactamente el espaciado histórico. El modo compacto multiplica por `0.5` en vez de fijar un valor, para no pisar lo que configure el usuario, y en `groups-horizontal` el aire lo pone el `gap` del contenedor (las columnas anulan su `margin-top`).
 - Tab **Tarjetas** (inline en `dashboard.astro`): ver `cards-admin.ts` arriba (grupos, ghosts, gaps).
 
 ### 5. `layouts/`

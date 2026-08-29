@@ -286,6 +286,16 @@ export const helpPt = {
     short: "Distância entre cards na grade (rem).",
     body: "Default **1rem**. Valores baixos (0–0.5) densificam a grade; altos (1.5–3) dão mais ar. Use a pré-visualização à direita para calibrar.",
   },
+  "layout.categoryGap": {
+    title: "Espaçamento entre categorias",
+    short: "Ar vertical entre um bloco de categoria e o seguinte (rem).",
+    body: "Default **2rem**. É o espaço de entrada de cada categoria com título, então também define o quanto a primeira respira em relação ao cabeçalho da página.\n\nNo layout horizontal, em que as categorias são colunas lado a lado, o mesmo valor controla o espaço entre essas colunas.\n\n**Atenção ao modo compacto**: quando está ativo, este valor é aplicado pela metade, como o resto do espaçamento.",
+  },
+  "layout.ghostCategoryGap": {
+    title: "Espaçamento de cards soltos",
+    short: "Ar antes de um bloco de cards sem categoria (rem).",
+    body: "Default **0.35rem**. Os cards soltos vivem em uma *categoria fantasma*: um bloco sem título que aparece entre grupos. Como não tem cabeçalho, precisa de muito menos ar que uma categoria normal — com o mesmo valor ficaria flutuando sem deixar claro a que pertence.\n\nAumente se quiser que os soltos sejam lidos como um bloco à parte; baixe para 0 para deixá-los colados ao grupo de cima.",
+  },
   "layout.maxWidth": {
     title: "Largura máxima do conteúdo",
     short: "Largura máxima do container principal em px.",

@@ -286,6 +286,16 @@ export const helpEs = {
     short: "Distancia entre cards en la grilla (en rem).",
     body: "Default **1rem**. Valores bajos (0–0.5) densifican la grilla; valores altos (1.5–3) dan más aire. Mirá la vista previa a la derecha para calibrar.",
   },
+  "layout.categoryGap": {
+    title: "Espaciado entre categorías",
+    short: "Aire vertical entre un bloque de categoría y el siguiente (en rem).",
+    body: "Default **2rem**. Es la separación de entrada de cada categoría con título, así que también define cuánto respira la primera respecto del encabezado de la página.\n\nEn layout horizontal, donde las categorías son columnas lado a lado, el mismo valor controla el espacio entre esas columnas.\n\n**Ojo con el modo compacto**: si está activo, este valor se aplica a la mitad, igual que el resto del espaciado.",
+  },
+  "layout.ghostCategoryGap": {
+    title: "Espaciado de tarjetas sueltas",
+    short: "Aire antes de un bloque de tarjetas sin categoría (en rem).",
+    body: "Default **0.35rem**. Las tarjetas sueltas viven en una *categoría fantasma*: un bloque sin título que aparece entre grupos. Como no tiene encabezado, necesita mucho menos aire que una categoría normal — con el mismo valor quedaría flotando sin que se entienda a qué pertenece.\n\nSubilo si querés que las sueltas se lean como un bloque aparte; bajalo a 0 para que queden pegadas al grupo de arriba.",
+  },
   "layout.maxWidth": {
     title: "Ancho máximo del contenido",
     short: "Ancho máximo del contenedor principal en px.",

@@ -343,7 +343,7 @@ html[data-mode="light"] .bg-overlay[data-bg-mode="light"] {
   padding-bottom: 2rem;
 }
 .page-wrap[data-compact="true"] .category-header {
-  margin: 1rem 0 0.5rem;
+  margin: 0 0 0.5rem;
 }
 .page-wrap[data-compact="true"] .card[data-size="small"] {
   min-height: 80px;
@@ -685,7 +685,7 @@ html[data-mode="light"] .header-title {
 .groups-vertical { display: block; }
 .groups-horizontal {
   display: grid;
-  gap: 1.25rem;
+  gap: var(--category-gap, 1.25rem);
   grid-template-columns: 1fr;
 }
 @media (min-width: 640px) {
@@ -709,16 +709,39 @@ html[data-mode="light"] .header-title {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin: 2rem 0 0.75rem;
-}
-.group-col .category-header {
-  margin-top: 0;
+  /* Sólo el aire hasta su propia grilla: la separación *entre* categorías
+     vive en .category-section (ver abajo). */
+  margin: 0 0 0.75rem;
 }
 .category-header .section-title {
   margin: 0;
 }
+
+/* Separación entre bloques de categoría.
+   Va en la sección y no en el header porque las categorías fantasma (huecos
+   de tarjetas sueltas) no tienen header: si el aire dependiera del header,
+   una fantasma no separaría nada y el resultado quedaría a merced del colapso
+   de márgenes. Con esto cada bloque declara su propio espacio de entrada y el
+   caso fantasma es configurable aparte. */
+.category-section {
+  margin-top: var(--category-gap, 2rem);
+}
 .category-section[data-ghost="true"] {
-  margin-block: 0.35rem;
+  margin-top: var(--ghost-category-gap, 0.35rem);
+}
+/* En modo compacto se mantiene la proporción histórica (la mitad) en vez de
+   un valor fijo, así respeta lo que el usuario haya configurado. */
+.page-wrap[data-compact="true"] .category-section {
+  margin-top: calc(var(--category-gap, 2rem) * 0.5);
+}
+.page-wrap[data-compact="true"] .category-section[data-ghost="true"] {
+  margin-top: calc(var(--ghost-category-gap, 0.35rem) * 0.5);
+}
+/* En layout horizontal las categorías son columnas hermanas: el aire lo pone
+   el `gap` de .groups-horizontal, no el margen de cada una. */
+.group-col.category-section,
+.page-wrap[data-compact="true"] .group-col.category-section {
+  margin-top: 0;
 }
 .cat-lock-status {
   display: inline-flex;

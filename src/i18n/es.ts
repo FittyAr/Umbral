@@ -322,6 +322,8 @@ export const es = {
   'admin.layout.columnsTablet': 'Columnas tablet',
   'admin.layout.columnsMobile': 'Columnas mobile',
   'admin.layout.gap': 'Espaciado entre tarjetas',
+  'admin.layout.categoryGap': 'Espaciado entre categorías',
+  'admin.layout.ghostCategoryGap': 'Espaciado de tarjetas sueltas',
   'admin.layout.maxWidth': 'Ancho máximo del contenido',
   'admin.layout.gridAlign': 'Alineación del contenido',
   'admin.layout.gridAlign.center': 'Centrado',

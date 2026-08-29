@@ -142,7 +142,7 @@
 
 .layout-preview-groups-horizontal {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--preview-category-gap, 0.75rem);
   grid-template-columns: 1fr 1fr;
 }
 
@@ -155,12 +155,23 @@
   color: var(--text-subtle);
 }
 
+/* Espejo a escala de las reglas de .category-section en global.css: el
+   preview tiene que mostrar la diferencia entre un grupo con título y un
+   hueco de tarjetas sueltas. */
 .layout-preview-group + .layout-preview-group {
-  margin-top: 0.85rem;
+  margin-top: var(--preview-category-gap, 0.85rem);
+}
+
+.layout-preview-group + .layout-preview-group[data-ghost="true"] {
+  margin-top: var(--preview-ghost-category-gap, 0.15rem);
 }
 
 .layout-preview-frame[data-compact="true"] .layout-preview-group + .layout-preview-group {
-  margin-top: 0.45rem;
+  margin-top: calc(var(--preview-category-gap, 0.85rem) * 0.5);
+}
+
+.layout-preview-frame[data-compact="true"] .layout-preview-group + .layout-preview-group[data-ghost="true"] {
+  margin-top: calc(var(--preview-ghost-category-gap, 0.15rem) * 0.5);
 }
 
 .layout-preview-groups-horizontal .layout-preview-group + .layout-preview-group {

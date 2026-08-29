@@ -9,9 +9,30 @@ export function buildLayoutCssVars(layout: Layout): Record<string, string> {
     '--cols-tablet': String(layout.columnsTablet),
     '--cols-desktop': String(layout.columnsDesktop),
     '--grid-gap': `${layout.gap}rem`,
+    '--category-gap': `${layout.categoryGap}rem`,
+    '--ghost-category-gap': `${layout.ghostCategoryGap}rem`,
     '--content-max-width': `${layout.maxWidth}px`,
     '--card-radius': `${layout.cardRadius}px`,
   };
+}
+
+/**
+ * El preview es una maqueta a escala, así que los espaciados verticales entran
+ * reducidos: a tamaño real taparían las tarjetas de muestra. El factor
+ * reproduce la proporción que ya tenía el preview (0.85rem para los 2rem
+ * reales por defecto).
+ */
+export const PREVIEW_GAP_SCALE = 0.425;
+
+function previewGapVars(layout: Layout): string[] {
+  return [
+    `--preview-category-gap:${round2(layout.categoryGap * PREVIEW_GAP_SCALE)}rem`,
+    `--preview-ghost-category-gap:${round2(layout.ghostCategoryGap * PREVIEW_GAP_SCALE)}rem`,
+  ];
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 export function layoutCssVarsToString(vars: Record<string, string>): string {
@@ -56,6 +77,7 @@ export function layoutPreviewFrameStyle(
   return [
     `--preview-cols:${cols}`,
     `--grid-gap:${layout.gap}rem`,
+    ...previewGapVars(layout),
     `--card-radius:${layout.cardRadius}px`,
     'width:100%',
     'max-width:100%',
@@ -78,6 +100,7 @@ export function layoutPreviewPageStyle(
     margin,
     `--preview-cols:${getPreviewColumns(layout, viewport)}`,
     `--grid-gap:${layout.gap}rem`,
+    ...previewGapVars(layout),
     `--card-radius:${layout.cardRadius}px`,
   ].join(';');
 }
@@ -109,24 +132,40 @@ export function layoutPreviewSampleCards(showDescriptions: boolean, columns = 3)
   });
 }
 
-/** Two category groups, each with a full row of cards (fills all columns). */
+function sampleGroupCards(showDescriptions: boolean, columns: number, offset: number) {
+  return layoutPreviewSampleCards(showDescriptions, columns).map((_, i) => {
+    const base = SAMPLE_CARD_POOL[(i + offset) % SAMPLE_CARD_POOL.length];
+    return {
+      title: base.title,
+      description: showDescriptions ? base.description : '',
+    };
+  });
+}
+
+/**
+ * Grupos de muestra: dos categorías con título y, en el medio, un hueco de
+ * tarjetas sueltas (`isGhost`). El fantasma va entre las dos justamente para
+ * que se vea cómo su separación difiere de la de un grupo con título.
+ */
 export function layoutPreviewSampleGroups(showDescriptions: boolean, columns = 3) {
   return [
     {
       id: 'preview-a',
       name: 'Productividad',
-      cards: layoutPreviewSampleCards(showDescriptions, columns),
+      isGhost: false,
+      cards: sampleGroupCards(showDescriptions, columns, 0),
+    },
+    {
+      id: 'preview-ghost',
+      name: '',
+      isGhost: true,
+      cards: sampleGroupCards(showDescriptions, Math.max(1, columns - 1), 9),
     },
     {
       id: 'preview-b',
       name: 'Infraestructura',
-      cards: layoutPreviewSampleCards(showDescriptions, columns).map((c, i) => ({
-        ...c,
-        title: SAMPLE_CARD_POOL[(i + 6) % SAMPLE_CARD_POOL.length].title,
-        description: showDescriptions
-          ? SAMPLE_CARD_POOL[(i + 6) % SAMPLE_CARD_POOL.length].description
-          : '',
-      })),
+      isGhost: false,
+      cards: sampleGroupCards(showDescriptions, columns, 6),
     },
   ];
 }

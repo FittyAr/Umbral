@@ -84,6 +84,31 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     </div>
   </div>
 
+  <div class="form-row">
+    <div class="form-group">
+      <label>
+        <span x-text="layoutCategoryGapLabel()">{t('admin.layout.categoryGap', 'Espaciado entre categorías')}</span>
+        <button type="button" class="help-icon" @click="showHelp('layout.categoryGap')" :title="helpTooltipLabel()">?</button>
+        (<span x-text="(cfg.layout.categoryGap ?? 2).toFixed(2)"></span>rem)
+      </label>
+      <div class="layout-range-row">
+        <input type="range" min="0" max="6" step="0.25" x-model.number="cfg.layout.categoryGap" />
+        <input type="number" min="0" max="6" step="0.25" x-model.number="cfg.layout.categoryGap" class="layout-num-input" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>
+        <span x-text="layoutGhostCategoryGapLabel()">{t('admin.layout.ghostCategoryGap', 'Espaciado de tarjetas sueltas')}</span>
+        <button type="button" class="help-icon" @click="showHelp('layout.ghostCategoryGap')" :title="helpTooltipLabel()">?</button>
+        (<span x-text="(cfg.layout.ghostCategoryGap ?? 0.35).toFixed(2)"></span>rem)
+      </label>
+      <div class="layout-range-row">
+        <input type="range" min="0" max="6" step="0.05" x-model.number="cfg.layout.ghostCategoryGap" />
+        <input type="number" min="0" max="6" step="0.05" x-model.number="cfg.layout.ghostCategoryGap" class="layout-num-input" />
+      </div>
+    </div>
+  </div>
+
   <div class="form-group">
     <label>
       <span x-text="layoutGridAlignLabel()">{t('admin.layout.gridAlign', 'Alineación del contenido')}</span>

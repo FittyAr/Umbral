@@ -275,6 +275,8 @@ export const pt = {
   "admin.layout.columnsTablet": "Colunas tablet",
   "admin.layout.columnsMobile": "Colunas mobile",
   "admin.layout.gap": "Espaçamento entre cards",
+  "admin.layout.categoryGap": "Espaçamento entre categorias",
+  "admin.layout.ghostCategoryGap": "Espaçamento de cards soltos",
   "admin.layout.maxWidth": "Largura máxima do conteúdo",
   "admin.layout.gridAlign": "Alinhamento do conteúdo",
   "admin.layout.gridAlign.center": "Centralizado",
