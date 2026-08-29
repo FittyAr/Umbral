@@ -73,6 +73,60 @@ export const ThemeTokensSchema = z.object({
   shared: SharedTokensSchema,
 }).optional();
 
+// ──────────────────────────────────────────────────────────────────────────
+// Animaciones (opt-in: features.animations)
+//
+// Todo arranca en 'none'/false: prender la feature no cambia nada de lo que
+// se ve hasta que el admin elige un efecto. Los componentes que las
+// implementan (@astroanimate/core) se degradan a contenido visible sin JS,
+// así que una animación nunca puede esconder una tarjeta.
+// ──────────────────────────────────────────────────────────────────────────
+const AnimationEffectSchema = z.enum([
+  'none',
+  'fade',
+  'scale',
+  'slide-up',
+  'slide-down',
+  'slide-left',
+  'slide-right',
+  'blur',
+]);
+
+export const ThemeAnimationsSchema = z
+  .object({
+    cardEntrance: AnimationEffectSchema.default('none'),
+    cardEntranceDuration: z.number().int().min(100).max(2000).default(600),
+    /** Retardo acumulado por tarjeta, en ms. 0 = todas entran juntas. */
+    cardEntranceStagger: z.number().int().min(0).max(300).default(0),
+    /** Entrada de cada bloque de categoría, además de la de sus tarjetas. */
+    categoryEntrance: AnimationEffectSchema.default('none'),
+    /** Cuánto se desplaza el elemento en los efectos de slide, en px. */
+    entranceDistance: z.number().int().min(4).max(64).default(16),
+    entranceEasing: z.enum(['ease-out', 'ease-in-out', 'linear', 'spring']).default('ease-out'),
+    /**
+     * `load` anima al cargar la página; `scroll` espera a que el elemento
+     * entre en pantalla. El disparo por scroll necesita JavaScript: sin él
+     * no se esconde nada, simplemente no hay animación.
+     */
+    entranceTrigger: z.enum(['load', 'scroll']).default('load'),
+    /** `default` deja el hover que ya tenían las tarjetas. */
+    cardHover: z.enum(['default', 'none', 'lift', 'grow', 'glow', 'tilt']).default('default'),
+    /** Duración de la transición de hover, en ms. 180 es el valor histórico. */
+    hoverDuration: z.number().int().min(0).max(600).default(180),
+    headerEffect: AnimationEffectSchema.default('none'),
+    /** Título del header letra por letra. El texto se sirve completo igual. */
+    titleTypewriter: z.boolean().default(false),
+    counters: z.boolean().default(false),
+    /**
+     * Con esto en true no se anima nada para quien pidió menos movimiento en
+     * su sistema. Se puede apagar, pero el CSS global mantiene el guard igual.
+     */
+    respectReducedMotion: z.boolean().default(true),
+  })
+  .default({});
+
+export type ThemeAnimations = z.infer<typeof ThemeAnimationsSchema>;
+
 export const CustomThemePresetSchema = z.object({
   id: z.string().min(1).max(40).regex(/^[a-z0-9-]+$/, 'ID debe ser kebab-case'),
   name: z.string().min(1).max(40),
@@ -147,6 +201,7 @@ export const ThemeSchema = z.object({
   iconTint: z.enum(['original', 'accent', 'text', 'custom']).default('original'),
   customPresets: z.array(CustomThemePresetSchema).max(5).default([]),
   tokens: ThemeTokensSchema,
+  animations: ThemeAnimationsSchema,
 });
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -741,6 +796,7 @@ export const FeaturesSchema = z.object({
   status: FeatureFlagSchema.default({ enabled: false }),
   ai: FeatureFlagSchema.default({ enabled: false }),
   iconPacks: FeatureFlagSchema.default({ enabled: false }),
+  animations: FeatureFlagSchema.default({ enabled: false }),
 });
 // NOTA: NO usamos `.default({})` en el outer schema. Si lo hacemos,
 // FeaturesSchema se convierte en un ZodDefault que no tiene `.partial()`.

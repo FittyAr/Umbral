@@ -5,6 +5,7 @@ import ThemeScript from '~/components/ThemeScript.astro';
 import { isFeatureEnabled } from '~/lib/features';
 import { computeThemeCssBlocks, computeBackgroundStyle, resolveBackground } from '~/lib/theme-tokens';
 import { computeCardSpanCss } from '~/lib/card-span';
+import { computeAnimationCss, computeAnimationScript } from '~/lib/animations';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 import '~/styles/global.css';
 
@@ -73,6 +74,13 @@ const gridStyle = [
 // breakpoint. Vacío cuando ninguna card pide más de una columna.
 const cardSpanCss = computeCardSpanCss(l, config.cards);
 
+// Animaciones (opt-in: features.animations). Sin la feature, o con todos los
+// efectos en 'none', esto queda vacío y no se emite ni un byte de CSS.
+const animationsOn = isFeatureEnabled(config, 'animations');
+const animationCss = animationsOn ? computeAnimationCss(t.animations) : '';
+// Sólo con disparo por scroll: es la única animación de layout que necesita JS.
+const animationScript = animationsOn ? computeAnimationScript(t.animations) : '';
+
 const fullTitle = title || config.branding.companyName;
 const metaDescription = useI18n
   ? trf('home.meta.description', { companyName: config.branding.companyName })
@@ -103,6 +111,7 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
     {cssBlocks.light && <style is:inline set:html={`html[data-mode="light"]{${cssBlocks.light}}`}></style>}
     <style is:inline set:html={`.page-wrap{${gridStyle}}`}></style>
     {cardSpanCss && <style is:inline set:html={cardSpanCss}></style>}
+    {animationCss && <style is:inline set:html={animationCss}></style>}
     {t.fontWeight && t.fontWeight !== '400' && (
       <style is:inline set:html={`body{font-weight:${t.fontWeight}}`}></style>
     )}
@@ -115,6 +124,8 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
     <div class="bg-layer" data-bg-mode="light" style={bgLightStyle}></div>
     <div class="bg-overlay" data-bg-mode="dark" style={overlayStyle(t.background)}></div>
     <div class="bg-overlay" data-bg-mode="light" style={overlayStyle(bgLightResolved)}></div>
+
+    {animationScript && <script is:inline set:html={animationScript}></script>}
 
     {/* Inline JS: color mode, search, keyboard shortcuts */}
     <ThemeScript theme={t} config={config} request={Astro.request} />

@@ -161,6 +161,71 @@ export const helpEn = {
     short: "Footer with Umbral version and last config update.",
     body: "Shows the package.json version and the `_meta.updatedAt` date from config. Useful for debugging (\"does the server have the new config yet?\") and knowing which version each portal in your fleet is running.",
   },
+  "theme.animations.cardEntrance": {
+    title: "Card entrance",
+    short: "How cards appear when the home page loads.",
+    body: "**None (default)**: cards are painted right away, the fastest option.\n\n**Fade**: they go from transparent to visible.\n\n**Scale**: they also start 4% smaller.\n\nPure CSS (`@keyframes`), no JavaScript involved: the HTML is served complete either way, so content shows even if the animation never runs.",
+  },
+  "theme.animations.cardEntranceDuration": {
+    title: "Entrance duration",
+    short: "How long each card's animation lasts, in milliseconds.",
+    body: "Between 100 and 2000 ms, default 600. Above 1000 it starts to feel sluggish on portals with many cards. The same value drives the header effect.",
+  },
+  "theme.animations.cardEntranceStagger": {
+    title: "Delay between cards",
+    short: "How long each card waits relative to the previous one.",
+    body: "At 0 (default) they all enter together. Around 60-80 ms you get a cascade effect.\n\nStaggering stops at the 12th card: beyond that the accumulated delay would be so long that the last card would appear well after the user has scrolled, so the rest enter together.",
+  },
+  "theme.animations.categoryEntrance": {
+    title: "Category entrance",
+    short: "Animates each category block as a whole, not just its cards.",
+    body: "Can be combined with the card entrance: the category comes in and the cards come in inside it. If both use the same effect it can feel doubled, so it usually works better to pair a subtle one (`fade` on the category) with a stronger one (`slide up` on the cards), or to use just one.\n\nIt shares the duration, curve and stagger with the card entrance.",
+  },
+  "theme.animations.entranceEasing": {
+    title: "Motion curve",
+    short: "How the animation distributes its speed over its duration.",
+    body: "**Slows at the end (default)**: starts fast and decelerates. It's what feels most natural for something appearing.\n\n**Smooth at both ends**: starts and finishes slowly.\n\n**Constant**: even speed, feels mechanical.\n\n**Bouncy**: overshoots the final value and comes back. Nice with `scale` or the slides; barely noticeable at short durations.",
+  },
+  "theme.animations.entranceTrigger": {
+    title: "Entrance trigger",
+    short: "On page load, or when the element scrolls into view.",
+    body: "**On load (default)**: everything animates once, when the portal opens. Needs no JavaScript.\n\n**When scrolled into view**: each card or category animates as it appears. This is the only animation that uses JavaScript (a few-line inline `IntersectionObserver`, no dependencies). **Without JavaScript nothing is hidden**: the portal shows up complete and still, never empty.\n\nOn portals that fit in one screen both options look the same.\n\nThe header always animates on load, since it's at the very top.",
+  },
+  "theme.animations.entranceDistance": {
+    title: "Slide distance",
+    short: "How many pixels the element travels in the slide effects.",
+    body: "Between 4 and 64 px, default 16. It only affects the slide effects; `fade`, `scale` and `blur` ignore it, which is why the control only shows up once you pick a slide.\n\nHigh values feel dramatic but can make content \"jump\" on small screens.",
+  },
+  "theme.animations.cardHover": {
+    title: "Card hover",
+    short: "What the card does when you move the mouse over it.",
+    body: "**The usual one (default)**: lifts 2 px and changes the shadow, which is what Umbral has always done.\n\n**No movement**: keeps the color change but drops the displacement. Useful on touch screens or kiosk-style portals.\n\n**Lift**: rises further (6 px).\n\n**Grow**: scales up 3%.\n\n**Glow**: adds a halo in the accent color.\n\n**Tilt**: lifts and rotates one degree.",
+  },
+  "theme.animations.hoverDuration": {
+    title: "Hover duration",
+    short: "How long the hover transition takes, in milliseconds.",
+    body: "Between 0 and 600 ms, default 180 (Umbral's historical value). At 0 the change is instant. Above 300 it starts to feel sluggish, because hover is a direct response to what the hand is doing.\n\nIt affects every card transition: transform, shadow, background and border.",
+  },
+  "theme.animations.headerEffect": {
+    title: "Header effect",
+    short: "Same entrance animation, applied to the home page header.",
+    body: "Uses the same effects and duration as the card entrance. They can be combined: `fade` header with `scale` cards, for example.",
+  },
+  "theme.animations.titleTypewriter": {
+    title: "Typewriter title",
+    short: "Types the company name character by character.",
+    body: "The only effect that needs JavaScript. **The full text is still served in the HTML**: without JS the title looks normal, not empty. It doesn't affect SEO or screen readers either.\n\nIt types once on load; it doesn't loop or erase.",
+  },
+  "theme.animations.counters": {
+    title: "Animated counters",
+    short: "The app count in the status bar counts up from zero.",
+    body: "Requires the status bar to be enabled (`theme.showStatusBar`). The final number is in the served HTML; the animation only replaces it once the counter scrolls into view.",
+  },
+  "theme.animations.respectReducedMotion": {
+    title: "Respect the system's \"reduce motion\" setting",
+    short: "Skip all animation for users who asked for less motion in their OS.",
+    body: "Leave it on (default). When enabled, animations are wrapped in `@media (prefers-reduced-motion: no-preference)`, so anyone who set \"reduce motion\" on Windows/macOS/iOS/Android sees a still portal.\n\nTurning it off forces animations even there, which can cause discomfort for people with vestibular disorders. The global CSS keeps a minimal guard over transitions regardless.",
+  },
   "layout.healthCheckInterval": {
     title: "Health check interval (seconds)",
     short: "How often to re-test URLs marked for health check.",

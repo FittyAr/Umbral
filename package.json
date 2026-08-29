@@ -25,11 +25,14 @@
     "test:icon-url": "node --test --experimental-strip-types tests/icon-url.test.ts",
     "test:sortable-guard": "node --test --experimental-strip-types tests/sortable-guard.test.ts",
     "test:auth-session": "node --test --experimental-strip-types tests/auth-session.test.ts",
+    "test:offline": "node --test --experimental-strip-types tests/offline.test.ts",
+    "test:animations": "node --test --experimental-strip-types tests/animations.test.ts",
     "test:astro": "vitest run",
-    "test": "npm run test:astro && npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:card-span && npm run test:icon-url && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
+    "test": "npm run test:astro && npm run test:offline && npm run test:animations && npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:card-span && npm run test:icon-url && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
     "astro": "astro"
   },
   "dependencies": {
+    "@astroanimate/core": "^0.1.2",
     "@astrojs/node": "^11.1.0",
     "adm-zip": "^0.6.0",
     "alpinejs": "^3.14.9",
@@ -58,8 +61,11 @@
     "typescript": "^5.7.3",
     "vitest": "^4.1.11"
   },
-  "//": "Security overrides: forzar versiones parcheadas en transitive deps. Generado por alerts Dependabot.",
+  "//": "Security overrides: forzar versiones parcheadas en transitive deps (alerts Dependabot). El override de @astroanimate/core es distinto: su peerDependency llega hasta astro 6 y el proyecto esta en 7, y sus componentes no tocan APIs internas de Astro, asi que se fuerza el peer al astro del proyecto en vez de instalar con --legacy-peer-deps, que dejaria el lockfile sin resolver.",
   "overrides": {
-    "nanoid": "^3.3.18"
+    "nanoid": "^3.3.18",
+    "@astroanimate/core": {
+      "astro": "$astro"
+    }
   }
 }

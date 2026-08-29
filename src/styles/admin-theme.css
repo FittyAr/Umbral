@@ -101,6 +101,81 @@
   top: 0.75rem;
 }
 
+/* ── Sección Animaciones ──────────────────────────────────────────────
+   Los controles se agrupan por lo que hacen (entrada, hover, texto,
+   accesibilidad) porque sueltos en una lista plana no se entendía cuáles
+   dependían de cuáles. */
+.anim-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.anim-head h3 {
+  margin: 0;
+}
+
+.anim-head-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.anim-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.anim-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 0.9rem;
+  background: var(--surface);
+}
+
+.anim-group-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.anim-group-head h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.anim-badge {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Los controles compartidos cuelgan visualmente de los efectos que los
+   habilitan, para que se lea que no valen por sí solos. */
+.anim-group-body {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+}
+
+.anim-group-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-subtle);
+}
+
+.anim-group--a11y {
+  background: transparent;
+  border-style: dashed;
+}
+
 .theme-preview-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -281,6 +356,9 @@
   text-align: center;
   font-size: 0.72rem;
   font-weight: 600;
+  /* Para que las opciones de hover de la sección Animaciones se sientan acá
+     igual que en la portada. La duración la pisa el CSS generado. */
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .theme-preview-card-icon {

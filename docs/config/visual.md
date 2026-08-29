@@ -126,6 +126,43 @@ El toggle en la portada (icono sol/luna) override el `colorMode` y persiste en `
 - **`showStatusBar`:** pie con versión + última actualización.
 - **`headerOpacity` / `footerOpacity`:** opacidad del header y status bar (0–1).
 
+### Animaciones (`theme.animations`) — opt-in
+
+Requiere prender la feature `animations` en **Avanzado → Features**. La sección aparece
+recién entonces en el tab Tema, y **todos los valores arrancan en "sin animación"**: prender
+la feature no cambia nada de lo que se ve hasta que elijas un efecto.
+
+- **`cardEntrance`:** `none` | `fade` | `scale` | `slide-up` | `slide-down` | `slide-left` |
+  `slide-right` | `blur`. Cómo entran las tarjetas.
+- **`categoryEntrance`:** mismo set, aplicado al bloque entero de cada categoría. Se puede
+  combinar con el de las tarjetas.
+- **`headerEffect`:** mismo set, aplicado al header. Siempre entra al cargar, aunque el
+  resto espere al scroll: está arriba de todo.
+- **`cardEntranceDuration`:** 100–2000 ms (default 600). Compartida por los tres.
+- **`cardEntranceStagger`:** 0–300 ms (default 0). Retardo acumulado por tarjeta (y por
+  categoría) para el efecto cascada. El escalonado se corta en el elemento 12: más allá, el
+  retardo acumulado haría que el último aparezca mucho después de que el visitante ya
+  scrolleó.
+- **`entranceEasing`:** `ease-out` (default) | `ease-in-out` | `linear` | `spring`. La
+  curva `spring` se pasa del valor final y vuelve.
+- **`entranceTrigger`:** `load` (default) | `scroll`. Con `scroll` cada tarjeta o categoría
+  anima al entrar en pantalla, vía un `IntersectionObserver` inline de unas pocas líneas.
+  **Sin JavaScript no se esconde nada**: el portal se ve completo y quieto.
+- **`entranceDistance`:** 4–64 px (default 16). Sólo afecta a los efectos de slide.
+- **`cardHover`:** `default` (el de siempre) | `none` | `lift` | `grow` | `glow` | `tilt`.
+- **`hoverDuration`:** 0–600 ms (default 180, el valor histórico).
+- **`titleTypewriter`:** escribe el nombre de la empresa letra por letra.
+- **`counters`:** el contador de apps de la status bar cuenta desde cero (necesita
+  `showStatusBar`).
+- **`respectReducedMotion`:** default `true`. No anima nada para quien configuró «reducir
+  movimiento» en su sistema operativo.
+
+La entrada de tarjetas y el header son CSS generado en el servidor. El título y los
+contadores usan un script mínimo, pero **el texto completo siempre se sirve en el HTML**:
+sin JavaScript el portal se ve normal, no vacío. Independientemente de la config, un guard
+global de `prefers-reduced-motion` desactiva animaciones y transiciones para quien pidió
+menos movimiento.
+
 ### Tipografía avanzada
 
 - **`fontWeight`:** 400 | 500 | 600 | 700.

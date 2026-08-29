@@ -6,6 +6,7 @@ import ThemeColors from './ThemeColors.astro';
 import ThemeTypography from './ThemeTypography.astro';
 import ThemeCards from './ThemeCards.astro';
 import ThemeWidgets from './ThemeWidgets.astro';
+import ThemeAnimations from './ThemeAnimations.astro';
 import ThemeAdvanced from './ThemeAdvanced.astro';
 import ThemePreview from './ThemePreview.astro';
 
@@ -43,6 +44,16 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <button type="button" class="theme-nav-btn" :class="themeSection==='widgets' && 'active'" @click="themeSection='widgets'">
         <span x-text="themeSectionWidgets()">{t('admin.theme.section.widgets', 'Widgets')}</span>
       </button>
+      <button
+        type="button"
+        class="theme-nav-btn"
+        x-show="isFeatureOn('animations')"
+        x-cloak
+        :class="themeSection==='animations' && 'active'"
+        @click="themeSection='animations'"
+      >
+        <span x-text="themeSectionAnimations()">{t('admin.theme.section.animations', 'Animaciones')}</span>
+      </button>
       <button type="button" class="theme-nav-btn" :class="themeSection==='advanced' && 'active'" @click="themeSection='advanced'">
         <span x-text="themeSectionAdvanced()">{t('admin.theme.section.advanced', 'Avanzado')}</span>
         <span class="badge-pro">Pro</span>
@@ -67,6 +78,9 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       </div>
       <div class="theme-section" :class="themeSection==='widgets' && 'active'">
         <ThemeWidgets useI18n={useI18n} tr={tr} />
+      </div>
+      <div class="theme-section" :class="themeSection==='animations' && 'active'" x-show="isFeatureOn('animations')" x-cloak>
+        <ThemeAnimations useI18n={useI18n} tr={tr} />
       </div>
       <div class="theme-section" :class="themeSection==='advanced' && 'active'">
         <ThemeAdvanced useI18n={useI18n} tr={tr} />

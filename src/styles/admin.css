@@ -936,7 +936,6 @@ textarea { resize: vertical; min-height: 60px; }
   .modal.modal--wide { width: 96vw; }
 }
 
-:global(html[data-mode="light"]) .modal,
 html[data-mode="light"] .modal {
   background: var(--surface);
   border-color: var(--border-strong);
