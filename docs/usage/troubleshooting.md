@@ -349,9 +349,13 @@ Al probar en local (`npm run dev`) o con extensiones activas, la consola puede m
 |---------|--------|-----------|
 | `content-script.js` / `UNSUPPORTED_OS` | Extensión del navegador (Cursor, gestor de contraseñas, etc.) | Ignorar, o probar en ventana incógnita sin extensiones |
 | `WebSocket connection to 'ws://localhost:4321/?token=…' failed` + *Back-Forward Cache* | Cliente HMR de **Vite** en modo dev; al volver atrás Chrome congela la pestaña y corta el WebSocket | Ignorar en dev; en producción (`npm start`) no existe HMR |
-| `VM…` / `et.reportAllChanges` / `Cannot read properties of undefined (reading 'startTime')` | Script inyectado por herramientas del navegador o del IDE (overlay de performance) | Ignorar; el dev toolbar de Astro ya está desactivado |
+| `VM…` / `et.reportAllChanges` / `Cannot read properties of undefined (reading 'startTime')` | Script inyectado por una extensión o por el IDE: `reportAllChanges` es la API de la librería **web-vitals**, que Umbral no usa ni declara como dependencia | Ignorar; el dev toolbar de Astro ya está desactivado |
 
 **Cómo distinguir un error real de Umbral:** el stack trace debe apuntar a archivos del proyecto (`src/…`, `dashboard.astro`, `sortablejs` usado desde el admin). Si el origen es `content-script.js`, `VM…` o solo menciona el WebSocket de Vite, no es un fallo de Umbral.
+
+**Cómo verificarlo vos mismo:** abrí la misma URL en una ventana de incógnito con las extensiones deshabilitadas. Los tres mensajes de arriba desaparecen; lo que quede sí es de la app. Con este método se detectó y corrigió un 404 real de `/favicon.ico` en las páginas públicas (ver abajo).
+
+**Bug real corregido (público):** `/`, `/docs` y demás páginas con `PublicLayout` sólo emitían `<link rel="icon">` cuando había un favicon cargado en **Branding**. Sin él, el browser pedía `/favicon.ico` y logueaba un 404. Ahora el layout cae al `favicon.svg` que trae el proyecto.
 
 **Bug real conocido (admin):** si al arrastrar tarjetas entre grupos o huecos fantasma ves `lastElementChild` en `sortablejs.js`, eso sí es de la app — debería estar resuelto con la reconciliación de Sortable y `sortable-guard.ts`. Hard refresh (Ctrl+Shift+R) después de actualizar.
 

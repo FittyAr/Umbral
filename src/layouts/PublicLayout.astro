@@ -15,11 +15,15 @@ const { config, title } = Astro.props;
 const t = config.theme;
 const l = config.layout;
 const logoUrl = resolveIconUrl(config.branding.logo);
-const faviconUrl = resolveIconUrl(config.branding.favicon);
+const brandFaviconUrl = resolveIconUrl(config.branding.favicon);
 
 // `base` respeta el subpath del deploy (ej: /umbral/) y se expone en el
 // cliente como window.__BASE_URL__. En el demo de GitHub Pages base = '/'.
 const base = import.meta.env.BASE_URL || '/';
+
+// Sin branding propio caemos al favicon que ya trae el proyecto: si no
+// emitimos <link rel="icon">, el browser pide /favicon.ico y loguea un 404.
+const faviconUrl = brandFaviconUrl || `${base}favicon.svg`;
 
 // UMBRAL_DEMO=true → build de GitHub Pages. En ese caso, cargamos
 // demo-runtime.js (interceptor de fetch que simula el backend en
@@ -77,7 +81,7 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
     <meta name="description" content={metaDescription} />
     <meta name="theme-color" content={t.accentColor} />
 
-    {faviconUrl && <link rel="icon" href={faviconUrl} />}
+    <link rel="icon" href={faviconUrl} />
     <link rel="manifest" href={`${base}manifest.webmanifest`} />
 
     {/* Open Graph / Twitter */}

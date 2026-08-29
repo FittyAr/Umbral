@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile, access } from 'node:fs/promises';
 import { LayoutSchema } from '../src/lib/schema.ts';
 import {
   buildLayoutCssVars,
@@ -90,5 +91,22 @@ describe('layout-admin-client', () => {
     );
     assert.match(left, /margin-inline:0 auto/);
     assert.match(left, /width:100%/);
+  });
+});
+
+describe('PublicLayout favicon', () => {
+  test('always emits a rel=icon link, falling back to the bundled favicon.svg', async () => {
+    const src = await readFile(new URL('../src/layouts/PublicLayout.astro', import.meta.url), 'utf8');
+
+    // An unconditional link keeps the browser from probing /favicon.ico (404).
+    assert.match(src, /<link rel="icon" href=\{faviconUrl\} \/>/);
+    assert.doesNotMatch(src, /\{faviconUrl && <link rel="icon"/);
+    assert.match(src, /const faviconUrl = brandFaviconUrl \|\| `\$\{base\}favicon\.svg`/);
+  });
+
+  test('the fallback favicon asset actually ships in public/', async () => {
+    await assert.doesNotReject(
+      access(new URL('../public/favicon.svg', import.meta.url)),
+    );
   });
 });
