@@ -1,0 +1,184 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='hardening' && 'active'">
+  <h2 style="margin-top:0">Hardening</h2>
+  <p class="muted" style="color:#94a3b8;font-size:0.85rem">
+    Defaults permisivos: la app funciona recién salida de la caja.
+    Endurecé lo que necesites. Los cambios se aplican al guardar.
+  </p>
+
+  <h3 style="margin-top:1.5rem">Sesión y cookies</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label>Duración (horas) <button type="button" class="help-icon" @click="showHelp('session.ttlHours')" :title="helpTooltipLabel()">?</button></label>
+      <input type="number" min="1" max="720" x-model.number="cfg.security.session.ttlHours" />
+    </div>
+    <div class="form-group">
+      <label>SameSite <button type="button" class="help-icon" @click="showHelp('session.cookieSameSite')" :title="helpTooltipLabel()">?</button></label>
+      <select x-model="cfg.security.session.cookieSameSite">
+        <option value="Lax">Lax (permisivo, default)</option>
+        <option value="Strict">Strict (más seguro)</option>
+        <option value="None">None (requiere Secure)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Secure flag <button type="button" class="help-icon" @click="showHelp('session.cookieSecure')" :title="helpTooltipLabel()">?</button></label>
+      <select x-model="cfg.security.session.cookieSecure">
+        <option value="auto">Auto (recomendado)</option>
+        <option value="always">Siempre</option>
+        <option value="never">Nunca</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" x-model="cfg.security.session.rotateCsrfOnLogin" /> Rotar CSRF en cada login <button type="button" class="help-icon" @click="showHelp('session.rotateCsrfOnLogin')" :title="helpTooltipLabel()">?</button></label>
+    </div>
+  </div>
+
+  <h3 style="margin-top:1.5rem">Login y CSRF</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label>Largo mínimo del password <button type="button" class="help-icon" @click="showHelp('auth.minPasswordLength')" :title="helpTooltipLabel()">?</button></label>
+      <input type="number" min="0" max="128" x-model.number="cfg.security.auth.minPasswordLength" />
+      <small style="color:#94a3b8">0 = sin mínimo (permite passwords cortos legados)</small>
+    </div>
+    <div class="form-group">
+      <label>Rate limit (intentos) <button type="button" class="help-icon" @click="showHelp('auth.rateLimitMax')" :title="helpTooltipLabel()">?</button></label>
+      <input type="number" min="1" max="10000" x-model.number="cfg.security.auth.rateLimitMax" />
+    </div>
+    <div class="form-group">
+      <label>Rate limit (ventana, seg) <button type="button" class="help-icon" @click="showHelp('auth.rateLimitWindowSec')" :title="helpTooltipLabel()">?</button></label>
+      <input type="number" min="1" max="3600" x-model.number="cfg.security.auth.rateLimitWindowSec" />
+    </div>
+    <div class="form-group">
+      <label>Política CSRF <button type="button" class="help-icon" @click="showHelp('auth.csrfPolicy')" :title="helpTooltipLabel()">?</button></label>
+      <select x-model="cfg.security.auth.csrfPolicy">
+        <option value="mutations">Mutations (default, recomendado)</option>
+        <option value="all">Todos los requests</option>
+        <option value="none">Ninguno (no recomendado)</option>
+      </select>
+    </div>
+  </div>
+
+  <h3 style="margin-top:1.5rem">Uploads</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label>Máx logo (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesLogo')" :title="helpTooltipLabel()">?</button></label>
+      <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesLogo / 1024)" @change="cfg.security.uploads.maxBytesLogo = $event.target.value * 1024" />
+    </div>
+    <div class="form-group">
+      <label>Máx favicon (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesFavicon')" :title="helpTooltipLabel()">?</button></label>
+      <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesFavicon / 1024)" @change="cfg.security.uploads.maxBytesFavicon = $event.target.value * 1024" />
+    </div>
+    <div class="form-group">
+      <label>Máx ícono (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesIcon')" :title="helpTooltipLabel()">?</button></label>
+      <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesIcon / 1024)" @change="cfg.security.uploads.maxBytesIcon = $event.target.value * 1024" />
+    </div>
+    <div class="form-group">
+      <label>Máx fondo (KB) <button type="button" class="help-icon" @click="showHelp('uploads.maxBytesBackground')" :title="helpTooltipLabel()">?</button></label>
+      <input type="number" min="1" x-model.number="Math.round(cfg.security.uploads.maxBytesBackground / 1024)" @change="cfg.security.uploads.maxBytesBackground = $event.target.value * 1024" />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label>MIME permitidos (coma-separado) <button type="button" class="help-icon" @click="showHelp('uploads.allowedMimeTypes')" :title="helpTooltipLabel()">?</button></label>
+      <input type="text" :value="cfg.security.uploads.allowedMimeTypes.join(', ')" @change="cfg.security.uploads.allowedMimeTypes = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)" />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label><input type="checkbox" x-model="cfg.security.uploads.allowSvg" /> Permitir SVG <button type="button" class="help-icon" @click="showHelp('uploads.allowSvg')" :title="helpTooltipLabel()">?</button></label>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" x-model="cfg.security.uploads.sanitizeSvg" /> Sanitizar SVG con DOMPurify <button type="button" class="help-icon" @click="showHelp('uploads.sanitizeSvg')" :title="helpTooltipLabel()">?</button></label>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" x-model="cfg.security.uploads.processImages" /> Procesar imágenes con sharp <button type="button" class="help-icon" @click="showHelp('uploads.processImages')" :title="helpTooltipLabel()">?</button></label>
+    </div>
+  </div>
+
+  <h3 style="margin-top:1.5rem">Red</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label><input type="checkbox" x-model="cfg.security.network.trustForwardedFor" /> Confiar en X-Forwarded-For (sólo con reverse proxy) <button type="button" class="help-icon" @click="showHelp('network.trustForwardedFor')" :title="helpTooltipLabel()">?</button></label>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" x-model="cfg.security.network.allowInternalHosts" /> Permitir health checks a hosts internos (10/8, 172.16/12, 192.168/16) <button type="button" class="help-icon" @click="showHelp('network.allowInternalHosts')" :title="helpTooltipLabel()">?</button></label>
+    </div>
+    <div class="form-group">
+      <label>Cookie domain (ej: .example.com) <button type="button" class="help-icon" @click="showHelp('network.cookieDomain')" :title="helpTooltipLabel()">?</button></label>
+      <input type="text" x-model="cfg.security.network.cookieDomain" placeholder="(vacío = sin domain)" />
+    </div>
+  </div>
+  <div class="form-group">
+    <label>Proxies confiables (uno por línea, informativo) <button type="button" class="help-icon" @click="showHelp('network.trustedProxies')" :title="helpTooltipLabel()">?</button></label>
+    <textarea x-model="cfg.security.network.trustedProxiesText" rows="3" placeholder="10.0.0.1&#10;192.168.1.0/24"></textarea>
+  </div>
+
+  <h3 style="margin-top:1.5rem">Headers de seguridad</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label>X-Frame-Options <button type="button" class="help-icon" @click="showHelp('headers.xFrameOptions')" :title="helpTooltipLabel()">?</button></label>
+      <select x-model="cfg.security.headers.xFrameOptions">
+        <option value="DENY">DENY (recomendado)</option>
+        <option value="SAMEORIGIN">SAMEORIGIN</option>
+        <option value="NONE">NONE (desactivar)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Referrer-Policy <button type="button" class="help-icon" @click="showHelp('headers.referrerPolicy')" :title="helpTooltipLabel()">?</button></label>
+      <select x-model="cfg.security.headers.referrerPolicy">
+        <option value="no-referrer">no-referrer</option>
+        <option value="same-origin">same-origin</option>
+        <option value="strict-origin-when-cross-origin">strict-origin-when-cross-origin</option>
+        <option value="no-referrer-when-downgrade">no-referrer-when-downgrade</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label>Content-Security-Policy (vacío = no se envía header) <button type="button" class="help-icon" @click="showHelp('headers.csp')" :title="helpTooltipLabel()">?</button></label>
+    <textarea x-model="cfg.security.headers.csp" rows="4"></textarea>
+  </div>
+  <div class="form-group">
+    <label>Permissions-Policy <button type="button" class="help-icon" @click="showHelp('headers.permissionsPolicy')" :title="helpTooltipLabel()">?</button></label>
+    <input type="text" x-model="cfg.security.headers.permissionsPolicy" />
+  </div>
+  <h3 style="margin-top:1.5rem">HSTS (Strict-Transport-Security)</h3>
+  <p class="muted" style="color:#94a3b8;font-size:0.85rem">
+    Sólo se envía si el request es HTTPS. 'auto' lo activa automáticamente
+    en deployments HTTPS (recomendado). 'never' desactiva. Cuidado con
+    max-age: una vez activado, los browsers lo recuerdan.
+  </p>
+  <div class="form-row">
+    <div class="form-group">
+      <label>Modo <button type="button" class="help-icon" @click="showHelp('headers.hsts')" :title="helpTooltipLabel()">?</button></label>
+      <select x-model="cfg.security.headers.hsts">
+        <option value="auto">Auto (default, recomendado)</option>
+        <option value="always">Siempre forzar</option>
+        <option value="never">Nunca</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Max-Age (segundos) <button type="button" class="help-icon" @click="showHelp('headers.hstsMaxAge')" :title="helpTooltipLabel()">?</button></label>
+      <input type="number" min="0" max="63072000" x-model.number="cfg.security.headers.hstsMaxAge" />
+      <small style="color:#94a3b8">Default 31536000 (1 año). 0 desactiva.</small>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label><input type="checkbox" x-model="cfg.security.headers.hstsIncludeSubDomains" /> includeSubDomains <button type="button" class="help-icon" @click="showHelp('headers.hstsIncludeSubDomains')" :title="helpTooltipLabel()">?</button></label>
+      <small style="color:#94a3b8">Activar SÓLO si todos los subdominios son HTTPS.</small>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" x-model="cfg.security.headers.hstsPreload" /> preload <button type="button" class="help-icon" @click="showHelp('headers.hstsPreload')" :title="helpTooltipLabel()">?</button></label>
+      <small style="color:#94a3b8">Para enviar a hstspreload.org. Requiere includeSubDomains y max-age ≥ 1 año.</small>
+    </div>
+  </div>
+</div>

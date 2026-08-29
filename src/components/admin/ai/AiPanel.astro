@@ -1,0 +1,123 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='ai' && 'active'">
+  <h2 style="margin-top:0">Asistente IA</h2>
+  <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem">
+    Conectá un provider OpenAI-compatible para mejorar las tarjetas (título + descripción).
+    <strong>Apagado por default</strong>: la apiKey no se manda a ningún lado hasta que actives esto.
+  </p>
+  <div class="form-group">
+    <label><input type="checkbox" x-model="cfg.ai.enabled" /> Habilitar asistente IA</label>
+  </div>
+  <div class="form-row" x-show="cfg.ai.enabled">
+    <div class="form-group">
+      <label>Preset <button type="button" class="help-icon" @click="showHelp('ai.preset')" :title="helpTooltipLabel()">?</button></label>
+      <select x-model="aiPreset" @change="applyAiPreset(aiPreset)">
+        <option value="">— Custom / Otro —</option>
+        <template x-for="p in aiProviders" :key="p.id">
+          <option :value="p.id" x-text="p.name"></option>
+        </template>
+      </select>
+      <small style="color:#94a3b8" x-text="presetDescription()"></small>
+    </div>
+    <div class="form-group" style="flex:1">
+      <label>Base URL</label>
+      <input type="text" x-model="cfg.ai.baseUrl" placeholder="https://api.openai.com/v1" />
+      <small style="color:#94a3b8" x-show="presetRegion()" x-text="presetRegion()" x-cloak></small>
+    </div>
+  </div>
+  <div class="form-row" x-show="cfg.ai.enabled">
+    <div class="form-group" style="flex:1">
+      <label>
+        <span x-text="presetApiKeyLabel()">API Key</span>
+        <button type="button" class="help-icon" @click="showHelp('ai.apiKey')" :title="helpTooltipLabel()">?</button>
+      </label>
+      <input type="password" x-model="cfg.ai.apiKey" placeholder="sk-..." autocomplete="off" />
+      <small style="color:#94a3b8" x-text="presetApiKeyHelp()"></small>
+    </div>
+    <div class="form-group">
+      <label>Modelo <button type="button" class="help-icon" @click="showHelp('ai.model')" :title="helpTooltipLabel()">?</button></label>
+      <input type="text" x-model="cfg.ai.model" placeholder="gpt-4o-mini" list="ai-model-suggestions" />
+      <datalist id="ai-model-suggestions">
+        <template x-for="m in presetModels()" :key="m">
+          <option :value="m"></option>
+        </template>
+      </datalist>
+    </div>
+    <div class="form-group">
+      <label>Idioma de la IA <button type="button" class="help-icon" @click="showHelp('ai.language')" :title="helpTooltipLabel()">?</button></label>
+      <select x-model="cfg.ai.language">
+        <template x-for="l in aiLanguages" :key="l.code">
+          <option :value="l.code" x-text="l.name"></option>
+        </template>
+      </select>
+      <small style="color:#94a3b8">En qué idioma escribe la IA cuando mejora una tarjeta. No afecta al contenido que ya escribiste vos.</small>
+    </div>
+  </div>
+  <div class="form-group" x-show="cfg.ai.enabled">
+    <label>
+      System prompt
+      <button type="button" class="help-icon" @click="showHelp('ai.systemPrompt')" :title="helpTooltipLabel()">?</button>
+    </label>
+    <textarea x-model="cfg.ai.systemPrompt" rows="3" placeholder="Si lo dejás vacío, uso uno default en castellano rioplatense."></textarea>
+    <details style="margin-top:0.5rem">
+      <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.8rem">
+        Ver el system prompt que proponemos por default
+        (<span x-text="aiLanguages.find(l => l.code === (cfg.ai?.language || 'es'))?.name || cfg.ai?.language"></span>)
+      </summary>
+      <pre style="margin-top:0.5rem;padding:0.75rem;background:var(--code-bg);color:var(--code-fg);border:1px solid var(--code-border);border-radius:6px;font-size:0.78rem;white-space:pre-wrap;line-height:1.5" x-text="currentDefaultSystemPrompt()"></pre>
+      <button type="button" class="btn btn-sm btn-ghost" style="margin-top:0.4rem" @click="useDefaultSystemPrompt()" x-show="cfg.ai.systemPrompt !== currentDefaultSystemPrompt()">Usar este prompt</button>
+    </details>
+  </div>
+  <div class="form-group" x-show="cfg.ai.enabled">
+    <button type="button" class="btn btn-ghost btn-sm" @click="testAI()" :disabled="aiBusy">
+      <span x-show="!aiBusy">Probar conexión</span>
+      <span x-show="aiBusy" x-cloak>Probando…</span>
+    </button>
+    <span x-show="aiTestResult" x-text="aiTestResult" style="margin-left:0.75rem;font-size:0.85rem" :class="aiTestOk ? 'help-ok' : 'help-err'" x-cloak></span>
+  </div>
+
+  <h3 style="margin-top:1.5rem">
+    Búsqueda externa (auto-completar)
+    <button type="button" class="help-icon" @click="showHelp('externalSearch.intro')" :title="helpTooltipLabel()">?</button>
+  </h3>
+  <p style="color:var(--text-subtle);font-size:0.82rem;margin:0 0 0.5rem">
+    Cuando el botón "Auto-completar" del form de tarjeta no puede scrapear el sitio
+    (servicios internos sin HTML público, IP:puerto sin DNS, etc.), hace fallback a
+    búsqueda externa. Default sin keys: <strong>Wikipedia + DuckDuckGo</strong>.
+    Si cargás una key de Brave o Tavily, se usan primero (mejor calidad).
+  </p>
+  <div class="form-group">
+    <label>
+      Brave Search API key <button type="button" class="help-icon" @click="showHelp('externalSearch.brave')" :title="helpTooltipLabel()">?</button>
+    </label>
+    <input type="password" x-model="cfg.externalSearch.braveApiKey" placeholder="BSA..." autocomplete="off" />
+    <small style="color:#94a3b8">2000 req/mes gratis. Conseguila en <a href="https://brave.com/search/api/" target="_blank" rel="noopener">brave.com/search/api</a>.</small>
+  </div>
+  <div class="form-group">
+    <label>
+      Tavily API key <button type="button" class="help-icon" @click="showHelp('externalSearch.tavily')" :title="helpTooltipLabel()">?</button>
+    </label>
+    <input type="password" x-model="cfg.externalSearch.tavilyApiKey" placeholder="tvly-..." autocomplete="off" />
+    <small style="color:#94a3b8">1000 req/mes gratis. Optimizado para AI. Conseguila en <a href="https://tavily.com" target="_blank" rel="noopener">tavily.com</a>.</small>
+  </div>
+  <details style="margin-top:0.4rem">
+    <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.78rem">SearXNG self-hosted (avanzado)</summary>
+    <p style="margin-top:0.5rem;font-size:0.82rem;color:var(--text-subtle);line-height:1.5">
+      Si querés búsqueda sin límites, sin keys y sin tracking, deployá SearXNG
+      (instrucciones en <a href="https://docs.searxng.org/admin/installation.html" target="_blank" rel="noopener">docs.searxng.org</a>).
+      Umbral no tiene un campo dedicado para SearXNG, pero podés usar
+      <strong>Custom / Otro</strong> en el preset del provider IA y apuntarlo a tu
+      instance (después deshabilitás el bloque "Proveedor IA" y dejás sólo el
+      endpoint). Para setups más limpios abrí un issue y agregamos un campo.
+    </p>
+  </details>
+</div>

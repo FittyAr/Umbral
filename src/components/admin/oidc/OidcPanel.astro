@@ -1,0 +1,86 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='oidc' && 'active'">
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="tabOidc()">OIDC / SSO Providers</span><button type="button" class="help-icon" @click="showHelp('advanced.oidc')" :title="helpTooltipLabel()">?</button></h2>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
+    Configurá proveedores de identidad OpenID Connect (Google, Keycloak, Authentik, etc.) para Single Sign-On.
+  </p>
+
+  <div class="oidc-list">
+    <template x-for="(p, idx) in (cfg?.oidc?.providers || [])" :key="p.id">
+      <div class="webhook-item" :class="!p.enabled && 'webhook-disabled'">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600" x-text="p.name"></div>
+            <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="p.issuer"></div>
+            <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
+              <span x-text="`ID: ${p.id} · Client: ${p.clientId} · Rol: ${p.defaultRole || 'viewer'}`"></span>
+              <span :style="`color: ${p.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${p.enabled ? 'activo' : 'inactivo'}`"></span>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.4rem;flex-shrink:0">
+            <button type="button" class="btn btn-sm btn-ghost" @click="p.enabled = !p.enabled; markDirty()" x-text="p.enabled ? 'Desactivar' : 'Activar'"></button>
+            <button type="button" class="btn btn-sm btn-ghost" @click="removeOidcProvider(idx)">×</button>
+          </div>
+        </div>
+      </div>
+    </template>
+    <p x-show="!cfg?.oidc?.providers || cfg.oidc.providers.length === 0" class="muted" style="padding:0.5rem 0">
+      No hay providers configurados. Agregá uno abajo.
+    </p>
+  </div>
+
+  <details style="margin-top:1rem;background:var(--surface);padding:1rem;border-radius:8px;border:1px solid var(--border)">
+    <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">+ Agregar provider OIDC</summary>
+    <div class="form-row" style="margin-top:0.75rem">
+      <div class="form-group" style="flex:1">
+        <label>Nombre</label>
+        <input type="text" x-model="newOidc.name" placeholder="Google / Keycloak" maxlength="60" />
+      </div>
+      <div class="form-group" style="width:140px">
+        <label>ID (kebab-case)</label>
+        <input type="text" x-model="newOidc.id" placeholder="google" maxlength="40" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Issuer URL</label>
+      <input type="url" x-model="newOidc.issuer" placeholder="https://accounts.google.com o https://keycloak.example.com/realms/master" />
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label>Client ID</label>
+        <input type="text" x-model="newOidc.clientId" placeholder="umbral-client" />
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Client Secret</label>
+        <input type="password" x-model="newOidc.clientSecret" placeholder="••••••••" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label>Scopes</label>
+        <input type="text" x-model="newOidc.scopes" placeholder="openid profile email" />
+      </div>
+      <div class="form-group" style="width:140px">
+        <label>Rol default</label>
+        <select x-model="newOidc.defaultRole">
+          <option value="viewer">viewer</option>
+          <option value="editor">editor</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" x-model="newOidc.autoProvision" /> Auto-crear usuario en primer login si no existe</label>
+    </div>
+    <button type="button" class="btn btn-primary" @click="addOidcProvider()" style="margin-top:0.5rem">Agregar provider</button>
+  </details>
+</div>

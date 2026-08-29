@@ -1,0 +1,135 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='cards' && 'active'">
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem">
+    <span x-text="tabCards()">Tarjetas</span>
+    <button type="button" class="help-icon" @click="showHelp('cards.grouping')" :title="helpTooltipLabel()">?</button>
+  </h2>
+  <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;align-items:center;flex-wrap:wrap">
+    <input type="text" x-model="cardFilter" :placeholder="cardsFilterPlaceholder()" style="max-width:280px" />
+    <button class="btn btn-primary" @click="addCard()">+ <span x-text="cardsNewLabel()">Nueva tarjeta</span></button>
+    <button type="button" class="btn btn-ghost" x-show="presetsEnabled" @click="openPresetsModal()" x-cloak>+ <span x-text="cardsFromPresetLabel()">Desde plantilla</span></button>
+  </div>
+  <p class="cards-filter-notice" x-show="cardFilter.trim()" x-cloak x-text="cardsFilterDragDisabled()"></p>
+  <div class="cards-groups-wrap" id="cards-groups-container">
+    <template x-for="item in adminCardsLayout()" :key="item.key">
+      <section
+        class="cards-group"
+        :class="{
+          'cards-group-orphan': item.type === 'group' && item.group.isOrphan,
+          'cards-group-ghost': item.type === 'group' && item.group.isGhost,
+          'cards-group-gap': item.type === 'gap',
+        }"
+      >
+        <div class="cards-group-header" x-show="item.type === 'group'" x-cloak>
+          <button
+            type="button"
+            class="btn btn-sm btn-ghost"
+            x-show="item.type === 'group' && item.group && !item.group.isGhost"
+            @click="item.group && toggleCardGroup(item.group.categoryId)"
+            :title="item.group && (isCardGroupCollapsed(item.group.categoryId) ? cardsExpandGroupLabel() : cardsCollapseGroupLabel())"
+          >
+            <span x-text="item.group && isCardGroupCollapsed(item.group.categoryId) ? '▸' : '▾'"></span>
+          </button>
+          <h3>
+            <span x-text="item.type === 'group' ? item.group.categoryName : ''"></span>
+            <span class="cards-group-count" x-show="item.type === 'group'" x-text="item.type === 'group' ? ('(' + item.group.cards.length + ')') : ''"></span>
+          </h3>
+          <div class="cards-group-actions">
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost"
+              x-show="item.type === 'group' && !item.group.isOrphan"
+              @click="addCardToCategory(item.group.categoryId)"
+            >+ <span x-text="cardsAddToGroupLabel()">Agregar</span></button>
+          </div>
+        </div>
+        <div
+          x-show="item.type === 'gap' || (item.type === 'group' && !isCardGroupCollapsed(item.group.categoryId))"
+          x-cloak
+        >
+          <div
+            class="cards-group-list card-list"
+            :id="item.type === 'gap' ? ('cards-gap-' + item.key) : ('cards-group-' + item.group.categoryId)"
+            :data-category="item.type === 'gap' ? ungroupedGapId : item.group.categoryId"
+          >
+            <div
+              class="cards-drop-filler"
+              x-show="item.type === 'gap' || (item.type === 'group' && item.group.cards.length === 0)"
+              x-cloak
+              aria-hidden="true"
+            >
+              <span x-show="item.type === 'gap'" x-text="cardsUngroupedGapLabel()"></span>
+            </div>
+            <template x-for="card in (item.type === 'group' ? item.group.cards : [])" :key="card.id">
+              <div class="card-item" :data-id="card.id" :class="isSystemCard(card) && 'card-system'">
+                <div class="drag-handle" :class="cardFilter.trim() && 'drag-disabled'" :title="cardFilter.trim() ? cardsFilterDragDisabled() : cardsDragHandleLabel()">⋮⋮</div>
+                <div class="icon-preview">
+                  <template x-if="resolveIcon(card.icon, card)">
+                    <img :src="resolveIcon(card.icon, card)" :alt="card.icon" />
+                  </template>
+                </div>
+                <div class="info">
+                  <div class="title">
+                    <span x-show="pinnedEnabled && card.pinned" x-cloak class="pinned-badge" :title="pinnedLabel()" aria-label="Fijada">📌</span>
+                    <span x-show="card.kind === 'note'" class="note-kind-badge" x-text="cardsNoteBadgeLabel()">Nota</span>
+                    <span x-show="(card.span || 1) > 1" x-cloak class="span-badge" x-text="cardSpanBadgeLabel(card)"></span>
+                    <span x-text="card.title || cardsUntitledLabel()"></span>
+                  </div>
+                  <div class="url" x-text="card.url || ''"></div>
+                  <div x-show="tagsEnabled && card.tags && card.tags.length > 0" x-cloak class="card-tags-display">
+                    <template x-for="t in card.tags" :key="t">
+                      <span class="tag-chip tag-chip-sm" x-text="t"></span>
+                    </template>
+                  </div>
+                </div>
+                <select
+                  class="card-category-select"
+                  :value="categorySelectValue(card)"
+                  @change="changeCardCategory(card.id, $event.target.value)"
+                  :disabled="isSystemCard(card)"
+                  :title="cardsCategorySelectLabel()"
+                >
+                  <option :value="ungroupedSelectId" x-text="cardsUngroupedGroupLabel()"></option>
+                  <template x-for="cat in realCategories()" :key="cat.id">
+                    <option :value="cat.id" x-text="cat.name"></option>
+                  </template>
+                </select>
+                <span class="color-dot" :style="`background:${card.color}`"></span>
+                <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;color:#94a3b8">
+                  <input type="checkbox" x-model="card.enabled" @change="markDirty()" />
+                  <span x-text="cardsEnabledLabel()">Activa</span>
+                </label>
+                <div class="actions">
+                  <template x-if="!isSystemCard(card)">
+                    <span style="display:flex;gap:0.25rem">
+                      <button class="btn btn-sm btn-ghost" @click="editCardById(card.id)" x-text="cardsEditLabel()">Editar</button>
+                      <button class="btn btn-sm btn-ghost" @click="removeCardById(card.id)" :title="cardsDeleteLabel()">×</button>
+                    </span>
+                  </template>
+                  <template x-if="isSystemCard(card)">
+                    <span class="system-badge" :title="cardsSystemBadgeTitle()" x-text="cardsSystemBadgeLabel()">🔒 Sistema</span>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+          <p
+            class="cards-group-empty"
+            x-show="item.type === 'group' && item.group.cards.length === 0 && !item.group.isGhost"
+            x-text="cardsGroupEmptyLabel()"
+          ></p>
+        </div>
+      </section>
+    </template>
+  </div>
+  <p x-show="cfg.cards.length===0" class="empty-state" x-text="cardsEmptyStateLabel()">No hay tarjetas. Agregá la primera con "+ Nueva tarjeta".</p>
+</div>

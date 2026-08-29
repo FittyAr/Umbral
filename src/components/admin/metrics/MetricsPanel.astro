@@ -1,0 +1,73 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='metrics' && 'active'">
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="metricsTitle()">Métricas</span><button type="button" class="help-icon" @click="showHelp('advanced.metrics')" :title="helpTooltipLabel()">?</button></h2>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem" x-html="metricsIntro()">
+    Sparklines + resumen (avg, p95, max) por card con health-check. Datos en memoria (últimas 100 muestras = ~1.5h con check cada 60s).
+  </p>
+
+  <div class="metrics-toolbar" style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.75rem">
+    <div class="form-group" style="margin:0">
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">Rango</label>
+      <select x-model.number="metricsRange" @change="loadMetrics()">
+        <option value="600000">Últimos 10 min</option>
+        <option value="3600000">Última hora</option>
+        <option value="86400000">Últimas 24h</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0">
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">Límite samples</label>
+      <select x-model.number="metricsLimit" @change="loadMetrics()">
+        <option value="20">20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <button type="button" class="btn btn-ghost" @click="loadMetrics()" :disabled="metricsLoading" x-text="metricsReloadLabel()">Recargar</button>
+  </div>
+
+  <div x-show="metricsLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="metricsLoadingLabel()">Cargando…</div>
+  <div x-show="metricsError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="metricsError"></div>
+
+  <div x-show="!metricsLoading && !metricsError" x-cloak>
+    <div style="overflow:auto">
+      <table class="metrics-table" style="width:100%;border-collapse:collapse;font-size:0.82rem">
+        <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
+          <tr>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Card</th>
+            <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Avg</th>
+            <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">P95</th>
+            <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Max</th>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Último</th>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border);width:140px">Sparkline</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="row in metricsRows" :key="row.cardId">
+            <tr>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-text="cardTitleForId(row.cardId)"></td>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.avgMs + 'ms'"></td>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.p95Ms + 'ms'"></td>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace" x-text="row.maxMs + 'ms'"></td>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);font-family:ui-monospace,Menlo,Consolas,monospace">
+                <span x-text="formatRelativeTime(row.lastTs)" :class="row.lastOk === false ? 'metric-bad' : (row.lastOk ? 'metric-ok' : 'metric-pending')"></span>
+              </td>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-html="row.sparkline"></td>
+            </tr>
+          </template>
+          <tr x-show="metricsRows.length === 0">
+            <td colspan="6" style="padding:1rem;text-align:center;color:#94a3b8">Sin datos. Activá health-check en alguna card y esperá a que se ejecuten los checks.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

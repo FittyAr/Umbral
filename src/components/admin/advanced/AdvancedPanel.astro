@@ -1,0 +1,84 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='advanced' && 'active'">
+  <h2 style="margin-top:0" x-text="tabAdvanced()">Avanzado</h2>
+
+  <h3 style="margin-top:1.5rem;display:flex;align-items:center;gap:0.35rem"><span x-text="featuresTitle()">Features (opt-in)</span><button type="button" class="help-icon" @click="showHelp('advanced.features')" :title="helpTooltipLabel()">?</button></h3>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem" x-html="featuresIntro()">
+    Cada feature nueva arranca <strong>apagada</strong> por default. Si no la activás, ni se ejecuta, ni se carga su dependencia, ni aparece en la UI. Al encender una feature, aparecerá automáticamente su pestaña correspondiente en la barra superior.
+  </p>
+  <div class="features-grid">
+    <template x-for="f in featureList" :key="f.name">
+      <div class="feature-card" :class="isFeatureOn(f.name) && 'feature-on'">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+          <div style="min-width:0">
+            <div style="font-weight:600" x-text="f.label"></div>
+            <div style="font-size:0.8rem;color:#94a3b8" x-text="f.short"></div>
+            <div x-show="f.experimental" style="font-size:0.7rem;color:#f59e0b;margin-top:0.25rem" x-cloak>
+              ⚠ experimental
+            </div>
+          </div>
+          <label class="switch" style="flex-shrink:0" :title="(isDemoMode && f.name === 'qr') ? 'La generación de QR requiere el backend Node.js. No se puede activar en este build demo (GitHub Pages).' : ''">
+            <input
+              type="checkbox"
+              :checked="isFeatureOn(f.name)"
+              :disabled="isDemoMode && f.name === 'qr'"
+              @change="toggleFeature(f.name, $event.target.checked)"
+            />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div x-show="isFeatureOn(f.name)" style="margin-top:0.5rem" x-cloak>
+          <div style="font-size:0.75rem;color:#94a3b8" x-text="f.body"></div>
+        </div>
+        <!-- Alerta de compatibilidad para el feature QR en modo demo.
+             La generación dinámica de QRs en el server requiere el
+             backend Node.js / Docker de Umbral. En GitHub Pages sólo
+             se sirve estático, así que dejamos la feature apagada por
+             default y explicamos por qué. -->
+        <div
+          x-show="f.name === 'qr' && isDemoMode"
+          x-cloak
+          style="font-size:0.75rem;color:#fbbf24;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);border-radius:6px;padding:0.4rem 0.6rem;margin-top:0.5rem;display:flex;gap:0.4rem;align-items:flex-start"
+        >
+          <span style="flex-shrink:0">⚠️</span>
+          <span>
+            <strong>Desactivada en este build (GitHub Pages / demo):</strong>
+            la generación dinámica de códigos QR requiere el backend Node.js / Docker de Umbral.
+            En este despliegue estático el switch queda bloqueado abajo; usá el build real de Node para habilitarla.
+          </span>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <h3 style="margin-top:2rem">Export / Import <button type="button" class="help-icon" @click="showHelp('advanced.export')" :title="helpTooltipLabel()">?</button></h3>
+  <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
+    <button class="btn btn-ghost" @click="exportConfig()">Descargar config.json</button>
+    <span style="color:#94a3b8;font-size:0.85rem">backup / migración / versionar</span>
+  </div>
+  <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
+    <label class="btn btn-ghost" style="cursor:pointer">
+      Importar config.json
+      <input type="file" accept="application/json" @change="importConfig($event)" hidden />
+    </label>
+    <button type="button" class="help-icon" @click="showHelp('advanced.import')" :title="helpTooltipLabel()">?</button>
+    <span style="color:#94a3b8;font-size:0.85rem">reemplaza la config actual (no es merge)</span>
+  </div>
+
+  <h3>Healthcheck <button type="button" class="help-icon" @click="showHelp('advanced.healthcheck')" :title="helpTooltipLabel()">?</button></h3>
+  <button class="btn btn-ghost" @click="checkHealth()">Probar /api/health</button>
+  <pre x-show="healthInfo" x-text="JSON.stringify(healthInfo, null, 2)" style="background:var(--code-bg, #0f172a);color:var(--code-fg, #38bdf8);border:1px solid var(--border);padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
+
+  <h3 style="margin-top:2rem">Reset <button type="button" class="help-icon" @click="showHelp('advanced.reset')" :title="helpTooltipLabel()">?</button></h3>
+  <p style="color:#94a3b8;font-size:0.85rem">Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).</p>
+  <button class="btn btn-danger" @click="resetConfig()">Reset a defaults</button>
+</div>

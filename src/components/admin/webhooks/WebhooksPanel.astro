@@ -1,0 +1,77 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='webhooks' && 'active'">
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="webhooksTitle()">Webhooks</span><button type="button" class="help-icon" @click="showHelp('advanced.webhooks')" :title="helpTooltipLabel()">?</button></h2>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem" x-html="webhooksIntro()">
+    Notifica a URLs externas cuando una card con health-check cambia de estado (de healthy → failing o vice versa).
+  </p>
+
+  <!-- Lista de webhooks -->
+  <div class="webhooks-list">
+    <template x-for="(wh, idx) in (cfg?.webhooks?.items || [])" :key="wh.id">
+      <div class="webhook-item" :class="!wh.enabled && 'webhook-disabled'">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600" x-text="wh.name"></div>
+            <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="wh.url"></div>
+            <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
+              <span x-text="`Eventos: ${wh.events.join(', ')}`"></span>
+              <span x-text="` · threshold: ${wh.minFailures} · cooldown: ${wh.cooldownMin}min`"></span>
+              <span :style="`color: ${wh.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${wh.enabled ? 'activo' : 'inactivo'}`"></span>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.4rem;flex-shrink:0">
+            <button type="button" class="btn btn-sm btn-ghost" @click="testWebhook(wh)" :disabled="webhookTesting === wh.id" x-text="webhookTestLabel(wh.id)">Probar</button>
+            <button type="button" class="btn btn-sm btn-ghost" @click="removeWebhook(idx)">×</button>
+          </div>
+        </div>
+      </div>
+    </template>
+    <p x-show="!cfg?.webhooks?.items || cfg.webhooks.items.length === 0" class="muted" style="padding:0.5rem 0">
+      No hay webhooks configurados. Agregá uno abajo.
+    </p>
+  </div>
+
+  <!-- Form para agregar -->
+  <details style="margin-top:1rem;background:var(--surface);padding:1rem;border-radius:8px;border:1px solid var(--border)">
+    <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">+ Agregar webhook</summary>
+    <div class="form-group" style="margin-top:0.75rem">
+      <label>Nombre</label>
+      <input type="text" x-model="newWebhook.name" placeholder="Slack #alertas" maxlength="60" />
+    </div>
+    <div class="form-group">
+      <label>URL</label>
+      <input type="url" x-model="newWebhook.url" placeholder="https://hooks.slack.com/..." maxlength="500" />
+      <small style="color:var(--text-faint);font-size:0.72rem">http(s) only. SSRF guard bloquea loopback y private IPs.</small>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label>Eventos</label>
+        <div style="display:flex;gap:0.75rem;font-size:0.85rem">
+          <label><input type="checkbox" x-model="newWebhook.eventFail" /> health_fail</label>
+          <label><input type="checkbox" x-model="newWebhook.eventRecover" /> health_recover</label>
+        </div>
+      </div>
+      <div class="form-group" style="width:100px">
+        <label>Threshold</label>
+        <input type="number" x-model.number="newWebhook.minFailures" min="1" max="20" />
+      </div>
+      <div class="form-group" style="width:120px">
+        <label>Cooldown (min)</label>
+        <input type="number" x-model.number="newWebhook.cooldownMin" min="0" max="1440" />
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
+      <button type="button" class="btn btn-primary" @click="addWebhook()" x-text="webhooksAddLabel()">Agregar</button>
+      <button type="button" class="btn btn-ghost" @click="testNewWebhook()" :disabled="!newWebhook.url || webhookTesting === 'new'" x-text="webhookTestNewLabel()">Probar antes de guardar</button>
+    </div>
+  </details>
+</div>

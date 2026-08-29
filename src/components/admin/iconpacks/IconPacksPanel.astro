@@ -1,0 +1,181 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='iconpacks' && 'active'">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+    <div>
+      <h2 style="margin:0 0 0.25rem;display:flex;align-items:center;gap:0.35rem">
+        <span x-text="tabIconPacks()">Paquetes de Íconos (Icon Packs)</span>
+        <button type="button" class="help-icon" @click="showHelp('iconPacks.intro')" :title="helpTooltipLabel()">?</button>
+      </h2>
+      <p style="color:var(--text-subtle);font-size:0.85rem;margin:0">
+        Descargá e instalá colecciones completas de miles de íconos SVG desde repositorios Git de código abierto con un solo clic.
+      </p>
+    </div>
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <span style="font-size:0.85rem;color:var(--text-subtle);background:var(--surface);padding:0.4rem 0.75rem;border:1px solid var(--border);border-radius:6px">
+        Íconos disponibles en Umbral: <strong style="color:var(--text)" x-text="iconPacksTotal"></strong>
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:0.35rem">
+        <button type="button" class="btn btn-sm btn-ghost" @click="loadIconPacks()" :disabled="iconPacksLoading">
+          <span x-show="!iconPacksLoading">🔄 Actualizar</span>
+          <span x-show="iconPacksLoading" x-cloak>Cargando…</span>
+        </button>
+        <button type="button" class="help-icon" @click="showHelp('iconPacks.refresh')" :title="helpTooltipLabel()">?</button>
+      </span>
+    </div>
+  </div>
+
+  <!-- Feature activada en UI pero no guardada en disco -->
+  <div
+    x-show="iconPacksNeedsSave()"
+    class="alert alert-error"
+    style="margin-bottom:1rem"
+    x-cloak
+  >
+    Guardá los cambios (botón «Guardar cambios» arriba) para habilitar la instalación y desinstalación de paquetes de íconos.
+  </div>
+
+  <!-- Mensaje / Toast de Estado -->
+  <div x-show="iconPackMsg.text" class="alert" :class="iconPackMsg.error ? 'alert-error' : 'alert-success'" style="margin-bottom:1rem" x-cloak>
+    <span x-text="iconPackMsg.text"></span>
+  </div>
+
+  <!-- Cuadrícula de Paquetes Predefinidos -->
+  <div style="display:flex;align-items:center;gap:0.35rem;margin:1rem 0 0.75rem">
+    <h3 style="margin:0">Paquetes Populares de Código Abierto</h3>
+    <button type="button" class="help-icon" @click="showHelp('iconPacks.install')" :title="helpTooltipLabel()">?</button>
+    <button type="button" class="help-icon" @click="showHelp('iconPacks.uninstall')" :title="helpTooltipLabel()">?</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:1rem;margin-bottom:2rem">
+    <template x-for="pack in iconPacks" :key="pack.id">
+      <div class="card-item" style="display:flex;flex-direction:column;justify-content:space-between;padding:1rem;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
+        <div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem">
+            <div>
+              <h4 style="margin:0;font-size:1rem" x-text="pack.name"></h4>
+              <div style="font-size:0.75rem;color:var(--text-faint)" x-text="'Por ' + pack.author"></div>
+            </div>
+            <span style="font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:10px;background:rgba(255,255,255,0.08);color:var(--text-subtle);white-space:nowrap" x-text="pack.estimatedCount"></span>
+          </div>
+          <p style="font-size:0.82rem;color:var(--text-subtle);margin:0.5rem 0 0.75rem;line-height:1.4" x-text="pack.description"></p>
+
+          <!-- Licencia y Repositorio -->
+          <div style="display:flex;flex-wrap:wrap;gap:0.5rem;font-size:0.75rem;color:var(--text-faint);margin-bottom:1rem">
+            <span>
+              Licencia: 
+              <a :href="pack.licenseUrl" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline" x-text="pack.license"></a>
+            </span>
+            <span>•</span>
+            <a :href="pack.repoUrl" target="_blank" rel="noopener" style="color:var(--text-subtle);text-decoration:underline">Ver repositorio Git ↗</a>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding-top:0.75rem;border-top:1px solid var(--border)">
+          <div style="font-size:0.78rem">
+            <template x-if="pack.installed">
+              <span style="color:#10b981;font-weight:600">✓ Instalado (<span x-text="pack.installedCount"></span> íconos)</span>
+            </template>
+            <template x-if="!pack.installed">
+              <span style="color:var(--text-faint)">No instalado</span>
+            </template>
+          </div>
+          <div style="display:flex;gap:0.4rem;align-items:center">
+            <template x-if="pack.installed">
+              <button
+                type="button"
+                class="btn btn-sm btn-ghost"
+                style="color:#ef4444"
+                @click="uninstallPack(pack.id)"
+                :disabled="isPackActionBlocked(pack.id)"
+                :class="{ 'btn-loading': isPackBusy(pack.id) }"
+              >
+                <span x-show="!isPackBusy(pack.id)">Desinstalar</span>
+                <span x-show="isPackBusy(pack.id)" style="display:inline-flex;align-items:center;gap:0.3rem" x-cloak>
+                  <svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                  Borrando…
+                </span>
+              </button>
+            </template>
+            <button
+              type="button"
+              class="btn btn-sm"
+              :class="{ 'btn-ghost': pack.installed, 'btn-primary': !pack.installed, 'btn-loading': isPackBusy(pack.id) }"
+              @click="installPack(pack.id)"
+              :disabled="isPackActionBlocked(pack.id)"
+            >
+              <span x-show="!isPackBusy(pack.id)" x-text="pack.installed ? 'Reinstalar' : 'Instalar paquete'"></span>
+              <span x-show="isPackBusy(pack.id)" style="display:inline-flex;align-items:center;gap:0.3rem" x-cloak>
+                <svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                Instalando…
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- Instalar desde repositorio Git personalizado -->
+  <div style="padding:1.25rem;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
+    <h3 style="margin:0 0 0.5rem;display:flex;align-items:center;gap:0.35rem">
+      <span>Instalar desde Repositorio Git Personalizado</span>
+      <button type="button" class="help-icon" @click="showHelp('iconPacks.customRepo')" :title="helpTooltipLabel()">?</button>
+    </h3>
+    <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem">
+      Ingresá la URL de cualquier repositorio público de Git (GitHub, GitLab, Gitea, etc.). Umbral clonará o descargará el repositorio y extraerá automáticamente todos los archivos SVG encontrados.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:0.75rem;margin-bottom:1rem">
+      <div style="grid-column:1/-1">
+        <label style="display:block;font-size:0.8rem;margin-bottom:0.25rem">URL del Repositorio Git (HTTPS)</label>
+        <input type="text" x-model="customPack.repoUrl" placeholder="https://github.com/usuario/mi-pack-iconos.git" style="width:100%" />
+      </div>
+      <div>
+        <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;margin-bottom:0.25rem">
+          <span>Rama (opcional)</span>
+          <button type="button" class="help-icon" @click="showHelp('iconPacks.branch')" :title="helpTooltipLabel()">?</button>
+        </label>
+        <input type="text" x-model="customPack.branch" placeholder="main o master" style="width:100%" />
+      </div>
+      <div>
+        <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;margin-bottom:0.25rem">
+          <span>Carpeta interna / Subpath (opcional)</span>
+          <button type="button" class="help-icon" @click="showHelp('iconPacks.subpath')" :title="helpTooltipLabel()">?</button>
+        </label>
+        <input type="text" x-model="customPack.subpath" placeholder="ej: svg/ o icons/" style="width:100%" />
+      </div>
+      <div>
+        <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;margin-bottom:0.25rem">
+          <span>Prefijo de nombres (opcional)</span>
+          <button type="button" class="help-icon" @click="showHelp('iconPacks.prefix')" :title="helpTooltipLabel()">?</button>
+        </label>
+        <input type="text" x-model="customPack.prefix" placeholder="ej: custom (para custom-nombre.svg)" style="width:100%" />
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+      <button
+        type="button"
+        class="btn btn-primary"
+        @click="installCustomPack()"
+        :disabled="!iconPacksPersisted() || !customPack.repoUrl || customPackInstalling === true"
+        :title="!customPack.repoUrl ? 'Ingresá una URL de repositorio para habilitar la instalación' : ''"
+      >
+        <span x-show="!customPackInstalling">Clonar e Instalar Íconos</span>
+        <span x-show="customPackInstalling" x-cloak>Clonando y Extrayendo…</span>
+      </button>
+      <small x-show="!customPack.repoUrl" style="color:var(--text-subtle);font-size:0.78rem">
+        ℹ️ Ingresá la URL del repositorio Git arriba para habilitar la instalación personalizada.
+      </small>
+    </div>
+  </div>
+</div>

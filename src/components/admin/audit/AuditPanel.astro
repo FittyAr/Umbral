@@ -1,0 +1,100 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='audit' && 'active'">
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="auditTitle()">Auditoría</span><button type="button" class="help-icon" @click="showHelp('advanced.audit')" :title="helpTooltipLabel()">?</button></h2>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem">
+    Registro cronológico de eventos administrativos de <code>data/audit.log</code>. Filtros: acción, texto en el detalle, rango temporal.
+  </p>
+
+  <div class="audit-toolbar" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:0.75rem">
+    <div style="display:flex;align-items:center;gap:0.35rem;align-self:flex-end;padding-bottom:0.35rem">
+      <span style="font-size:0.78rem;color:var(--text-subtle)">Filtros</span>
+      <button type="button" class="help-icon" @click="showHelp('audit.filters')" :title="helpTooltipLabel()">?</button>
+    </div>
+    <div class="form-group" style="margin:0;min-width:160px">
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">Acción</label>
+      <select x-model="auditFilter.action" @change="reloadAudit()" style="padding:0.3rem 0.5rem">
+        <option value="">Todas</option>
+        <template x-for="a in auditActions" :key="a">
+          <option :value="a" x-text="a"></option>
+        </template>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:200px">
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">Detalle contiene</label>
+      <input type="text" x-model="auditFilter.detail" @input.debounce.300ms="reloadAudit()" placeholder="substring..." />
+    </div>
+    <div class="form-group" style="margin:0">
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">Desde</label>
+      <input type="datetime-local" x-model="auditFilter.from" @change="reloadAudit()" />
+    </div>
+    <div class="form-group" style="margin:0">
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">Hasta</label>
+      <input type="datetime-local" x-model="auditFilter.to" @change="reloadAudit()" />
+    </div>
+    <div class="form-group" style="margin:0">
+      <label style="font-size:0.78rem;margin-bottom:0.2rem;display:flex;align-items:center;gap:0.35rem">
+        <span>Límite</span>
+        <button type="button" class="help-icon" @click="showHelp('audit.limit')" :title="helpTooltipLabel()">?</button>
+      </label>
+      <select x-model.number="auditFilter.limit" @change="reloadAudit()">
+        <option value="50">50</option>
+        <option value="200">200</option>
+        <option value="500">500</option>
+        <option value="1000">1000</option>
+      </select>
+    </div>
+    <button type="button" class="btn btn-ghost" @click="resetAuditFilter()" x-text="auditResetLabel()">Limpiar</button>
+    <span style="display:inline-flex;align-items:center;gap:0.35rem">
+      <button type="button" class="btn btn-ghost" @click="downloadAuditLog()" x-text="auditDownloadLabel()">Descargar log completo</button>
+      <button type="button" class="help-icon" @click="showHelp('audit.download')" :title="helpTooltipLabel()">?</button>
+    </span>
+  </div>
+
+  <div x-show="auditLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="auditLoadingLabel()">Cargando…</div>
+  <div x-show="auditError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="auditError"></div>
+
+  <div x-show="!auditLoading && !auditError" x-cloak>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;font-size:0.78rem;color:#94a3b8">
+      <span>
+        <span x-text="auditEntries.length"></span> entradas
+        <span x-show="auditResult && auditResult.hasMore" x-text="` (hay más — aumentá el límite)`"></span>
+        <span x-show="auditResult" x-text="` · ${(auditResult?.sizeBytes ?? 0)} bytes`"></span>
+      </span>
+      <span x-text="auditResult?.path"></span>
+    </div>
+    <div class="audit-table-wrap" style="max-height:480px;overflow:auto;border:1px solid var(--border);border-radius:6px">
+      <table class="audit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;font-family:ui-monospace,Menlo,Consolas,monospace">
+        <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
+          <tr>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Fecha</th>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Acción</th>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Detalle</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(entry, idx) in auditEntries" :key="entry.ts + '-' + idx">
+            <tr>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap" x-text="formatAuditTs(entry.ts)"></td>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);white-space:nowrap">
+                <span class="audit-action-badge" :data-action="entry.action" x-text="entry.action"></span>
+              </td>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);word-break:break-all" x-text="entry.detail"></td>
+            </tr>
+          </template>
+          <tr x-show="auditEntries.length === 0">
+            <td colspan="3" style="padding:1rem;text-align:center;color:#94a3b8" x-text="auditEmptyLabel()">No hay entradas que coincidan con los filtros.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

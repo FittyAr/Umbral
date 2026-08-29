@@ -1,0 +1,128 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='security' && 'active'">
+  <h2 style="margin-top:0">Seguridad</h2>
+  <h3>Cambiar contraseña <button type="button" class="help-icon" @click="showHelp('security.password')" :title="helpTooltipLabel()">?</button></h3>
+  <form @submit.prevent="changePassword()" style="max-width:400px">
+    <div class="form-group">
+      <label>Contraseña actual</label>
+      <input type="password" x-model="pwForm.current" required autocomplete="current-password" />
+    </div>
+    <div class="form-group">
+      <label>Nueva contraseña (mín 8)</label>
+      <input type="password" x-model="pwForm.next" required minlength="8" autocomplete="new-password" />
+    </div>
+    <div class="form-group">
+      <label>Confirmar</label>
+      <input type="password" x-model="pwForm.confirm" required minlength="8" autocomplete="new-password" />
+    </div>
+    <button type="submit" class="btn btn-primary">Cambiar</button>
+  </form>
+
+  <h3 style="margin-top:2rem">CSRF Token <button type="button" class="help-icon" @click="showHelp('security.csrf')" :title="helpTooltipLabel()">?</button></h3>
+  <p style="color:#94a3b8;font-size:0.85rem">Este token se rota automáticamente al cambiar la contraseña.</p>
+  <code style="display:inline-block;padding:0.4rem 0.7rem;background:#0f172a;border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '-'"></code>
+
+  <!-- MULTI-USER (opt-in: features.multiUser) — sólo si la feature está activa. -->
+  <template x-if="multiUserEnabled">
+    <div class="multi-user-section">
+      <h3 style="margin-top:2rem">Usuarios <button type="button" class="help-icon" @click="showHelp('security.multiUser')" :title="helpTooltipLabel()">?</button></h3>
+      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="multiUserIntro()">
+        Crea usuarios con roles (admin/editor/viewer) y login con username. El password unico sigue siendo valido como rescue path.
+      </p>
+
+      <div class="form-group" style="max-width:600px">
+        <label>Modo de acceso <button type="button" class="help-icon" @click="showHelp('security.accessMode')" :title="helpTooltipLabel()">?</button></label>
+        <div style="display:flex;gap:1rem;font-size:0.85rem;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+            <input type="radio" name="accessMode" value="password-only" :checked="cfg.auth.singlePasswordEnabled && (!cfg.auth.users || cfg.auth.users.length === 0)" @change="cfg.auth.singlePasswordEnabled = true; if (cfg.auth.users &amp;&amp; cfg.auth.users.length > 0) { cfg.auth.users = []; }" />
+            Solo password unico
+          </label>
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+            <input type="radio" name="accessMode" value="both" :checked="cfg.auth.singlePasswordEnabled &amp;&amp; cfg.auth.users &amp;&amp; cfg.auth.users.length > 0" @change="cfg.auth.singlePasswordEnabled = true" />
+            Password + usuarios
+          </label>
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+            <input type="radio" name="accessMode" value="users-only" :checked="!cfg.auth.singlePasswordEnabled" @change="if (!cfg.auth.users || cfg.auth.users.length === 0) { alert('Necesitas crear al menos un user antes de deshabilitar el password unico.'); } else { cfg.auth.singlePasswordEnabled = false; }" />
+            Solo usuarios
+          </label>
+        </div>
+        <small style="color:var(--text-faint);font-size:0.72rem" x-text="accessModeHelp()">Si no hay users, el server rechaza guardar este modo.</small>
+      </div>
+
+      <div class="users-list" style="margin-top:0.5rem">
+        <template x-for="(u, idx) in (cfg.auth.users || [])" :key="u.id">
+          <div class="user-item">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600" x-text="u.username"></div>
+              <div style="font-size:0.78rem;color:#94a3b8">
+                <span x-text="u.displayName || u.username"></span>
+                ·
+                <span class="user-role-badge" :class="'role-' + u.role" x-text="u.role"></span>
+                <template x-if="totpEnabled">
+                  <span style="margin-left:0.3rem">
+                    <span x-show="u.totpSecret" class="user-role-badge" style="background:#065f46;color:#34d399">2FA ON</span>
+                    <span x-show="!u.totpSecret" class="user-role-badge" style="background:#334155;color:#94a3b8">Sin 2FA</span>
+                  </span>
+                </template>
+              </div>
+            </div>
+            <div style="display:flex;gap:0.3rem;flex-shrink:0;align-items:center">
+              <template x-if="totpEnabled">
+                <span>
+                  <button type="button" class="btn btn-sm btn-ghost" x-show="!u.totpSecret" @click="openTotpSetup(u)" title="Activar 2FA">+ 2FA</button>
+                  <button type="button" class="btn btn-sm btn-ghost" x-show="u.totpSecret" @click="disableTotp(u)" title="Desactivar 2FA">Quitar 2FA</button>
+                </span>
+              </template>
+              <button type="button" class="btn btn-sm btn-ghost" @click="cycleUserRole(u)" :title="u.role === 'admin' ? 'Degradar a editor' : 'Promover a admin'">
+                <span x-text="u.role === 'admin' ? '-&gt; editor' : '-&gt; admin'"></span>
+              </button>
+              <button type="button" class="btn btn-sm btn-ghost" @click="resetUserPasswordPrompt(u)" title="Resetear password">Reset</button>
+              <button type="button" class="btn btn-sm btn-ghost" @click="removeUser(u.id)" title="Borrar user">×</button>
+            </div>
+          </div>
+        </template>
+        <p x-show="!cfg.auth.users || cfg.auth.users.length === 0" class="muted" style="padding:0.5rem 0">
+          No hay usuarios. Agrega el primero abajo.
+        </p>
+      </div>
+
+      <details style="margin-top:0.75rem">
+        <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.85rem">+ Agregar usuario</summary>
+        <div class="form-row" style="margin-top:0.5rem">
+          <div class="form-group" style="flex:1">
+            <label>Username (kebab-case)</label>
+            <input type="text" x-model="newUser.username" placeholder="alice-bob" maxlength="40" pattern="[a-z0-9_-]+" />
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>Display name (opcional)</label>
+            <input type="text" x-model="newUser.displayName" placeholder="Alice Bob" maxlength="80" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label>Password (min 8)</label>
+            <input type="password" x-model="newUser.password" minlength="8" autocomplete="new-password" />
+          </div>
+          <div class="form-group" style="width:140px">
+            <label>Rol</label>
+            <select x-model="newUser.role">
+              <option value="admin">admin</option>
+              <option value="editor">editor</option>
+              <option value="viewer">viewer</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" @click="addUser()" style="margin-top:0.5rem">Agregar usuario</button>
+      </details>
+    </div>
+  </template>
+</div>

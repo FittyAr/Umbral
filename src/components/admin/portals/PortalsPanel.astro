@@ -1,0 +1,67 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="panel" :class="tab==='portals' && 'active'">
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="tabPortals()">Multi-Portal</span><button type="button" class="help-icon" @click="showHelp('advanced.multiPortal')" :title="helpTooltipLabel()">?</button></h2>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
+    Permite servir distintos dashboards según el dominio (Host header) o el prefijo de ruta.
+  </p>
+
+  <div class="portals-list">
+    <div class="form-group" style="max-width:300px;margin-bottom:0.75rem">
+      <label>Portal default</label>
+      <input type="text" x-model="cfg.portals.defaultPortal" @change="markDirty()" placeholder="default" />
+    </div>
+
+    <template x-for="(p, idx) in (cfg?.portals?.items || [])" :key="p.id">
+      <div class="webhook-item">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600" x-text="p.name || p.id"></div>
+            <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace">
+              <span x-text="`Host: ${p.host || '*'} · Prefix: ${p.pathPrefix || '/'}`"></span>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.4rem;flex-shrink:0">
+            <button type="button" class="btn btn-sm btn-ghost" @click="removePortal(idx)">×</button>
+          </div>
+        </div>
+      </div>
+    </template>
+    <p x-show="!cfg?.portals?.items || cfg.portals.items.length === 0" class="muted" style="padding:0.5rem 0">
+      No hay portales adicionales configurados.
+    </p>
+  </div>
+
+  <details style="margin-top:1rem;background:var(--surface);padding:1rem;border-radius:8px;border:1px solid var(--border)">
+    <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">+ Agregar portal</summary>
+    <div class="form-row" style="margin-top:0.75rem">
+      <div class="form-group" style="width:140px">
+        <label>ID</label>
+        <input type="text" x-model="newPortal.id" placeholder="dev" maxlength="30" pattern="[a-z0-9_-]+" />
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Nombre</label>
+        <input type="text" x-model="newPortal.name" placeholder="Portal Dev" maxlength="60" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label>Host (opcional)</label>
+        <input type="text" x-model="newPortal.host" placeholder="dev.portal.local" />
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Path Prefix (opcional)</label>
+        <input type="text" x-model="newPortal.pathPrefix" placeholder="/dev" />
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary" @click="addPortal()" style="margin-top:0.5rem">Agregar portal</button>
+  </details>
+</div>
