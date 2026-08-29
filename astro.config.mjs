@@ -34,7 +34,9 @@ export default defineConfig({
       ws: { clientPort: PORT },
     },
     ssr: {
-      noExternal: ['sortablejs', 'alpinejs'],
+      // Umbral tiene que arrancar sin red, así que las dependencias del cliente
+      // se bundlean en dist/ en vez de resolverse desde node_modules en runtime.
+      noExternal: ['sortablejs', 'alpinejs', '@astroanimate/core'],
     },
   },
 });

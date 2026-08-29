@@ -73,6 +73,34 @@ export const ThemeTokensSchema = z.object({
   shared: SharedTokensSchema,
 }).optional();
 
+// ──────────────────────────────────────────────────────────────────────────
+// Animaciones (opt-in: features.animations)
+//
+// Todo arranca en 'none'/false: prender la feature no cambia nada de lo que
+// se ve hasta que el admin elige un efecto. Los componentes que las
+// implementan (@astroanimate/core) se degradan a contenido visible sin JS,
+// así que una animación nunca puede esconder una tarjeta.
+// ──────────────────────────────────────────────────────────────────────────
+export const ThemeAnimationsSchema = z
+  .object({
+    cardEntrance: z.enum(['none', 'fade', 'scale']).default('none'),
+    cardEntranceDuration: z.number().int().min(100).max(2000).default(600),
+    /** Retardo acumulado por tarjeta, en ms. 0 = todas entran juntas. */
+    cardEntranceStagger: z.number().int().min(0).max(300).default(0),
+    headerEffect: z.enum(['none', 'fade', 'scale']).default('none'),
+    /** Título del header letra por letra. El texto se sirve completo igual. */
+    titleTypewriter: z.boolean().default(false),
+    counters: z.boolean().default(false),
+    /**
+     * Con esto en true no se anima nada para quien pidió menos movimiento en
+     * su sistema. Se puede apagar, pero el CSS global mantiene el guard igual.
+     */
+    respectReducedMotion: z.boolean().default(true),
+  })
+  .default({});
+
+export type ThemeAnimations = z.infer<typeof ThemeAnimationsSchema>;
+
 export const CustomThemePresetSchema = z.object({
   id: z.string().min(1).max(40).regex(/^[a-z0-9-]+$/, 'ID debe ser kebab-case'),
   name: z.string().min(1).max(40),
@@ -147,6 +175,7 @@ export const ThemeSchema = z.object({
   iconTint: z.enum(['original', 'accent', 'text', 'custom']).default('original'),
   customPresets: z.array(CustomThemePresetSchema).max(5).default([]),
   tokens: ThemeTokensSchema,
+  animations: ThemeAnimationsSchema,
 });
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -741,6 +770,7 @@ export const FeaturesSchema = z.object({
   status: FeatureFlagSchema.default({ enabled: false }),
   ai: FeatureFlagSchema.default({ enabled: false }),
   iconPacks: FeatureFlagSchema.default({ enabled: false }),
+  animations: FeatureFlagSchema.default({ enabled: false }),
 });
 // NOTA: NO usamos `.default({})` en el outer schema. Si lo hacemos,
 // FeaturesSchema se convierte en un ZodDefault que no tiene `.partial()`.

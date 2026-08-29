@@ -1,0 +1,113 @@
+---
+import RangeField from '../ui/RangeField.astro';
+import SelectField from '../ui/SelectField.astro';
+import ToggleField from '../ui/ToggleField.astro';
+
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+
+const effectOptions = [
+  { value: 'none', key: 'admin.theme.animations.effectNone', label: 'Sin animación' },
+  { value: 'fade', key: 'admin.theme.animations.effectFade', label: 'Aparecer (fade)' },
+  { value: 'scale', key: 'admin.theme.animations.effectScale', label: 'Crecer (scale)' },
+];
+---
+
+<h3 x-text="themeSectionAnimations()">{t('admin.theme.section.animations', 'Animaciones')}</h3>
+<p class="theme-section-desc" x-text="themeAnimationsIntro()">
+  {
+    t(
+      'admin.theme.animations.intro',
+      'Todo arranca sin animación: elegí un efecto y recién ahí cambia algo. Son CSS con un script mínimo, así que el portal funciona igual con JavaScript apagado.',
+    )
+  }
+</p>
+
+<SelectField
+  useI18n={useI18n}
+  tr={tr}
+  model="cfg.theme.animations.cardEntrance"
+  options={effectOptions}
+  labelKey="admin.theme.animations.cardEntrance"
+  labelFallback="Entrada de las tarjetas"
+  labelExpr="themeCardEntranceLabel()"
+  helpKey="theme.animations.cardEntrance"
+/>
+
+<div class="form-row" x-show="cfg.theme.animations.cardEntrance !== 'none'" x-cloak>
+  <RangeField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.cardEntranceDuration"
+    min={100}
+    max={2000}
+    step={50}
+    labelKey="admin.theme.animations.cardEntranceDuration"
+    labelFallback="Duración"
+    labelExpr="themeCardEntranceDurationLabel()"
+    helpKey="theme.animations.cardEntranceDuration"
+    unit="ms"
+    withNumber
+  />
+  <RangeField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.cardEntranceStagger"
+    min={0}
+    max={300}
+    step={10}
+    labelKey="admin.theme.animations.cardEntranceStagger"
+    labelFallback="Retardo entre tarjetas"
+    labelExpr="themeCardEntranceStaggerLabel()"
+    helpKey="theme.animations.cardEntranceStagger"
+    unit="ms"
+    withNumber
+  />
+</div>
+
+<SelectField
+  useI18n={useI18n}
+  tr={tr}
+  model="cfg.theme.animations.headerEffect"
+  options={effectOptions}
+  labelKey="admin.theme.animations.headerEffect"
+  labelFallback="Efecto del header"
+  labelExpr="themeHeaderEffectLabel()"
+  helpKey="theme.animations.headerEffect"
+/>
+
+<div class="form-row">
+  <ToggleField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.titleTypewriter"
+    labelKey="admin.theme.animations.titleTypewriter"
+    labelFallback="Título con máquina de escribir"
+    labelExpr="themeTitleTypewriterLabel()"
+    helpKey="theme.animations.titleTypewriter"
+  />
+  <ToggleField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.animations.counters"
+    labelKey="admin.theme.animations.counters"
+    labelFallback="Contadores animados"
+    labelExpr="themeCountersLabel()"
+    helpKey="theme.animations.counters"
+  />
+</div>
+
+<ToggleField
+  useI18n={useI18n}
+  tr={tr}
+  model="cfg.theme.animations.respectReducedMotion"
+  labelKey="admin.theme.animations.respectReducedMotion"
+  labelFallback="Respetar «reducir movimiento» del sistema"
+  labelExpr="themeRespectReducedMotionLabel()"
+  helpKey="theme.animations.respectReducedMotion"
+/>

@@ -5,11 +5,16 @@
 // Se renderiza solo si theme.showStatusBar === true.
 import pkg from '../../package.json';
 import type { Config } from '~/lib/schema';
+import CountUp from '@astroanimate/core/CountUp';
 
 interface Props {
   config: Config;
+  /** Tarjetas visibles. Sin valor no se muestra el contador. */
+  appCount?: number;
+  /** Cuenta desde cero al entrar en pantalla (opt-in: features.animations). */
+  animateCount?: boolean;
 }
-const { config } = Astro.props;
+const { config, appCount, animateCount = false } = Astro.props;
 const version = (pkg as { version?: string }).version ?? '?';
 const updatedAt = config._meta?.updatedAt ?? null;
 const shortHash = (() => {
@@ -28,6 +33,14 @@ const updatedLabel = updatedAt
   <span class="status-bar-version" title="Versión instalada">
     v{versionLabel}
   </span>
+  {typeof appCount === 'number' && (
+    <>
+      <span class="status-bar-sep" aria-hidden="true">·</span>
+      <span class="status-bar-count" title="Tarjetas visibles">
+        {animateCount ? <CountUp value={appCount} enhance duration={1200} /> : appCount} apps
+      </span>
+    </>
+  )}
   <span class="status-bar-sep" aria-hidden="true">·</span>
   <span class="status-bar-updated" title="Última modificación del config">
     actualizado {updatedLabel}

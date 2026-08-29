@@ -126,6 +126,30 @@ El toggle en la portada (icono sol/luna) override el `colorMode` y persiste en `
 - **`showStatusBar`:** pie con versión + última actualización.
 - **`headerOpacity` / `footerOpacity`:** opacidad del header y status bar (0–1).
 
+### Animaciones (`theme.animations`) — opt-in
+
+Requiere prender la feature `animations` en **Avanzado → Features**. La sección aparece
+recién entonces en el tab Tema, y **todos los valores arrancan en "sin animación"**: prender
+la feature no cambia nada de lo que se ve hasta que elijas un efecto.
+
+- **`cardEntrance`:** `none` | `fade` | `scale`. Cómo entran las tarjetas al cargar.
+- **`cardEntranceDuration`:** 100–2000 ms (default 600). También se usa para el header.
+- **`cardEntranceStagger`:** 0–300 ms (default 0). Retardo acumulado por tarjeta para el
+  efecto cascada. El escalonado se corta en la tarjeta 12: más allá, el retardo acumulado
+  haría que la última aparezca mucho después de que el visitante ya scrolleó.
+- **`headerEffect`:** mismo set de efectos, aplicado al header.
+- **`titleTypewriter`:** escribe el nombre de la empresa letra por letra.
+- **`counters`:** el contador de apps de la status bar cuenta desde cero (necesita
+  `showStatusBar`).
+- **`respectReducedMotion`:** default `true`. No anima nada para quien configuró «reducir
+  movimiento» en su sistema operativo.
+
+La entrada de tarjetas y el header son CSS generado en el servidor. El título y los
+contadores usan un script mínimo, pero **el texto completo siempre se sirve en el HTML**:
+sin JavaScript el portal se ve normal, no vacío. Independientemente de la config, un guard
+global de `prefers-reduced-motion` desactiva animaciones y transiciones para quien pidió
+menos movimiento.
+
 ### Tipografía avanzada
 
 - **`fontWeight`:** 400 | 500 | 600 | 700.

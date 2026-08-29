@@ -206,6 +206,13 @@ export const FEATURE_META: Record<FeatureName, FeatureMeta> = {
     wave: 2,
     experimental: false,
   },
+  animations: {
+    label: 'Animaciones',
+    short: 'Agrega una sección de animaciones al tab de Tema, apagadas por defecto.',
+    body: 'Habilita la sección "Animaciones" del tab de Tema: entrada de las tarjetas, efecto del header, título con máquina de escribir y contador de apps animado en la barra de estado. Prender la feature no cambia nada de lo que se ve hasta que elijas un efecto, porque todos arrancan en "sin animación". Las animaciones son CSS puro con un script chico sin hidratación, así que el portal sigue funcionando igual con JavaScript apagado, y por defecto se desactivan solas para quien pidió menos movimiento en su sistema operativo.',
+    wave: 2,
+    experimental: false,
+  },
 };
 
 /** Lista de nombres de features, ordenada por la ola del roadmap. Útil

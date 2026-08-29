@@ -161,6 +161,41 @@ export const helpEs = {
     short: "Pie de página con versión de Umbral y última actualización de la config.",
     body: "Muestra la versión del package.json y la fecha de `_meta.updatedAt` de la config. Útil para debug (\"¿el server ya tiene la nueva config?\") y para saber qué versión está corriendo cada portal en tu fleet.",
   },
+  "theme.animations.cardEntrance": {
+    title: "Entrada de las tarjetas",
+    short: "Cómo aparecen las tarjetas al cargar la portada.",
+    body: "**Sin animación (default)**: las tarjetas se dibujan directo, es lo más rápido.\n\n**Aparecer (fade)**: pasan de transparente a visible.\n\n**Crecer (scale)**: además arrancan un 4% más chicas.\n\nEs CSS puro (`@keyframes`), no hay JavaScript involucrado: el HTML se sirve completo igual, así que el contenido se ve incluso si la animación no corre.",
+  },
+  "theme.animations.cardEntranceDuration": {
+    title: "Duración de la entrada",
+    short: "Cuánto dura la animación de cada tarjeta, en milisegundos.",
+    body: "Entre 100 y 2000 ms, default 600. Arriba de 1000 se empieza a sentir lento en portales con muchas tarjetas. Este mismo valor se usa para el efecto del header.",
+  },
+  "theme.animations.cardEntranceStagger": {
+    title: "Retardo entre tarjetas",
+    short: "Cuánto espera cada tarjeta respecto de la anterior.",
+    body: "En 0 (default) todas entran juntas. Con 60-80 ms se genera el efecto de cascada.\n\nEl escalonado se corta en la tarjeta 12: más allá de eso el retardo acumulado sería tan largo que la última aparecería mucho después de que el usuario ya scrolleó, así que el resto entra junto.",
+  },
+  "theme.animations.headerEffect": {
+    title: "Efecto del header",
+    short: "Misma animación de entrada, aplicada al header de la portada.",
+    body: "Usa los mismos efectos y la misma duración que la entrada de las tarjetas. Se puede combinar: header con `fade` y tarjetas con `scale`, por ejemplo.",
+  },
+  "theme.animations.titleTypewriter": {
+    title: "Título con máquina de escribir",
+    short: "Escribe el nombre de la empresa letra por letra.",
+    body: "Es el único efecto que necesita JavaScript. **El texto se sirve completo en el HTML igual**: sin JS el título se ve normal, no vacío. Tampoco afecta el SEO ni los lectores de pantalla.\n\nEscribe una sola vez al cargar, no cicla ni borra.",
+  },
+  "theme.animations.counters": {
+    title: "Contadores animados",
+    short: "La cantidad de apps en la status bar cuenta desde cero.",
+    body: "Requiere tener la status bar activada (`theme.showStatusBar`). El número final está en el HTML servido, la animación sólo lo reemplaza cuando el contador entra en pantalla.",
+  },
+  "theme.animations.respectReducedMotion": {
+    title: "Respetar «reducir movimiento» del sistema",
+    short: "No animar nada para quien pidió menos movimiento en su sistema operativo.",
+    body: "Dejalo en true (default). Cuando está activo, las animaciones se envuelven en `@media (prefers-reduced-motion: no-preference)`, así que quien configuró «reducir movimiento» en Windows/macOS/iOS/Android ve el portal quieto.\n\nApagarlo fuerza las animaciones incluso ahí, lo cual puede causar malestar a personas con trastornos vestibulares. El CSS global mantiene un guard mínimo sobre las transiciones de todos modos.",
+  },
   "layout.healthCheckInterval": {
     title: "Intervalo de health check (segundos)",
     short: "Cada cuántos segundos volver a probar las URLs marcadas.",

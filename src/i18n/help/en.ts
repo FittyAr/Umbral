@@ -161,6 +161,41 @@ export const helpEn = {
     short: "Footer with Umbral version and last config update.",
     body: "Shows the package.json version and the `_meta.updatedAt` date from config. Useful for debugging (\"does the server have the new config yet?\") and knowing which version each portal in your fleet is running.",
   },
+  "theme.animations.cardEntrance": {
+    title: "Card entrance",
+    short: "How cards appear when the home page loads.",
+    body: "**None (default)**: cards are painted right away, the fastest option.\n\n**Fade**: they go from transparent to visible.\n\n**Scale**: they also start 4% smaller.\n\nPure CSS (`@keyframes`), no JavaScript involved: the HTML is served complete either way, so content shows even if the animation never runs.",
+  },
+  "theme.animations.cardEntranceDuration": {
+    title: "Entrance duration",
+    short: "How long each card's animation lasts, in milliseconds.",
+    body: "Between 100 and 2000 ms, default 600. Above 1000 it starts to feel sluggish on portals with many cards. The same value drives the header effect.",
+  },
+  "theme.animations.cardEntranceStagger": {
+    title: "Delay between cards",
+    short: "How long each card waits relative to the previous one.",
+    body: "At 0 (default) they all enter together. Around 60-80 ms you get a cascade effect.\n\nStaggering stops at the 12th card: beyond that the accumulated delay would be so long that the last card would appear well after the user has scrolled, so the rest enter together.",
+  },
+  "theme.animations.headerEffect": {
+    title: "Header effect",
+    short: "Same entrance animation, applied to the home page header.",
+    body: "Uses the same effects and duration as the card entrance. They can be combined: `fade` header with `scale` cards, for example.",
+  },
+  "theme.animations.titleTypewriter": {
+    title: "Typewriter title",
+    short: "Types the company name character by character.",
+    body: "The only effect that needs JavaScript. **The full text is still served in the HTML**: without JS the title looks normal, not empty. It doesn't affect SEO or screen readers either.\n\nIt types once on load; it doesn't loop or erase.",
+  },
+  "theme.animations.counters": {
+    title: "Animated counters",
+    short: "The app count in the status bar counts up from zero.",
+    body: "Requires the status bar to be enabled (`theme.showStatusBar`). The final number is in the served HTML; the animation only replaces it once the counter scrolls into view.",
+  },
+  "theme.animations.respectReducedMotion": {
+    title: "Respect the system's \"reduce motion\" setting",
+    short: "Skip all animation for users who asked for less motion in their OS.",
+    body: "Leave it on (default). When enabled, animations are wrapped in `@media (prefers-reduced-motion: no-preference)`, so anyone who set \"reduce motion\" on Windows/macOS/iOS/Android sees a still portal.\n\nTurning it off forces animations even there, which can cause discomfort for people with vestibular disorders. The global CSS keeps a minimal guard over transitions regardless.",
+  },
   "layout.healthCheckInterval": {
     title: "Health check interval (seconds)",
     short: "How often to re-test URLs marked for health check.",

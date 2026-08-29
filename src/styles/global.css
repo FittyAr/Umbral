@@ -1,6 +1,24 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════════════
+   MOVIMIENTO REDUCIDO
+   Guard global: quien pidió menos movimiento en su sistema no ve
+   animaciones ni transiciones, sin importar la config del tema. Las
+   animaciones opt-in (src/lib/animations.ts) traen su propio guard, pero
+   esto cubre además las transiciones que ya existían en todo el CSS.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    THEME TOKENS
    Single source of truth for colors, surfaces, code styling, etc.
    Light/dark is driven by `data-mode` on <html>. PublicLayout injects

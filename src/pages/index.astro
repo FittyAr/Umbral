@@ -13,6 +13,8 @@ import { resolveIconUrl } from '~/lib/icon-url';
 import { isFeatureEnabled } from '~/lib/features';
 import { getActiveWindowsForCard } from '~/lib/maintenance';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
+import { useAnimatedCounters, useTypewriter } from '~/lib/animations';
+import TypewriterText from '@astroanimate/core/TypewriterText';
 
 const config = await getConfig();
 const t = config.theme;
@@ -81,12 +83,31 @@ const groupEntries = Array.from(grouped.entries())
 const noteBadge = trf('home.card.noteBadge');
 const isHorizontal = t.groupLayout === 'horizontal';
 const isThemePreview = Astro.url.searchParams.get('themePreview') === '1';
+
+// Animaciones (opt-in: features.animations). El texto del título se sirve
+// completo igual: el efecto sólo lo reescribe letra por letra si hay JS.
+const animateTitle = isFeatureEnabled(config, 'animations') && useTypewriter(t);
+const animateCount = isFeatureEnabled(config, 'animations') && useAnimatedCounters(t);
 ---
 <PublicLayout config={config}>
   <main class="page-wrap" data-group-layout={t.groupLayout} data-grid-align={l.gridAlign} data-compact={l.compact ? 'true' : 'false'}>
     <header class="header" data-header-opacity={t.headerOpacity < 1 ? '1' : undefined} style={t.headerOpacity < 1 ? `--header-opacity:${t.headerOpacity}` : undefined}>
       <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
-      <h1 class="header-title">{config.branding.companyName}</h1>
+      <h1 class="header-title">
+        {
+          animateTitle ? (
+            <TypewriterText
+              texts={[config.branding.companyName]}
+              enhance
+              loop={false}
+              erase={false}
+              showCursor={false}
+            />
+          ) : (
+            config.branding.companyName
+          )
+        }
+      </h1>
       {(t.showClock || isThemePreview) && (
         <div
           data-theme-widget="clock"
@@ -275,7 +296,7 @@ const isThemePreview = Astro.url.searchParams.get('themePreview') === '1';
           !t.showStatusBar && isThemePreview ? 'display:none' : '',
         ].filter(Boolean).join(';') || undefined}
       >
-        <StatusBar config={config} />
+        <StatusBar config={config} appCount={enabledCards.length} animateCount={animateCount} />
       </div>
     )}
   </main>
