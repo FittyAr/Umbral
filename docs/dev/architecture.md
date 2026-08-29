@@ -152,6 +152,23 @@ Resolución de íconos, partida para no meter `node:fs` en el bundle del browser
 - `icons.ts` — re-export de `icon-url.ts` (sin filesystem).
 - Nombre reservado `system/docs` (y la card de sistema `id=docs` / URL `/docs*`) → `/system/docs.svg` en `public/system/docs.svg`. No depende de icon packs; no reintroduce el catálogo built-in de `/icons/*.svg`.
 
+#### `card-span.ts`
+
+`Card.span` (1..8) es el ancho de una tarjeta en columnas del grid. Dos funciones puras:
+
+- `clampCardSpan(span, columns)` — ancho efectivo, nunca menor a 1 ni mayor a las columnas disponibles.
+- `computeCardSpanCss(layout, cards?)` — las reglas `.grid>[data-span="N"]{grid-column:span M}` por breakpoint.
+
+**Por qué se genera en el servidor y no es CSS estático:** `grid-column: span N` exige un entero literal, y las columnas del grid viven en custom properties (`--cols-mobile/tablet/desktop`), que no se pueden usar ahí. Como el layout ya se conoce al renderizar, `PublicLayout` calcula las reglas exactas y las inyecta con el mismo patrón `<style is:inline>` que usa para el theme.
+
+Detalles del recorte:
+
+- Cada breakpoint emite regla **sólo si su valor difiere del que hereda por cascada**. La comparación va en ambos sentidos porque mobile admite hasta 3 columnas y tablet arranca en 2: un span puede tener que *bajar* al pasar a una pantalla más ancha.
+- Un span que excede las columnas igual necesita su regla propia; sin ella caería al `grid-column: auto` de una sola columna en vez de recortarse.
+- Pasando `cards` sólo se emiten los anchos en uso, así una config sin tarjetas anchas no agrega CSS.
+
+`MAX_CARD_SPAN` (8) coincide con el máximo de `layout.columnsDesktop`, y por eso el valor tope siempre resuelve a "todo el ancho" sin importar cómo se configuren después las columnas.
+
 #### `system-card.ts`
 
 La card **Documentación** (`id: 'docs'` o `url` `/docs*`) es del sistema.
@@ -177,7 +194,7 @@ Tab **Tarjetas** (inline en `dashboard.astro`): lista agrupada por categoría co
 
 Astro components reusables.
 
-- `Card.astro` — render de una tarjeta.
+- `Card.astro` — render de una tarjeta. Emite `data-span` sólo cuando la tarjeta pide más de una columna (ver `card-span.ts`).
 - `Logo.astro` — render del logo (imagen o inicial fallback).
 - `Search.astro` — input de búsqueda con Alpine.
 - `Background.astro` — div de fondo con image/gradient/color.
@@ -193,7 +210,7 @@ Astro components reusables.
 
 ### 5. `layouts/`
 
-- `PublicLayout.astro` — wrap de la portada. Inyecta CSS vars del theme, font, background, OG meta, ThemeScript.
+- `PublicLayout.astro` — wrap de la portada. Inyecta CSS vars del theme, font, background, OG meta, ThemeScript y las reglas de ancho de tarjeta (`computeCardSpanCss`).
 - `AdminLayout.astro` — wrap del panel. Inyecta el `umbralAdmin` global (api wrapper, toast) y el nav de admin.
 
 ## Flujo de un request

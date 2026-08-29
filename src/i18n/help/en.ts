@@ -356,6 +356,11 @@ export const helpEn = {
     short: "Accent color for the icon and health check dot.",
     body: "Not the background color — it's the icon/dot color. Default `#60a5fa` (sky blue).\n\n**Tip**: use consistent colors per category. Communication in green, Productivity in blue, Dev in purple. Gives the portal visual identity.",
   },
+  "card.span": {
+    title: "Card width",
+    short: "How many grid columns the card takes up. Default 1.",
+    body: "Use it to give a card more visual weight: with 3 columns configured, a card of width 2 fills two thirds of the row and the rest wrap below.\n\n**It adapts on its own**: the value is clamped to the columns available at each breakpoint. If you ask for 4 but mobile has 1 column, it takes 1 there. No per-device setting needed.\n\n**Trick**: pick the maximum (8) for \"full width\". Since 8 is also the maximum desktop column count, it always clamps to whatever you configured — the card stays full width even if you change the columns later in the Layout tab.\n\n**Note**: it changes width only, not height or content. A very wide card with little text can look empty; pair it with a description.",
+  },
   "card.icon": {
     title: "Card icon",
     short: "The small graphic next to the title.",

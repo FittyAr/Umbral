@@ -356,6 +356,11 @@ export const helpEs = {
     short: "Color de acento para el ícono y el dot de health check.",
     body: "No es el color de fondo — es el color del ícono/dot. Default `#60a5fa` (azul cielo).\n\n**Tip**: usá colores consistentes por categoría. Comunicación en verde, Productividad en azul, Dev en púrpura. Le da identidad visual al portal.",
   },
+  "card.span": {
+    title: "Ancho de la tarjeta",
+    short: "Cuántas columnas del grid ocupa. Default 1.",
+    body: "Sirve para darle más peso visual a una tarjeta: con 3 columnas configuradas, una tarjeta de ancho 2 ocupa dos tercios de la fila y las demás siguen abajo.\n\n**Se adapta solo**: el valor se recorta a las columnas disponibles de cada breakpoint. Si pedís 4 pero en mobile tenés 1 columna, ahí ocupa 1. No hace falta configurar nada por dispositivo.\n\n**Truco**: elegí el máximo (8) para \"todo el ancho\". Como 8 es también el máximo de columnas en desktop, siempre se recorta al total configurado — la tarjeta sigue full width aunque después cambies las columnas en la pestaña Layout.\n\n**Ojo**: no cambia el alto ni el contenido, sólo el ancho. Una tarjeta muy ancha con poco texto puede verse vacía; combinala con una descripción.",
+  },
   "card.icon": {
     title: "Ícono de la tarjeta",
     short: "El dibujo pequeño al lado del título.",

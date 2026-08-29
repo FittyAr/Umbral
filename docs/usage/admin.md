@@ -67,6 +67,8 @@ Cómo se distribuyen las tarjetas.
 - **Tamaño de card:** small, medium, large.
 - **Mostrar descripciones:** on/off.
 
+El número de columnas es la base sobre la que se calcula el ancho de cada tarjeta: una tarjeta puede ocupar varias columnas de las que definís acá (ver [Tarjetas anchas](#tarjetas-anchas)).
+
 ---
 
 ## Categorías
@@ -104,6 +106,7 @@ Lo central. CRUD + drag-and-drop + íconos.
 - **Descripción** (≤200 chars): texto secundario debajo del título.
 - **Categoría:** dropdown con las categorías existentes.
 - **Color:** hex picker, override del accent color del tema.
+- **Ancho (columnas):** cuántas columnas del grid ocupa la tarjeta (1 por defecto). Ver abajo.
 - **Ícono:**
   - **Texto:** nombre Lucide (`chat`, `briefcase`, etc) o path `/api/assets/<file>`.
   - **Icon picker:** debajo, íconos predefinidos como botones (click para seleccionar).
@@ -112,6 +115,18 @@ Lo central. CRUD + drag-and-drop + íconos.
 - **Activa:** mismo checkbox que en el listado.
 
 **Click "Guardar"** en el modal no persiste — los cambios van al form principal. Apretá **Guardar cambios** arriba a la derecha para persistir todo.
+
+### Tarjetas anchas
+
+Una tarjeta puede ocupar varias columnas para darle más peso visual. Con 3 columnas configuradas en la pestaña Layout, una tarjeta de ancho 2 ocupa dos tercios de la fila y las demás siguen abajo; una de ancho 3 ocupa la fila entera.
+
+**Se adapta solo a cada pantalla.** El valor se recorta a las columnas disponibles en cada breakpoint, así que no hay nada que configurar por dispositivo: si pedís 4 columnas pero en mobile tenés 1, ahí la tarjeta ocupa 1.
+
+**Para "todo el ancho", elegí el máximo (8 columnas).** Como 8 es también el máximo que admite el layout en desktop, siempre se recorta al total configurado. La tarjeta queda full width incluso si después cambiás las columnas en la pestaña Layout — no hay que volver a tocarla.
+
+El hint debajo del select te muestra el ancho real que va a tener con tu configuración actual de desktop, y en el listado aparece un badge con el ancho en las tarjetas de más de una columna.
+
+Sólo cambia el ancho, no el alto ni el contenido. Una tarjeta muy ancha con poco texto puede verse vacía; conviene acompañarla con una descripción.
 
 ---
 

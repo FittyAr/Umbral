@@ -21,9 +21,10 @@
     "test:markdown": "node --test --experimental-strip-types tests/markdown.test.ts",
     "test:layout": "node --test --experimental-strip-types tests/layout.test.ts",
     "test:cards": "node --test --experimental-strip-types tests/cards.test.ts",
+    "test:card-span": "node --test --experimental-strip-types tests/card-span.test.ts",
     "test:sortable-guard": "node --test --experimental-strip-types tests/sortable-guard.test.ts",
     "test:auth-session": "node --test --experimental-strip-types tests/auth-session.test.ts",
-    "test": "npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
+    "test": "npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:card-span && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
     "astro": "astro"
   },
   "dependencies": {

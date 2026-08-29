@@ -57,6 +57,9 @@ const styleOverride = card.color
   ? `--accent:${card.color};`
   : '';
 const baseClass = isNote ? 'card card-note' : 'card';
+// Sólo lo emitimos cuando pide más de una columna: PublicLayout genera las
+// reglas `.grid>[data-span="N"]` recortadas a las columnas configuradas.
+const spanAttr = card.span && card.span > 1 ? String(card.span) : undefined;
 
 const descriptionHtml = await renderDescription(card.description, card.descriptionFormat);
 ---
@@ -67,6 +70,7 @@ const descriptionHtml = await renderDescription(card.description, card.descripti
     data-size={layout.cardSize}
     data-card-id={card.id}
     data-card-kind="note"
+    data-span={spanAttr}
     data-health-check="false"
     data-format={card.descriptionFormat || 'plain'}
     data-tags={card.tags?.length ? card.tags.join(' ') : ''}
@@ -130,6 +134,7 @@ const descriptionHtml = await renderDescription(card.description, card.descripti
     data-size={layout.cardSize}
     data-card-id={card.id}
     data-card-kind="link"
+    data-span={spanAttr}
     data-health-check={card.healthCheck ? 'true' : 'false'}
     data-format={card.descriptionFormat || 'plain'}
     data-tags={card.tags?.length ? card.tags.join(' ') : ''}

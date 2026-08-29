@@ -332,6 +332,11 @@ export const CardSchema = z.object({
     .regex(/^#([0-9a-fA-F]{3}){1,2}$/, 'Color debe ser hex')
     .default('#60a5fa'),
   order: z.number().int().min(0).default(0),
+  // Ancho de la tarjeta en columnas del grid. El render lo recorta a las
+  // columnas disponibles de cada breakpoint (ver lib/card-span.ts), así que
+  // el máximo (8 = columnsDesktop máximo) siempre significa "todo el ancho"
+  // aunque después cambies la config de layout.
+  span: z.number().int().min(1).max(8).default(1),
   enabled: z.boolean().default(true),
   // healthCheck: si true, el home hace ping a la URL periódicamente y muestra
   // un dot verde/rojo en la card. Útil para detectar servicios caídos.

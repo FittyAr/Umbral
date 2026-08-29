@@ -356,6 +356,11 @@ export const helpPt = {
     short: "Cor de destaque do ícone e do dot de health check.",
     body: "Não é cor de fundo — é cor do ícone/dot. Default `#60a5fa` (azul céu).\n\n**Dica**: cores consistentes por categoria. Comunicação em verde, Produtividade em azul, Dev em roxo. Dá identidade visual ao portal.",
   },
+  "card.span": {
+    title: "Largura do card",
+    short: "Quantas colunas do grid o card ocupa. Default 1.",
+    body: "Serve para dar mais peso visual a um card: com 3 colunas configuradas, um card de largura 2 ocupa dois terços da linha e os demais seguem abaixo.\n\n**Se adapta sozinho**: o valor é limitado às colunas disponíveis em cada breakpoint. Se você pedir 4 mas o mobile tiver 1 coluna, ali ele ocupa 1. Não precisa configurar nada por dispositivo.\n\n**Truque**: escolha o máximo (8) para \"largura total\". Como 8 também é o máximo de colunas no desktop, sempre é limitado ao total configurado — o card continua full width mesmo que você mude as colunas depois na aba Layout.\n\n**Atenção**: muda só a largura, não a altura nem o conteúdo. Um card muito largo com pouco texto pode parecer vazio; combine com uma descrição.",
+  },
   "card.icon": {
     title: "Ícone do card",
     short: "O desenho pequeno ao lado do título.",

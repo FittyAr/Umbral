@@ -4,6 +4,7 @@ import { resolveIconUrl } from '~/lib/icon-url';
 import ThemeScript from '~/components/ThemeScript.astro';
 import { isFeatureEnabled } from '~/lib/features';
 import { computeThemeCssBlocks, computeBackgroundStyle, resolveBackground } from '~/lib/theme-tokens';
+import { computeCardSpanCss } from '~/lib/card-span';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 import '~/styles/global.css';
 
@@ -66,6 +67,10 @@ const gridStyle = [
   `--card-radius:${l.cardRadius}px`,
 ].join(';');
 
+// Reglas grid-column por tarjeta, recortadas a las columnas de cada
+// breakpoint. Vacío cuando ninguna card pide más de una columna.
+const cardSpanCss = computeCardSpanCss(l, config.cards);
+
 const fullTitle = title || config.branding.companyName;
 const metaDescription = useI18n
   ? trf('home.meta.description', { companyName: config.branding.companyName })
@@ -95,6 +100,7 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
     <style is:inline set:html={`:root{${cssBlocks.root}${sharedStyle ? ';' + sharedStyle : ''}}`}></style>
     {cssBlocks.light && <style is:inline set:html={`html[data-mode="light"]{${cssBlocks.light}}`}></style>}
     <style is:inline set:html={`.page-wrap{${gridStyle}}`}></style>
+    {cardSpanCss && <style is:inline set:html={cardSpanCss}></style>}
     {t.fontWeight && t.fontWeight !== '400' && (
       <style is:inline set:html={`body{font-weight:${t.fontWeight}}`}></style>
     )}

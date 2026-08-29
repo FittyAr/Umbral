@@ -356,6 +356,19 @@
   margin-right: 0.35rem;
 }
 
+.span-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  border: 1px solid var(--accent-muted);
+  background: var(--accent-muted);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  margin-right: 0.35rem;
+}
+
 .cards-group-header {
   display: flex;
   align-items: center;
