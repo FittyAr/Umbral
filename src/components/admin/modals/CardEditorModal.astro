@@ -1,0 +1,34 @@
+---
+import CardEditorFields from './CardEditorFields.astro';
+import IconPickerPanel from './IconPickerPanel.astro';
+
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<template x-if="editingCard !== null">
+  <div class="modal-backdrop" @click.self="tryCancelEdit()">
+    <div class="modal modal--wide" @keydown.escape.window="tryCancelEdit()">
+      <h2 style="margin-top:0">Editar tarjeta</h2>
+      <form @submit.prevent="saveCard()" @input="cardFormDirty = true" :key="editingKey">
+        <div class="card-editor-layout">
+          <!-- Columna izquierda: metadatos de la tarjeta -->
+          <CardEditorFields useI18n={useI18n} tr={tr} />
+
+          <!-- Columna derecha: selector de íconos -->
+          <IconPickerPanel useI18n={useI18n} tr={tr} />
+        </div>
+
+        <div class="card-editor-footer">
+          <button type="button" class="btn btn-ghost" @click="tryCancelEdit()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</template>

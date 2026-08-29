@@ -1,0 +1,25 @@
+---
+import Modal from '../ui/Modal.astro';
+
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+---
+
+{/* El texto lo pone `showHelp(key)` en window.__helpTexts, así que el título y
+    el cuerpo vienen de Alpine y no del servidor. */}
+<Modal
+  useI18n={useI18n}
+  tr={tr}
+  show="helpModalKey !== null && currentHelp()"
+  close="closeHelp()"
+  titleExpr="currentHelp().title"
+  modalClass="help-modal"
+>
+  <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem" x-text="currentHelp().short"></p>
+  <div class="help-body" x-html="currentHelp().bodyHtml"></div>
+  <button slot="footer" type="button" class="btn btn-primary btn-sm" @click="closeHelp()">Entendido</button>
+</Modal>

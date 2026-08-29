@@ -1,0 +1,42 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<template x-if="showTotpSetupModal && totpSetupData">
+  <div class="modal-backdrop" @click.self="showTotpSetupModal = false" @keydown.escape.window="showTotpSetupModal = false">
+    <div class="modal" style="max-width:440px">
+      <h2 style="margin-top:0">Configurar 2FA (TOTP)</h2>
+      <p style="color:var(--text-subtle);font-size:0.85rem">
+        Escaneá el código QR con Google Authenticator, Authy, 1Password o tu gestor favorito, o ingresá el secret manualmente:
+      </p>
+
+      <div style="display:flex;justify-content:center;margin:1rem 0;background:white;padding:1rem;border-radius:8px">
+        <img :src="totpSetupData.qrDataUrl || (`/api/qr/custom.png?text=${encodeURIComponent(totpSetupData.otpauthUrl)}&size=200`)" alt="QR Code 2FA" style="width:200px;height:200px" />
+      </div>
+
+      <div style="margin-bottom:1rem;text-align:center">
+        <code style="display:inline-block;padding:0.4rem 0.75rem;background:#0f172a;border-radius:4px;font-size:0.85rem;letter-spacing:0.1em;word-break:break-all" x-text="totpSetupData.secret"></code>
+      </div>
+
+      <form @submit.prevent="verifyAndSaveTotp()">
+        <div class="form-group">
+          <label>Código de verificación (6 dígitos)</label>
+          <input type="text" x-model="totpVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autocomplete="one-time-code" x-init="$nextTick(() => $el.focus())" />
+        </div>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+          <button type="button" class="btn btn-ghost" @click="showTotpSetupModal = false">Cancelar</button>
+          <button type="submit" class="btn btn-primary" :disabled="totpSaving">
+            <span x-show="!totpSaving">Activar 2FA</span>
+            <span x-show="totpSaving" x-cloak>Verificando…</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</template>

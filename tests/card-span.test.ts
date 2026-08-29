@@ -174,11 +174,18 @@ describe('card span wiring', () => {
     assert.match(src, /\{cardSpanCss && <style is:inline set:html=\{cardSpanCss\}>/);
   });
 
-  test('admin editor exposes the width field and defaults new cards to one column', async () => {
-    const src = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
+  test('the card editor exposes the width field', async () => {
+    const src = await readFile(
+      new URL('../src/components/admin/modals/CardEditorFields.astro', import.meta.url),
+      'utf8',
+    );
     assert.match(src, /x-model\.number="editingCard\.span"/);
     assert.match(src, /showHelp\('card\.span'\)/);
     assert.match(src, /cardSpanEffectiveHint\(\)/);
+  });
+
+  test('new cards default to one column', async () => {
+    const src = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
     // addCard() and applyAppPreset() both build a card literal.
     assert.equal(src.match(/^\s*span: 1,$/gm)?.length, 2);
   });

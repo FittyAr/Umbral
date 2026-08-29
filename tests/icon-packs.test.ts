@@ -1,6 +1,6 @@
 import { test, describe, before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, readFile, access, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, readdir, access, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'os';
 import AdmZip from 'adm-zip';
@@ -130,6 +130,24 @@ describe('icon packs', () => {
   });
 });
 
+/** Concatena dashboard.astro con todos los componentes del admin. */
+async function readAdminMarkup(): Promise<string> {
+  const dashboard = new URL('../src/pages/admin/dashboard.astro', import.meta.url);
+  const componentsDir = new URL('../src/components/admin/', import.meta.url);
+  const parts = [await readFile(dashboard, 'utf8')];
+
+  async function walk(dir: URL) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const child = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, dir);
+      if (entry.isDirectory()) await walk(child);
+      else if (entry.name.endsWith('.astro')) parts.push(await readFile(child, 'utf8'));
+    }
+  }
+  await walk(componentsDir);
+
+  return parts.join('\n');
+}
+
 describe('admin dashboard boolean attribute bindings', () => {
   // Cuando una expresion de x-bind contiene un punto y evalua a `undefined`,
   // Alpine la convierte en '' y ese valor activa los atributos booleanos. Un
@@ -137,7 +155,9 @@ describe('admin dashboard boolean attribute bindings', () => {
   // deshabilitado para siempre, asi que los estados por item tienen que pasar
   // por un helper que devuelva un booleano real.
   test('no :disabled binding relies on a raw indexed lookup', async () => {
-    const markup = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
+    // El marcado del admin vive repartido entre la pagina y los componentes de
+    // src/components/admin, asi que hay que barrer los dos.
+    const markup = await readAdminMarkup();
     const expressions = [...markup.matchAll(/:disabled="([^"]*)"/g)].map((m) => m[1]);
 
     assert.ok(expressions.length > 0, 'expected :disabled bindings in the dashboard');

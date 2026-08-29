@@ -1,0 +1,135 @@
+---
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<div class="icon-picker-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+    <label style="margin:0;font-weight:600;display:flex;align-items:center;gap:0.35rem">
+      <span>Ícono</span>
+      <button type="button" class="help-icon" @click="showHelp('card.iconPicker')" :title="helpTooltipLabel()">?</button>
+    </label>
+    <button
+      type="button"
+      class="btn btn-ghost btn-sm"
+      style="font-size:0.72rem;padding:0.15rem 0.4rem;color:var(--accent)"
+      @click="tab = 'iconpacks'; loadIconPacks()"
+      x-show="isFeatureOn('iconPacks')"
+      x-cloak
+    >
+      Gestionar packs
+    </button>
+  </div>
+
+  <div class="icon-picker-preview">
+    <span class="icon-picker-preview-img" aria-hidden="true">
+      <template x-if="resolveIcon(editingCard.icon)">
+        <img :src="resolveIcon(editingCard.icon)" :alt="editingCard.icon" />
+      </template>
+      <template x-if="!resolveIcon(editingCard.icon)">
+        <span style="font-size:1.5rem">🚫</span>
+      </template>
+    </span>
+    <span class="icon-picker-preview-name" x-text="editingCard.icon || 'Sin ícono'"></span>
+  </div>
+
+  <div class="icon-picker-toolbar">
+    <div class="icon-picker-toolbar-row">
+      <div class="icon-picker-tabs">
+        <button type="button" class="icon-picker-tab" :class="iconPickerTab === 'icons' && 'active'" @click="iconPickerTab = 'icons'">Íconos</button>
+        <button type="button" class="icon-picker-tab" :class="iconPickerTab === 'assets' && 'active'" @click="iconPickerTab = 'assets'">Assets</button>
+      </div>
+      <input
+        type="text"
+        class="icon-picker-search"
+        x-model="iconPickerSearch"
+        @input="iconPickerLimit = 120"
+        placeholder="Buscar por nombre…"
+        x-show="iconPickerTab === 'icons'"
+        x-cloak
+      />
+    </div>
+    <div class="icon-picker-toolbar-row" x-show="iconPickerTab === 'icons'" x-cloak>
+      <select class="icon-picker-pack-select" x-model="iconPickerPack" @change="iconPickerLimit = 120">
+        <option value="all">Todos los packs</option>
+        <template x-for="pack in iconPickerPackOptions()" :key="pack">
+          <option :value="pack" x-text="pack"></option>
+        </template>
+      </select>
+    </div>
+    <div class="icon-picker-meta" x-show="iconPickerTab === 'icons'" x-cloak>
+      <span x-text="'Mostrando ' + visibleIconPickerIcons().length + ' de ' + filteredIconPickerIcons().length"></span>
+      <span class="icon-picker-badge" x-show="iconPickerPack !== 'all'" x-text="iconPickerPack"></span>
+    </div>
+  </div>
+
+  <div class="icon-picker-empty" x-show="iconPickerTab === 'icons' && filteredIconPickerIcons().length === 0 && !iconPickerSearch.trim()" x-cloak>
+    <p x-text="iconPickerEmptyMessage()"></p>
+    <button type="button" class="btn btn-sm btn-primary" @click="openIconPacksFromPicker()" x-text="iconPickerEmptyAction()"></button>
+  </div>
+
+  <div class="icon-picker-grid" x-show="iconPickerTab === 'icons' && filteredIconPickerIcons().length > 0" x-cloak>
+    <button
+      type="button"
+      class="icon-picker-tile"
+      :class="!editingCard.icon && 'selected'"
+      @click="editingCard.icon=''; markDirty()"
+      title="Sin ícono"
+    >
+      <span class="icon-picker-tile-none" aria-hidden="true">🚫</span>
+    </button>
+    <template x-for="i in visibleIconPickerIcons()" :key="i">
+      <button
+        type="button"
+        class="icon-picker-tile"
+        :class="editingCard.icon===i && 'selected'"
+        @click="editingCard.icon=i; markDirty()"
+        :title="i"
+      >
+        <img :src="resolveIcon(i)" :alt="i" loading="lazy" />
+      </button>
+    </template>
+  </div>
+
+  <div class="icon-picker-load-more" x-show="iconPickerTab === 'icons' && iconPickerHasMore()" x-cloak>
+    <button type="button" class="btn btn-sm btn-ghost" @click="loadMoreIcons()">Cargar más (120)</button>
+  </div>
+
+  <div class="icon-picker-grid" x-show="iconPickerTab === 'assets'" x-cloak>
+    <template x-if="iconPickerAssets().length === 0">
+      <p style="grid-column:1/-1;font-size:0.78rem;color:var(--text-faint);margin:0.5rem 0">No hay assets subidos. Subilos en la pestaña Assets.</p>
+    </template>
+    <template x-for="a in iconPickerAssets()" :key="a.name">
+      <button
+        type="button"
+        class="icon-picker-tile"
+        :class="editingCard.icon === a.url && 'selected'"
+        @click="editingCard.icon = a.url; markDirty()"
+        :title="a.name"
+      >
+        <img :src="a.url" :alt="a.name" loading="lazy" />
+      </button>
+    </template>
+  </div>
+
+  <details class="icon-picker-custom">
+    <summary>¿Usar un asset subido o un nombre custom?</summary>
+    <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.4rem">
+      <input
+        type="text"
+        x-model="editingCard.icon"
+        placeholder="/api/assets/mi-logo.png o simple-icons/docker"
+        style="flex:1"
+      />
+      <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
+    </div>
+    <small style="color:#94a3b8">
+      Pegá la URL de un asset (<code>/api/assets/mi-logo.png</code>) o un id de ícono (<code>simple-icons/docker</code>).
+    </small>
+  </details>
+</div>

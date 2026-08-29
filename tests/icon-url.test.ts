@@ -78,8 +78,14 @@ describe('dashboard: íconos ausentes no piden SVGs', () => {
 
   test('las tarjetas de plantilla usan x-if y no x-show para la imagen', () => {
     // x-show deja el <img> en el DOM, así que el navegador igual pide el src.
+    // El marcado se mudó a PresetsModal cuando se desacopló el dashboard.
+    const presetsModalSrc = readFileSync(
+      fileURLToPath(new URL('../src/components/admin/modals/PresetsModal.astro', import.meta.url)),
+      'utf8',
+    );
     assert.doesNotMatch(dashboardSrc, /x-show="resolveIcon\(/);
-    assert.match(dashboardSrc, /<template x-if="resolveIcon\(p\.icon\)">/);
+    assert.doesNotMatch(presetsModalSrc, /x-show="resolveIcon\(/);
+    assert.match(presetsModalSrc, /<template x-if="resolveIcon\(p\.icon\)">/);
   });
 
   test('aplicar una plantilla no guarda un ícono irresoluble', () => {

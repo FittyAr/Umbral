@@ -1,0 +1,105 @@
+---
+import EmptyState from '../ui/EmptyState.astro';
+import Modal from '../ui/Modal.astro';
+
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+}
+
+const { useI18n, tr } = Astro.props;
+---
+
+<Modal
+  useI18n={useI18n}
+  tr={tr}
+  show="showPresetsModal"
+  close="showPresetsModal = false"
+  titleFallback="Agregar desde plantilla"
+  modalStyle="max-width:820px;max-height:88vh;display:flex;flex-direction:column"
+>
+  <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 0.75rem">
+    Elegí una plantilla de las aplicaciones más populares autohospedadas. Pre-rellena título, ícono, categoría y descripción.
+  </p>
+
+  <!-- Filtros de búsqueda y categorías -->
+  <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem">
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <input
+        type="text"
+        x-model="presetFilter"
+        placeholder="Buscar app (Grafana, Ollama, Nextcloud, GitLab...)"
+        style="width:100%"
+        x-init="$nextTick(() => $el.focus())"
+      />
+      <button
+        type="button"
+        class="btn btn-sm btn-ghost"
+        x-show="presetFilter || presetCategoryFilter"
+        @click="presetFilter=''; presetCategoryFilter=''"
+        style="white-space:nowrap"
+        x-cloak
+      >
+        Limpiar filtros
+      </button>
+    </div>
+
+    <!-- Chips de categorías -->
+    <div style="display:flex;flex-wrap:wrap;gap:0.35rem;max-height:80px;overflow-y:auto;padding-bottom:0.25rem">
+      <button
+        type="button"
+        class="btn btn-sm"
+        :class="!presetCategoryFilter ? 'btn-primary' : 'btn-ghost'"
+        style="padding:0.2rem 0.6rem;font-size:0.78rem;border-radius:12px"
+        @click="presetCategoryFilter = ''"
+      >
+        Todas (<span x-text="appPresets.length"></span>)
+      </button>
+      <template x-for="cat in presetCategories()" :key="cat.id">
+        <button
+          type="button"
+          class="btn btn-sm"
+          :class="presetCategoryFilter === cat.id ? 'btn-primary' : 'btn-ghost'"
+          style="padding:0.2rem 0.6rem;font-size:0.78rem;border-radius:12px;border:1px solid var(--border)"
+          @click="presetCategoryFilter = (presetCategoryFilter === cat.id ? '' : cat.id)"
+        >
+          <span x-text="cat.name"></span>
+          <span style="opacity:0.7;margin-left:0.2rem;font-size:0.72rem" x-text="'(' + cat.count + ')'"></span>
+        </button>
+      </template>
+    </div>
+  </div>
+
+  <!-- Cuadrícula de plantillas filtradas -->
+  <div style="overflow:auto;flex:1;display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:0.75rem;padding-right:0.25rem;align-content:start">
+    <template x-for="p in filteredAppPresets()" :key="p.id">
+      <button
+        type="button"
+        class="card-item"
+        style="display:flex;flex-direction:column;align-items:flex-start;padding:0.75rem;cursor:pointer;text-align:left;border:1px solid var(--border);border-radius:6px;background:var(--surface);transition:border-color 0.15s, transform 0.15s"
+        @click="applyAppPreset(p)"
+      >
+        <div style="display:flex;align-items:center;gap:0.5rem;width:100%;margin-bottom:0.4rem">
+          <div class="icon-preview" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">
+            <template x-if="resolveIcon(p.icon)">
+              <img :src="resolveIcon(p.icon)" style="max-width:20px;max-height:20px" :alt="p.name" />
+            </template>
+          </div>
+          <strong style="font-size:0.9rem;flex:1" x-text="p.name"></strong>
+          <span class="color-dot" :style="`background:${p.color}`"></span>
+        </div>
+        <div style="font-size:0.75rem;color:#94a3b8;line-height:1.3;flex:1" x-text="p.description"></div>
+        <div style="margin-top:0.4rem;font-size:0.7rem;color:var(--text-faint);background:rgba(255,255,255,0.05);padding:0.1rem 0.4rem;border-radius:4px" x-text="p.defaultCategoryName || p.category"></div>
+      </button>
+    </template>
+
+    <template x-if="filteredAppPresets().length === 0">
+      <EmptyState
+        useI18n={useI18n}
+        tr={tr}
+        messageFallback="No se encontraron plantillas para los filtros seleccionados."
+        fullWidth
+      />
+    </template>
+  </div>
+</Modal>
