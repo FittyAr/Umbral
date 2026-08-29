@@ -314,7 +314,7 @@ export const helpEn = {
   "cards.grouping": {
     title: "Cards grouped by category",
     short: "Organize and move cards between categories.",
-    body: "Cards are grouped following category order from the **Categories** tab.\n\n**Drag** with the `⋮⋮` handle to reorder within a group or move between groups. **Category selector** on each row: keyboard-accessible alternative.\n\nWith an active **text filter**, drag is disabled (partial list doesn't represent real order) — use the selector to move cards.\n\nOrphan cards (deleted category) appear under **Uncategorized**.",
+    body: "Cards are grouped following category order from the **Categories** tab.\n\n**Drag** with the `⋮⋮` handle to reorder within a group or move between groups. **Drop between groups** (or at the start/end) to leave the card **ungrouped**: it shows on the homepage at that position, with no category title.\n\n**Category selector** on each row: keyboard-accessible alternative. Includes **Ungrouped**.\n\nWith an active **text filter**, drag is disabled (partial list doesn't represent real order) — use the selector to move cards.\n\nOrphan cards (deleted category) appear under **Uncategorized**.\n\nUngrouped cards live in ghost categories (`isGhost: true`): they are hidden from the Categories tab and auto-removed when empty.",
   },
   "card.title": {
     title: "Card title",

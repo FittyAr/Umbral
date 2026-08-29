@@ -314,7 +314,7 @@ export const helpPt = {
   "cards.grouping": {
     title: "Cards agrupados por categoria",
     short: "Organize e mova cards entre categorias.",
-    body: "Os cards seguem a ordem das categorias na aba **Categorias**.\n\n**Arraste** com `⋮⋮` para reordenar ou mover entre grupos. **Seletor de categoria** em cada linha: alternativa acessível.\n\nCom **filtro de texto** ativo o arraste fica desabilitado — use o seletor.\n\nCards órfãos aparecem em **Sem categoria**.",
+    body: "Os cards seguem a ordem das categorias na aba **Categorias**.\n\n**Arraste** com `⋮⋮` para reordenar ou mover entre grupos. **Solte entre grupos** (ou no início/fim) para deixar o card **sem grupo**: aparece na capa nessa posição, sem título de categoria.\n\n**Seletor de categoria** em cada linha: alternativa acessível. Inclui **Sem grupo**.\n\nCom **filtro de texto** ativo o arraste fica desabilitado — use o seletor.\n\nCards órfãos aparecem em **Sem categoria**.\n\nCards soltos vivem em categorias fantasma (`isGhost: true`): não aparecem na aba Categorias e são removidas ao esvaziar.",
   },
   "card.title": {
     title: "Título do card",

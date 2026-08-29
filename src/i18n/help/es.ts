@@ -314,7 +314,7 @@ export const helpEs = {
   "cards.grouping": {
     title: "Tarjetas agrupadas por categoría",
     short: "Organizá y mové tarjetas entre categorías.",
-    body: "Las tarjetas se muestran agrupadas según el orden de categorías del tab **Categorías**.\n\n**Arrastrá** con el handle `⋮⋮` para reordenar dentro de un grupo o mover entre grupos. **Selector de categoría** en cada fila: alternativa accesible por teclado.\n\nCon **filtro de texto** activo el arrastre se deshabilita (la lista parcial no representa el orden real) — usá el selector para mover.\n\nLas tarjetas huérfanas (categoría borrada) aparecen en **Sin categoría**.",
+    body: "Las tarjetas se muestran agrupadas según el orden de categorías del tab **Categorías**.\n\n**Arrastrá** con el handle `⋮⋮` para reordenar dentro de un grupo o mover entre grupos. **Soltá entre grupos** (o al inicio/fin) para dejar la tarjeta **sin grupo**: aparece en la portada en esa ubicación, sin título de categoría.\n\n**Selector de categoría** en cada fila: alternativa accesible por teclado. Incluye **Sin grupo**.\n\nCon **filtro de texto** activo el arrastre se deshabilita (la lista parcial no representa el orden real) — usá el selector para mover.\n\nLas tarjetas huérfanas (categoría borrada) aparecen en **Sin categoría**.\n\nInternamente las sueltas viven en categorías fantasma (`isGhost: true`): no se editan en el tab Categorías y se auto-eliminan al vaciarse.",
   },
   "card.title": {
     title: "Título de la tarjeta",

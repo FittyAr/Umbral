@@ -305,6 +305,58 @@
   border-color: color-mix(in srgb, var(--border), #f59e0b 35%);
 }
 
+.cards-group-ghost {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--bg-elev) 70%, transparent);
+}
+
+.cards-group-gap {
+  position: relative;
+  border-style: dashed;
+  background: transparent;
+  min-height: 3.5rem;
+}
+
+.cards-gap-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.5rem;
+  pointer-events: none;
+  z-index: 0;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--text-faint);
+  opacity: 0.45;
+  text-align: center;
+  user-select: none;
+}
+
+.cards-group-gap .cards-group-list {
+  position: relative;
+  z-index: 1;
+  min-height: 3.5rem;
+  padding: 0.35rem 0.65rem;
+  background: transparent;
+}
+
+.note-kind-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  margin-right: 0.35rem;
+}
+
 .cards-group-header {
   display: flex;
   align-items: center;

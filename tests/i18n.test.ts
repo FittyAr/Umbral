@@ -85,8 +85,11 @@ describe('icon references', () => {
   });
 
   test('resolveIconUrl returns null for bare names', async () => {
-    const { resolveIconUrl } = await import('../src/lib/icons.ts');
+    const { resolveIconUrl, resolveCardIconUrl, SYSTEM_DOCS_ICON, SYSTEM_DOCS_ICON_PATH } = await import('../src/lib/icon-url.ts');
     assert.equal(resolveIconUrl('file-text'), null);
     assert.equal(resolveIconUrl('lucide/file-text'), '/api/icons/lucide/file-text.svg');
+    assert.equal(resolveIconUrl(SYSTEM_DOCS_ICON), SYSTEM_DOCS_ICON_PATH);
+    assert.equal(resolveCardIconUrl({ id: 'docs', icon: 'lucide/file-text', url: '/docs' }), SYSTEM_DOCS_ICON_PATH);
+    assert.equal(resolveCardIconUrl({ id: 'other', icon: 'simple-icons/github' }), '/api/icons/simple-icons/github.svg');
   });
 });

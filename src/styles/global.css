@@ -274,18 +274,57 @@ html[data-mode="light"] .bg-overlay[data-bg-mode="light"] {
   overflow: hidden;
 }
 
-/* Nota informativa — no es link, no se "clica". Mismo aspecto visual pero
-   sin cursor pointer ni transform en hover. La diferencia clave es la
-   semántica: screen readers anuncian "tarjeta" en vez de "enlace", y
-   tabindex/foco no se aplica a un <div>. */
+/* Nota informativa — distinta a simple vista de un link: borde dashed,
+   fondo más plano, barra de acento, badge, sin lift en hover. */
 .card-note {
   cursor: default;
+  border-style: dashed;
+  border-width: 1.5px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+.card-note::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+  opacity: 0.8;
+  border-radius: inherit;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.card-note .card-icon {
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--accent), transparent 50%);
 }
 .card-note:hover {
   transform: none;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  border-color: color-mix(in srgb, var(--border-strong), var(--accent) 35%);
 }
 .card-note:focus-visible {
   outline: none;
+}
+.card-note-badge {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-hover);
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  line-height: 1.2;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -677,6 +716,9 @@ html[data-mode="light"] .header-title {
 }
 .category-header .section-title {
   margin: 0;
+}
+.category-section[data-ghost="true"] {
+  margin-block: 0.35rem;
 }
 .cat-lock-status {
   display: inline-flex;

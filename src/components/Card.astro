@@ -1,7 +1,7 @@
 ---
 import type { Card } from '~/lib/schema';
 import type { Layout, Theme } from '~/lib/schema';
-import { resolveIconUrl } from '~/lib/icons';
+import { resolveCardIconUrl } from '~/lib/icon-url';
 import { renderMarkdown } from '~/lib/markdown';
 import { isFeatureEnabled } from '~/lib/features';
 import { getConfig } from '~/lib/config';
@@ -15,18 +15,19 @@ interface Props {
   maintenanceReason?: string;
   /** Si la feature features.qr está activa y la card es de tipo link. */
   qrEnabled?: boolean;
+  /** Label i18n del badge "Nota" (kind=note). */
+  noteBadge?: string;
 }
-const { card, layout, cardStyle = 'glass', maintenanceReason = '', qrEnabled = false } = Astro.props;
+const { card, layout, cardStyle = 'glass', maintenanceReason = '', qrEnabled = false, noteBadge = '' } = Astro.props;
 const base = import.meta.env.BASE_URL || '/';
 const cfg = await getConfig();
 const iconTint = cfg.theme.iconTint ?? 'original';
-// Si estamos en el demo de GitHub Pages, la generación real de QR no está
-// disponible (requiere backend Node). Mostramos el botón igual pero al
-// click tira un alert explicando por qué no se abre el QR.
-const isDemoBuild = import.meta.env.UMBRAL_DEMO === 'true' || import.meta.env.UMBRAL_DEMO === '1';
 const qrBase = base.endsWith('/') ? base : `${base}/`;
 const qrUrl = `${qrBase}api/qr/${encodeURIComponent(card.id)}.png?size=240`;
-const iconUrl = resolveIconUrl(card.icon);
+const rawIconUrl = resolveCardIconUrl(card);
+const iconUrl = rawIconUrl
+  ? (rawIconUrl.startsWith('/') ? `${base.endsWith('/') ? base.slice(0, -1) : base}${rawIconUrl}` : rawIconUrl)
+  : null;
 const iconTintActive = iconTint !== 'original' && iconUrl;
 const iconWrapStyle = iconTintActive ? `--icon-url:url('${iconUrl}');` : '';
 const isNote = card.kind === 'note';
@@ -72,6 +73,7 @@ const descriptionHtml = await renderDescription(card.description, card.descripti
     title={card.title}
     style={styleOverride}
   >
+    {noteBadge ? <span class="card-note-badge">{noteBadge}</span> : null}
     {iconUrl && (
       <div class="card-icon" data-icon-tint={iconTintActive ? iconTint : undefined} style={iconWrapStyle}>
         <img src={iconUrl} alt="" loading="lazy" />

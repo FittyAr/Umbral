@@ -2,6 +2,8 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { ConfigSchema, type Config, type ConfigUpdate } from './schema';
 import { hashPassword, generateToken } from './auth';
+import { reconcileSystemCards } from './system-card.ts';
+import { normalizeGhostCategories } from './cards-admin.ts';
 import {
   portalConfigPath as _portalConfigPath,
   portalUploadsPath as _portalUploadsPath,
@@ -169,9 +171,9 @@ function defaultConfig(): Config {
     oidc: { providers: [] },
     apiTokens: { items: [] },
     categories: [
-      { id: 'com', name: 'Comunicación', icon: 'lucide/message-circle', isLocked: false, password: '', isSubpage: false },
-      { id: 'prod', name: 'Productividad', icon: 'lucide/briefcase', isLocked: false, password: '', isSubpage: false },
-      { id: 'dev', name: 'Desarrollo', icon: 'lucide/code', isLocked: false, password: '', isSubpage: false },
+      { id: 'com', name: 'Comunicación', icon: 'lucide/message-circle', isLocked: false, password: '', isSubpage: false, isGhost: false },
+      { id: 'prod', name: 'Productividad', icon: 'lucide/briefcase', isLocked: false, password: '', isSubpage: false, isGhost: false },
+      { id: 'dev', name: 'Desarrollo', icon: 'lucide/code', isLocked: false, password: '', isSubpage: false, isGhost: false },
     ],
     cards: [
       // Tarjeta default que apunta a la documentación del sistema.
@@ -182,7 +184,7 @@ function defaultConfig(): Config {
         description: 'Cómo instalar, configurar y usar Umbral',
         descriptionFormat: 'plain',
         url: '/docs',
-        icon: 'lucide/file-text',
+        icon: 'system/docs',
         category: 'dev',
         openInNewTab: false,
         color: '#10b981',
@@ -509,7 +511,7 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
       ? { ...(current.externalSearch ?? defaults.externalSearch!), ...cleanUpdate.externalSearch }
       : (current.externalSearch ?? defaults.externalSearch),
     features: mergedFeatures,
-    categories: cleanUpdate.categories ?? current.categories,
+    categories: [...(cleanUpdate.categories ?? current.categories)],
     cards: (() => {
       // Defense-in-depth para el opt-in de markdown: si la feature está
       // apagada, forzar plain + límite 200 chars en TODAS las cards.
@@ -572,37 +574,11 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
     delete (merged.security.network as { trustedProxiesText?: string }).trustedProxiesText;
   }
 
-  // Protección de la tarjeta default de docs
-  const mergedCards = [...merged.cards];
+  // Card de sistema (docs): revertir campos protegidos en vez de fallar el
+  // save. Un reorder global no debe impedir guardar; `enabled` sí se aplica.
   const systemCardDefault = defaults.cards.find((c) => c.id === 'docs');
-  if (systemCardDefault) {
-    const existingSystem = mergedCards.find((c) => c.id === 'docs');
-    if (!existingSystem) {
-      mergedCards.push({ ...systemCardDefault });
-      merged.cards = mergedCards;
-    } else {
-      const originalSystem = current.cards.find((c) => c.id === 'docs');
-      if (originalSystem) {
-        const protectedFields = [
-          'title', 'description', 'url', 'icon', 'color', 'category',
-          'order', 'openInNewTab', 'healthCheck', 'kind', 'id',
-        ] as const;
-        const changed: string[] = [];
-        for (const f of protectedFields) {
-          const a = existingSystem[f];
-          const b = originalSystem[f];
-          if (JSON.stringify(a) !== JSON.stringify(b)) changed.push(String(f));
-        }
-        if (changed.length > 0) {
-          throw new Error(
-            'La tarjeta "Documentación" es del sistema y no se puede editar. ' +
-            'Sólo podés ocultarla activando/desactivando el switch "Activa". ' +
-            `Campos protegidos que intentaste cambiar: ${changed.join(', ')}.`,
-          );
-        }
-      }
-    }
-  }
+  merged.cards = reconcileSystemCards(merged.cards, current.cards, systemCardDefault);
+  normalizeGhostCategories(merged.categories, merged.cards);
 
   // Re-validate the merged result.
   const result = ConfigSchema.parse(merged);

@@ -64,6 +64,7 @@ export const es = {
   'home.locked.unlockButton': 'Desbloquear',
   'home.locked.unlockError': 'Contraseña incorrecta',
   'home.locked.relockTitle': 'Volver a bloquear categoría',
+  'home.card.noteBadge': 'Nota',
 
   // ── Language switcher ────────────────────────────────────────────
   'home.language.switcher.aria': 'Cambiar idioma',
@@ -340,6 +341,9 @@ export const es = {
   'admin.cards.fromPreset': 'Desde plantilla',
   'admin.cards.filterDragDisabled': 'Con filtro activo el arrastre está deshabilitado. Usá el selector de categoría para mover tarjetas.',
   'admin.cards.orphanGroup': 'Sin categoría',
+  'admin.cards.ungroupedGroup': 'Sin grupo',
+  'admin.cards.ungroupedGap': 'Soltá acá para dejar la tarjeta sin grupo',
+  'admin.cards.noteBadge': 'Nota',
   'admin.cards.expandGroup': 'Expandir grupo',
   'admin.cards.collapseGroup': 'Colapsar grupo',
   'admin.cards.addToGroup': 'Agregar',

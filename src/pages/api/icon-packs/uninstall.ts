@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { getConfig, audit } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { uninstallIconPack } from '~/lib/icon-packs';
-import { invalidateIconsCache } from '~/lib/icons';
+import { invalidateIconsCache } from '~/lib/icon-pack-names.ts';
 import { json, error } from '~/lib/http';
 
 export const prerender = false;

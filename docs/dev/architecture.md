@@ -143,12 +143,35 @@ CRUD de assets (sin el upload en sí).
 - `deleteAsset(name, cfg)` — borra un asset. Verifica que no esté en uso (carga config fresca con `_invalidate` para evitar TOCTOU).
 - `findAssetRefs(cfg, name)` — helper para encontrar referencias.
 
-#### `icons.ts`
+#### `icon-url.ts` / `icon-pack-names.ts`
 
-Resolución de íconos.
+Resolución de íconos, partida para no meter `node:fs` en el bundle del browser.
 
-- `getAvailableIconNames()` — lista íconos de packs instalados en `data/icon-packs/`.
-- `resolveIconUrl(icon)` — URL absoluta/`http(s)`/`/` se devuelve tal cual; `pack/name` → `/api/icons/pack/name.svg`; archivo de imagen → `/api/assets/<name>`; nombres bare (sin pack) → `null`.
+- `icon-url.ts` — `resolveIconUrl()`, `resolveCardIconUrl()`, constantes del ícono de Documentación (`/system/docs.svg`). Seguro en cliente.
+- `icon-pack-names.ts` — `getAvailableIconNames()` lista packs en `data/icon-packs/` (solo API / frontmatter SSR).
+- `icons.ts` — re-export de `icon-url.ts` (sin filesystem).
+- Nombre reservado `system/docs` (y la card de sistema `id=docs` / URL `/docs*`) → `/system/docs.svg` en `public/system/docs.svg`. No depende de icon packs; no reintroduce el catálogo built-in de `/icons/*.svg`.
+
+#### `system-card.ts`
+
+La card **Documentación** (`id: 'docs'` o `url` `/docs*`) es del sistema.
+
+- Campos protegidos: `title`, `description`, `url`, `icon`, `color`, `category`, `order`, `openInNewTab`, `healthCheck`, `kind`, `id`. **`enabled` sí se puede cambiar** (ocultar/mostrar).
+- `saveConfig` **revierte** esos campos al valor persistido en vez de fallar el save. Así un reorder global que toque `docs.order` no bloquea el PUT.
+- El cliente restaura los mismos campos desde `original` antes de enviar, y no permite arrastrar ni cambiar de categoría la card de sistema. El `order` de las demás cards se numera *alrededor* del `order` congelado de docs.
+
+#### `cards-admin.ts`
+
+Tab Tarjetas: grupos + drop-zones. Cards sueltas (fuera de una categoría con título) usan **categorías fantasma**:
+
+- `Category.isGhost: true` — id kebab-case autogenerado (`ghost-…`), `name`/`icon` vacíos. No es un sentinel único: cada hueco entre grupos puede ser su propio ghost, así el orden global puede ser `grupo A → sueltas → grupo B → más sueltas`.
+- No se listan en el tab Categorías (no son editables). En la portada renderizan el `.grid` **sin** `.category-header`.
+- Vacías se auto-eliminan (`pruneEmptyGhosts`); dos ghosts consecutivos se fusionan.
+- En el admin, drop-zones `__gap__` (DOM-only, no se persisten) entre grupos reales y al inicio/fin. Al soltar una card se crea o reusa un ghost.
+- El selector de categoría incluye **Sin grupo** (`__ungrouped__`, no persistido).
+- Huérfanas de verdad (categoría borrada que ya no existe) siguen en el bucket `__orphan__` al final. `removeCategory` no reasigna cards de sistema ni cards que viven en ghosts.
+
+Tab **Tarjetas** (inline en `dashboard.astro`): lista agrupada por categoría con SortableJS cross-group y gaps. Lógica pura en `lib/cards-admin.ts` (`cardGroups`, `adminCardsLayout`, `moveCardToCategory`, `moveCardToUngrouped`, `syncOrderFromDom`).
 
 ### 4. `components/`
 
@@ -166,7 +189,7 @@ Astro components reusables.
 - `layout/LayoutPanel.astro` — tab Layout con form en dos columnas + `LayoutPreview.astro` (preview de grilla con conmutador mobile/tablet/desktop).
   - Campos de layout en `LayoutSchema`: columnas por breakpoint, `gap`, `maxWidth`, `gridAlign`, `cardSize`, `cardRadius`, `compact`, `showDescriptions`, `healthCheckInterval`.
   - Variables CSS inyectadas en `.page-wrap` vía `PublicLayout`: `--grid-gap`, `--content-max-width`, `--card-radius`, `--cols-*`.
-- Tab **Tarjetas** (inline en `dashboard.astro`): lista agrupada por categoría con SortableJS cross-group. Lógica pura en `lib/cards-admin.ts` (`cardGroups`, `moveCardToCategory`, `syncOrderFromDom`).
+- Tab **Tarjetas** (inline en `dashboard.astro`): ver `cards-admin.ts` arriba (grupos, ghosts, gaps).
 
 ### 5. `layouts/`
 

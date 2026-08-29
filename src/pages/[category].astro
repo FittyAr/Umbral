@@ -9,7 +9,7 @@ import RefreshButton from '~/components/RefreshButton.astro';
 import StatusBar from '~/components/StatusBar.astro';
 import LanguageSwitcher from '~/components/LanguageSwitcher.astro';
 import { getConfig } from '~/lib/config';
-import { resolveIconUrl } from '~/lib/icons';
+import { resolveIconUrl } from '~/lib/icon-url';
 import { isFeatureEnabled } from '~/lib/features';
 import { getActiveWindowsForCard } from '~/lib/maintenance';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
@@ -54,6 +54,7 @@ if (isFeatureEnabled(config, 'maintenanceWindows')) {
   }
 }
 
+const noteBadge = trf('home.card.noteBadge');
 const logoUrl = resolveIconUrl(config.branding.logo);
 const isLocked = Boolean(cat.isLocked && cat.password);
 const catHash = isLocked ? crypto.createHash('sha256').update(cat.password).digest('hex') : '';
@@ -155,7 +156,7 @@ const base = import.meta.env.BASE_URL || '/';
           </div>
         ) : (
           <div class="grid">
-            {cards.map((c) => <Card card={c} layout={l} cardStyle={t.cardStyle} maintenanceReason={cardMaintenance.get(c.id) || ''} />)}
+            {cards.map((c) => <Card card={c} layout={l} cardStyle={t.cardStyle} maintenanceReason={cardMaintenance.get(c.id) || ''} noteBadge={noteBadge} />)}
           </div>
         )}
       </div>
