@@ -25,7 +25,8 @@
     "test:icon-url": "node --test --experimental-strip-types tests/icon-url.test.ts",
     "test:sortable-guard": "node --test --experimental-strip-types tests/sortable-guard.test.ts",
     "test:auth-session": "node --test --experimental-strip-types tests/auth-session.test.ts",
-    "test": "npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:card-span && npm run test:icon-url && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
+    "test:astro": "vitest run",
+    "test": "npm run test:astro && npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:card-span && npm run test:icon-url && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
     "astro": "astro"
   },
   "dependencies": {
@@ -54,7 +55,8 @@
     "@types/qrcode": "^1.5.6",
     "@types/sortablejs": "^1.15.8",
     "tailwindcss": "^4.0.6",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.11"
   },
   "//": "Security overrides: forzar versiones parcheadas en transitive deps. Generado por alerts Dependabot.",
   "overrides": {

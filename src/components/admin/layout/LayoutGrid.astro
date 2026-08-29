@@ -1,4 +1,8 @@
 ---
+import RangeField from '../ui/RangeField.astro';
+import SelectField from '../ui/SelectField.astro';
+import TabBar from '../ui/TabBar.astro';
+
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -6,117 +10,156 @@ interface Props {
 
 const { useI18n, tr } = Astro.props;
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+
+const breakpoints = [
+  { id: 'desktop', key: 'admin.layout.breakpoint.desktop', label: 'Desktop', labelExpr: 'layoutBreakpointDesktop()' },
+  { id: 'tablet', key: 'admin.layout.breakpoint.tablet', label: 'Tablet', labelExpr: 'layoutBreakpointTablet()' },
+  { id: 'mobile', key: 'admin.layout.breakpoint.mobile', label: 'Mobile', labelExpr: 'layoutBreakpointMobile()' },
+];
+
+/** Un slider de columnas por breakpoint, cada uno con su propio rango. */
+const columnFields = [
+  {
+    breakpoint: 'desktop',
+    model: 'cfg.layout.columnsDesktop',
+    labelKey: 'admin.layout.columnsDesktop',
+    labelFallback: 'Columnas desktop',
+    labelExpr: 'layoutColumnsDesktopLabel()',
+    helpKey: 'layout.columnsDesktop',
+    min: 2,
+    max: 8,
+  },
+  {
+    breakpoint: 'tablet',
+    model: 'cfg.layout.columnsTablet',
+    labelKey: 'admin.layout.columnsTablet',
+    labelFallback: 'Columnas tablet',
+    labelExpr: 'layoutColumnsTabletLabel()',
+    helpKey: 'layout.columnsTablet',
+    min: 2,
+    max: 6,
+  },
+  {
+    breakpoint: 'mobile',
+    model: 'cfg.layout.columnsMobile',
+    labelKey: 'admin.layout.columnsMobile',
+    labelFallback: 'Columnas mobile',
+    labelExpr: 'layoutColumnsMobileLabel()',
+    helpKey: 'layout.columnsMobile',
+    min: 1,
+    max: 3,
+  },
+];
+
+const alignOptions = [
+  { value: 'center', key: 'admin.layout.gridAlign.center', label: 'Centrado' },
+  { value: 'left', key: 'admin.layout.gridAlign.left', label: 'Izquierda' },
+];
 ---
 
 <section class="layout-section">
   <h3 x-text="layoutSectionGrid()">{t('admin.layout.section.grid', 'Grilla')}</h3>
 
-  <div class="layout-breakpoint-tabs">
-    <button type="button" :class="layoutBreakpoint==='desktop' && 'active'" @click="setLayoutBreakpoint('desktop')">
-      <span x-text="layoutBreakpointDesktop()">{t('admin.layout.breakpoint.desktop', 'Desktop')}</span>
-    </button>
-    <button type="button" :class="layoutBreakpoint==='tablet' && 'active'" @click="setLayoutBreakpoint('tablet')">
-      <span x-text="layoutBreakpointTablet()">{t('admin.layout.breakpoint.tablet', 'Tablet')}</span>
-    </button>
-    <button type="button" :class="layoutBreakpoint==='mobile' && 'active'" @click="setLayoutBreakpoint('mobile')">
-      <span x-text="layoutBreakpointMobile()">{t('admin.layout.breakpoint.mobile', 'Mobile')}</span>
-    </button>
-  </div>
+  <TabBar
+    useI18n={useI18n}
+    tr={tr}
+    state="layoutBreakpoint"
+    items={breakpoints}
+    variant="layout-breakpoint-tabs"
+    onSelect="setLayoutBreakpoint('$id')"
+  />
 
-  <div class="form-group" x-show="layoutBreakpoint==='desktop'">
-    <label>
-      <span x-text="layoutColumnsDesktopLabel()">{t('admin.layout.columnsDesktop', 'Columnas desktop')}</span>
-      <button type="button" class="help-icon" @click="showHelp('layout.columnsDesktop')" :title="helpTooltipLabel()">?</button>
-      (<span x-text="cfg.layout.columnsDesktop"></span>)
-    </label>
-    <div class="layout-range-row">
-      <input type="range" min="2" max="8" step="1" x-model.number="cfg.layout.columnsDesktop" />
-      <input type="number" min="2" max="8" x-model.number="cfg.layout.columnsDesktop" class="layout-num-input" />
-    </div>
-  </div>
+  {
+    columnFields.map((field) => (
+      <RangeField
+        useI18n={useI18n}
+        tr={tr}
+        model={field.model}
+        min={field.min}
+        max={field.max}
+        labelKey={field.labelKey}
+        labelFallback={field.labelFallback}
+        labelExpr={field.labelExpr}
+        helpKey={field.helpKey}
+        withNumber
+        show={`layoutBreakpoint==='${field.breakpoint}'`}
+      />
+    ))
+  }
 
-  <div class="form-group" x-show="layoutBreakpoint==='tablet'">
-    <label>
-      <span x-text="layoutColumnsTabletLabel()">{t('admin.layout.columnsTablet', 'Columnas tablet')}</span>
-      <button type="button" class="help-icon" @click="showHelp('layout.columnsTablet')" :title="helpTooltipLabel()">?</button>
-      (<span x-text="cfg.layout.columnsTablet"></span>)
-    </label>
-    <div class="layout-range-row">
-      <input type="range" min="2" max="6" step="1" x-model.number="cfg.layout.columnsTablet" />
-      <input type="number" min="2" max="6" x-model.number="cfg.layout.columnsTablet" class="layout-num-input" />
-    </div>
-  </div>
-
-  <div class="form-group" x-show="layoutBreakpoint==='mobile'">
-    <label>
-      <span x-text="layoutColumnsMobileLabel()">{t('admin.layout.columnsMobile', 'Columnas mobile')}</span>
-      <button type="button" class="help-icon" @click="showHelp('layout.columnsMobile')" :title="helpTooltipLabel()">?</button>
-      (<span x-text="cfg.layout.columnsMobile"></span>)
-    </label>
-    <div class="layout-range-row">
-      <input type="range" min="1" max="3" step="1" x-model.number="cfg.layout.columnsMobile" />
-      <input type="number" min="1" max="3" x-model.number="cfg.layout.columnsMobile" class="layout-num-input" />
-    </div>
+  <div class="form-row">
+    <RangeField
+      useI18n={useI18n}
+      tr={tr}
+      model="cfg.layout.gap"
+      min={0}
+      max={3}
+      step={0.25}
+      labelKey="admin.layout.gap"
+      labelFallback="Espaciado entre tarjetas"
+      labelExpr="layoutGapLabel()"
+      helpKey="layout.gap"
+      valueExpr="(cfg.layout.gap ?? 1).toFixed(1)"
+      unit="rem"
+      withNumber
+    />
+    <RangeField
+      useI18n={useI18n}
+      tr={tr}
+      model="cfg.layout.maxWidth"
+      min={720}
+      max={2560}
+      step={40}
+      labelKey="admin.layout.maxWidth"
+      labelFallback="Ancho máximo del contenido"
+      labelExpr="layoutMaxWidthLabel()"
+      helpKey="layout.maxWidth"
+      unit="px"
+      withNumber
+    />
   </div>
 
   <div class="form-row">
-    <div class="form-group">
-      <label>
-        <span x-text="layoutGapLabel()">{t('admin.layout.gap', 'Espaciado entre tarjetas')}</span>
-        <button type="button" class="help-icon" @click="showHelp('layout.gap')" :title="helpTooltipLabel()">?</button>
-        (<span x-text="(cfg.layout.gap ?? 1).toFixed(1)"></span>rem)
-      </label>
-      <div class="layout-range-row">
-        <input type="range" min="0" max="3" step="0.25" x-model.number="cfg.layout.gap" />
-        <input type="number" min="0" max="3" step="0.25" x-model.number="cfg.layout.gap" class="layout-num-input" />
-      </div>
-    </div>
-    <div class="form-group">
-      <label>
-        <span x-text="layoutMaxWidthLabel()">{t('admin.layout.maxWidth', 'Ancho máximo del contenido')}</span>
-        <button type="button" class="help-icon" @click="showHelp('layout.maxWidth')" :title="helpTooltipLabel()">?</button>
-        (<span x-text="cfg.layout.maxWidth"></span>px)
-      </label>
-      <div class="layout-range-row">
-        <input type="range" min="720" max="2560" step="40" x-model.number="cfg.layout.maxWidth" />
-        <input type="number" min="720" max="2560" step="40" x-model.number="cfg.layout.maxWidth" class="layout-num-input" />
-      </div>
-    </div>
+    <RangeField
+      useI18n={useI18n}
+      tr={tr}
+      model="cfg.layout.categoryGap"
+      min={0}
+      max={6}
+      step={0.25}
+      labelKey="admin.layout.categoryGap"
+      labelFallback="Espaciado entre categorías"
+      labelExpr="layoutCategoryGapLabel()"
+      helpKey="layout.categoryGap"
+      valueExpr="(cfg.layout.categoryGap ?? 2).toFixed(2)"
+      unit="rem"
+      withNumber
+    />
+    <RangeField
+      useI18n={useI18n}
+      tr={tr}
+      model="cfg.layout.ghostCategoryGap"
+      min={0}
+      max={6}
+      step={0.05}
+      labelKey="admin.layout.ghostCategoryGap"
+      labelFallback="Espaciado de tarjetas sueltas"
+      labelExpr="layoutGhostCategoryGapLabel()"
+      helpKey="layout.ghostCategoryGap"
+      valueExpr="(cfg.layout.ghostCategoryGap ?? 0.35).toFixed(2)"
+      unit="rem"
+      withNumber
+    />
   </div>
 
-  <div class="form-row">
-    <div class="form-group">
-      <label>
-        <span x-text="layoutCategoryGapLabel()">{t('admin.layout.categoryGap', 'Espaciado entre categorías')}</span>
-        <button type="button" class="help-icon" @click="showHelp('layout.categoryGap')" :title="helpTooltipLabel()">?</button>
-        (<span x-text="(cfg.layout.categoryGap ?? 2).toFixed(2)"></span>rem)
-      </label>
-      <div class="layout-range-row">
-        <input type="range" min="0" max="6" step="0.25" x-model.number="cfg.layout.categoryGap" />
-        <input type="number" min="0" max="6" step="0.25" x-model.number="cfg.layout.categoryGap" class="layout-num-input" />
-      </div>
-    </div>
-    <div class="form-group">
-      <label>
-        <span x-text="layoutGhostCategoryGapLabel()">{t('admin.layout.ghostCategoryGap', 'Espaciado de tarjetas sueltas')}</span>
-        <button type="button" class="help-icon" @click="showHelp('layout.ghostCategoryGap')" :title="helpTooltipLabel()">?</button>
-        (<span x-text="(cfg.layout.ghostCategoryGap ?? 0.35).toFixed(2)"></span>rem)
-      </label>
-      <div class="layout-range-row">
-        <input type="range" min="0" max="6" step="0.05" x-model.number="cfg.layout.ghostCategoryGap" />
-        <input type="number" min="0" max="6" step="0.05" x-model.number="cfg.layout.ghostCategoryGap" class="layout-num-input" />
-      </div>
-    </div>
-  </div>
-
-  <div class="form-group">
-    <label>
-      <span x-text="layoutGridAlignLabel()">{t('admin.layout.gridAlign', 'Alineación del contenido')}</span>
-      <button type="button" class="help-icon" @click="showHelp('layout.gridAlign')" :title="helpTooltipLabel()">?</button>
-    </label>
-    <select x-model="cfg.layout.gridAlign">
-      <option value="center">{t('admin.layout.gridAlign.center', 'Centrado')}</option>
-      <option value="left">{t('admin.layout.gridAlign.left', 'Izquierda')}</option>
-    </select>
-  </div>
+  <SelectField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.layout.gridAlign"
+    options={alignOptions}
+    labelKey="admin.layout.gridAlign"
+    labelFallback="Alineación del contenido"
+    labelExpr="layoutGridAlignLabel()"
+    helpKey="layout.gridAlign"
+  />
 </section>

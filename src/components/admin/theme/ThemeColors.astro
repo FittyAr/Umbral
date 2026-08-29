@@ -1,4 +1,10 @@
 ---
+import ColorField from '../ui/ColorField.astro';
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
+import SelectField from '../ui/SelectField.astro';
+import TabBar from '../ui/TabBar.astro';
+
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -6,82 +12,115 @@ interface Props {
 
 const { useI18n, tr } = Astro.props;
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+
+/** Selector de modo para los tokens que tienen valor separado en dark y light. */
+const modeTabs = [
+  { id: 'dark', label: 'Dark' },
+  { id: 'light', label: 'Light' },
+];
+
+const iconTintOptions = [
+  { value: 'original', key: 'admin.theme.colors.iconTintOriginal', label: 'Original (sin tintar)' },
+  { value: 'accent', key: 'admin.theme.colors.iconTintAccent', label: 'Color de acento' },
+  { value: 'text', key: 'admin.theme.colors.iconTintText', label: 'Color de texto' },
+  { value: 'custom', key: 'admin.theme.colors.iconTintCustom', label: 'Color personalizado' },
+];
+
+const colorModeOptions = [
+  { value: 'auto', key: 'admin.theme.colors.modeAuto', label: 'Auto' },
+  { value: 'dark', key: 'admin.theme.colors.modeDark', label: 'Oscuro' },
+  { value: 'light', key: 'admin.theme.colors.modeLight', label: 'Claro' },
+];
+
+const autoStrategyOptions = [
+  { value: 'system', key: 'admin.theme.colors.autoSystem', label: 'Sistema (prefers-color-scheme)' },
+  { value: 'schedule', key: 'admin.theme.colors.autoSchedule', label: 'Horario (7–19 claro)' },
+];
 ---
 
 <h3 x-text="themeSectionColors()">{t('admin.theme.section.colors', 'Colores')}</h3>
 
 <div class="form-row">
-  <div class="form-group">
-    <label>
-      <span x-text="themeAccentLabel()">{t('admin.theme.colors.accent', 'Color de acento')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.accentColor')" :title="helpTooltipLabel()">?</button>
-    </label>
-    <div class="theme-color-field">
-      <input type="color" class="color-swatch" x-model="cfg.theme.accentColor" />
-      <input type="text" x-model="cfg.theme.accentColor" />
-    </div>
-  </div>
-  <div class="form-group">
-    <label>
-      <span x-text="themeIconTintLabel()">{t('admin.theme.colors.iconTint', 'Tinte de iconos')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.iconTint')" :title="helpTooltipLabel()">?</button>
-    </label>
-    <select x-model="cfg.theme.iconTint">
-      <option value="original">{t('admin.theme.colors.iconTintOriginal', 'Original (sin tintar)')}</option>
-      <option value="accent">{t('admin.theme.colors.iconTintAccent', 'Color de acento')}</option>
-      <option value="text">{t('admin.theme.colors.iconTintText', 'Color de texto')}</option>
-      <option value="custom">{t('admin.theme.colors.iconTintCustom', 'Color personalizado')}</option>
-    </select>
-  </div>
+  <ColorField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.accentColor"
+    labelKey="admin.theme.colors.accent"
+    labelFallback="Color de acento"
+    labelExpr="themeAccentLabel()"
+    helpKey="theme.accentColor"
+  />
+  <SelectField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.iconTint"
+    options={iconTintOptions}
+    labelKey="admin.theme.colors.iconTint"
+    labelFallback="Tinte de iconos"
+    labelExpr="themeIconTintLabel()"
+    helpKey="theme.iconTint"
+  />
 </div>
 
-<div class="form-group" x-show="cfg.theme.iconTint==='custom'">
-  <label>
-    <span x-text="themeIconCustomLabel()">{t('admin.theme.colors.iconCustom', 'Color de icono (por modo)')}</span>
-    <button type="button" class="help-icon" @click="showHelp('theme.iconColor')" :title="helpTooltipLabel()">?</button>
-  </label>
-  <div class="theme-advanced-tabs" style="margin-bottom:0.5rem">
-    <button type="button" :class="themeTextEditMode==='dark' && 'active'" @click="themeTextEditMode='dark'">Dark</button>
-    <button type="button" :class="themeTextEditMode==='light' && 'active'" @click="themeTextEditMode='light'">Light</button>
-  </div>
+<FormGroup
+  useI18n={useI18n}
+  tr={tr}
+  labelKey="admin.theme.colors.iconCustom"
+  labelFallback="Color de icono (por modo)"
+  labelExpr="themeIconCustomLabel()"
+  helpKey="theme.iconColor"
+  show="cfg.theme.iconTint==='custom'"
+>
+  <TabBar
+    useI18n={useI18n}
+    tr={tr}
+    state="themeTextEditMode"
+    items={modeTabs}
+    variant="theme-advanced-tabs"
+    style="margin-bottom:0.5rem"
+  />
   <div class="theme-color-field">
     <input type="color" class="color-swatch" :value="getModeToken('icon')" @input="setModeToken('icon', $event.target.value)" />
     <input type="text" :value="getModeToken('icon')" @input="setModeToken('icon', $event.target.value)" placeholder="#60a5fa" />
   </div>
-</div>
+</FormGroup>
 
 <div class="form-row">
-  <div class="form-group">
-    <label>
-      <span x-text="themeColorModeLabel()">{t('admin.theme.colors.mode', 'Modo de color')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.colorMode')" :title="helpTooltipLabel()">?</button>
-    </label>
-    <select x-model="cfg.theme.colorMode">
-      <option value="auto">{t('admin.theme.colors.modeAuto', 'Auto')}</option>
-      <option value="dark">{t('admin.theme.colors.modeDark', 'Oscuro')}</option>
-      <option value="light">{t('admin.theme.colors.modeLight', 'Claro')}</option>
-    </select>
-  </div>
-  <div class="form-group" x-show="cfg.theme.colorMode==='auto'">
-    <label>
-      <span x-text="themeAutoStrategyLabel()">{t('admin.theme.colors.autoStrategy', 'Estrategia auto')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.autoStrategy')" :title="helpTooltipLabel()">?</button>
-    </label>
-    <select x-model="cfg.theme.autoStrategy">
-      <option value="system">{t('admin.theme.colors.autoSystem', 'Sistema (prefers-color-scheme)')}</option>
-      <option value="schedule">{t('admin.theme.colors.autoSchedule', 'Horario (7–19 claro)')}</option>
-    </select>
-  </div>
+  <SelectField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.colorMode"
+    options={colorModeOptions}
+    labelKey="admin.theme.colors.mode"
+    labelFallback="Modo de color"
+    labelExpr="themeColorModeLabel()"
+    helpKey="theme.colorMode"
+  />
+  <SelectField
+    useI18n={useI18n}
+    tr={tr}
+    model="cfg.theme.autoStrategy"
+    options={autoStrategyOptions}
+    labelKey="admin.theme.colors.autoStrategy"
+    labelFallback="Estrategia auto"
+    labelExpr="themeAutoStrategyLabel()"
+    helpKey="theme.autoStrategy"
+    show="cfg.theme.colorMode==='auto'"
+  />
 </div>
 
 <h4 style="margin:1rem 0 0.5rem;font-size:0.9rem;display:flex;align-items:center;gap:0.35rem">
   <span x-text="themeTextRampTitle()">{t('admin.theme.colors.textRamp', 'Rampa de texto por modo')}</span>
-  <button type="button" class="help-icon" @click="showHelp('theme.textColor')" :title="helpTooltipLabel()">?</button>
+  <HelpIcon helpKey="theme.textColor" />
 </h4>
-<div class="theme-advanced-tabs" style="margin-bottom:0.75rem">
-  <button type="button" :class="themeTextEditMode==='dark' && 'active'" @click="themeTextEditMode='dark'">Dark</button>
-  <button type="button" :class="themeTextEditMode==='light' && 'active'" @click="themeTextEditMode='light'">Light</button>
-</div>
+<TabBar
+  useI18n={useI18n}
+  tr={tr}
+  state="themeTextEditMode"
+  items={modeTabs}
+  variant="theme-advanced-tabs"
+  style="margin-bottom:0.75rem"
+/>
 
 <div class="theme-token-list">
   <template x-for="key in ['text','textMuted','textSubtle','textFaint']" :key="key">
@@ -101,7 +140,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 <div style="margin-top:0.75rem;padding:0.65rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)">
   <div style="font-size:0.78rem;color:var(--text-subtle);margin-bottom:0.45rem;display:flex;align-items:center;gap:0.35rem">
     <span x-text="themePalettePreviewLabel()">{t('admin.theme.colors.palettePreview', 'Paleta derivada del acento')}</span>
-    <button type="button" class="help-icon" @click="showHelp('theme.derivedPalette')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="theme.derivedPalette" />
   </div>
   <div style="display:flex;gap:0.35rem;flex-wrap:wrap">
     <div :style="`width:32px;height:32px;border-radius:6px;background:${cfg.theme.accentColor}`" :title="cfg.theme.accentColor"></div>

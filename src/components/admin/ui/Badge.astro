@@ -1,0 +1,36 @@
+---
+/**
+ * Etiqueta chica de estado. Reemplaza los `badge-pro`, `system-badge`,
+ * `icon-picker-badge` y similares que estaban sueltos.
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  textKey?: string;
+  textFallback?: string;
+  textExpr?: string;
+  show?: string;
+  /** Clase extra, ej: `badge-pro`. */
+  class?: string;
+  /** Expresión Alpine para `:class`, ej: `themeContrastClass('text')`. */
+  classExpr?: string;
+}
+
+const {
+  useI18n,
+  tr,
+  textKey,
+  textFallback = '',
+  textExpr,
+  show,
+  class: extraClass,
+  classExpr,
+} = Astro.props;
+
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+const text = textKey ? t(textKey, textFallback) : textFallback;
+---
+
+<span class:list={['admin-badge', extraClass]} :class={classExpr} x-show={show} x-text={textExpr}
+  >{text}</span
+>

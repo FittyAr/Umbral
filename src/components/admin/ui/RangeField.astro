@@ -1,0 +1,71 @@
+---
+import FormGroup from './FormGroup.astro';
+
+/**
+ * Slider numérico. Con `withNumber` agrega el input de número al lado, que es
+ * el patrón `layout-range-row` del tab de Layout; sin él queda el slider solo,
+ * como en el tab de Tema.
+ *
+ * El valor actual se muestra entre paréntesis en el label; por defecto se
+ * deriva del modelo, y `valueExpr` permite formatearlo (ej: `.toFixed(2)`).
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  /** Path Alpine, ej: `cfg.layout.columnsDesktop`. Se bindea con `.number`. */
+  model: string;
+  min: number | string;
+  max: number | string;
+  step?: number | string;
+  labelKey?: string;
+  labelFallback?: string;
+  labelExpr?: string;
+  helpKey?: string;
+  withNumber?: boolean;
+  show?: string;
+  /** Expresión del valor mostrado. Por defecto, el modelo tal cual. */
+  valueExpr?: string;
+  /** Unidad pegada al valor dentro del paréntesis, ej: `rem`, `px`. */
+  unit?: string;
+}
+
+const {
+  useI18n,
+  tr,
+  model,
+  min,
+  max,
+  step = 1,
+  labelKey,
+  labelFallback,
+  labelExpr,
+  helpKey,
+  withNumber = false,
+  show,
+  valueExpr = model,
+  unit,
+} = Astro.props;
+---
+
+<FormGroup
+  useI18n={useI18n}
+  tr={tr}
+  labelKey={labelKey}
+  labelFallback={labelFallback}
+  labelExpr={labelExpr}
+  helpKey={helpKey}
+  valueExpr={valueExpr}
+  valueUnit={unit}
+  show={show}
+>
+  {
+    withNumber ? (
+      <div class="layout-range-row">
+        <input type="range" min={min} max={max} step={step} x-model.number={model} />
+        <input type="number" min={min} max={max} step={step} x-model.number={model} class="layout-num-input" />
+      </div>
+    ) : (
+      <input type="range" min={min} max={max} step={step} x-model.number={model} />
+    )
+  }
+</FormGroup>

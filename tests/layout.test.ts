@@ -187,16 +187,9 @@ describe('category spacing CSS', () => {
     assert.match(src, /--ghost-category-gap:\$\{l\.ghostCategoryGap\}rem/);
   });
 
-  test('the Layout tab exposes a control for each gap', async () => {
-    const src = await readFile(
-      new URL('../src/components/admin/layout/LayoutGrid.astro', import.meta.url),
-      'utf8',
-    );
-    assert.match(src, /x-model\.number="cfg\.layout\.categoryGap"/);
-    assert.match(src, /x-model\.number="cfg\.layout\.ghostCategoryGap"/);
-    assert.match(src, /showHelp\('layout\.categoryGap'\)/);
-    assert.match(src, /showHelp\('layout\.ghostCategoryGap'\)/);
-  });
+  // Que el tab de Layout exponga un control por cada gap se verifica sobre el
+  // HTML renderizado en tests/admin-ui.astro.test.ts, que corre con la
+  // Container API de Astro y no depende del texto del fuente.
 });
 
 describe('PublicLayout favicon', () => {

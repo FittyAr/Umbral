@@ -1,0 +1,43 @@
+---
+import HelpIcon from './HelpIcon.astro';
+
+/**
+ * Checkbox dentro del label, que es el orden que ya usa el admin:
+ * input, texto, botón de ayuda.
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  /** Path Alpine, ej: `cfg.theme.showClock`. */
+  model: string;
+  labelKey?: string;
+  labelFallback?: string;
+  labelExpr?: string;
+  helpKey?: string;
+  show?: string;
+  class?: string;
+}
+
+const {
+  useI18n,
+  tr,
+  model,
+  labelKey,
+  labelFallback = '',
+  labelExpr,
+  helpKey,
+  show,
+  class: extraClass,
+} = Astro.props;
+
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+const labelText = labelKey ? t(labelKey, labelFallback) : labelFallback;
+---
+
+<div class:list={['form-group', extraClass]} x-show={show}>
+  <label>
+    <input type="checkbox" x-model={model} />
+    <span x-text={labelExpr}>{labelText}</span>
+    {helpKey && <HelpIcon helpKey={helpKey} />}
+  </label>
+</div>

@@ -1,0 +1,54 @@
+---
+import FormGroup from './FormGroup.astro';
+
+/**
+ * Swatch de color + input de texto hexadecimal, ambos sobre el mismo valor.
+ *
+ * Dos modos: `model` bindea directo a un path del config, y `token` usa los
+ * accessors por modo claro/oscuro (`getModeToken`/`setModeToken`) del tab de
+ * Tema. Hay que pasar exactamente uno de los dos.
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  /** Path Alpine, ej: `cfg.theme.accentColor`. */
+  model?: string;
+  /** Nombre de token por modo, ej: `icon`. Excluyente con `model`. */
+  token?: string;
+  labelKey?: string;
+  labelFallback?: string;
+  labelExpr?: string;
+  helpKey?: string;
+  show?: string;
+  placeholder?: string;
+}
+
+const { useI18n, tr, model, token, labelKey, labelFallback, labelExpr, helpKey, show, placeholder } =
+  Astro.props;
+
+if (!model && !token) {
+  throw new Error('ColorField necesita `model` o `token`.');
+}
+if (model && token) {
+  throw new Error('ColorField no acepta `model` y `token` a la vez.');
+}
+
+const bind = token
+  ? { ':value': `getModeToken('${token}')`, '@input': `setModeToken('${token}', $event.target.value)` }
+  : { 'x-model': model };
+---
+
+<FormGroup
+  useI18n={useI18n}
+  tr={tr}
+  labelKey={labelKey}
+  labelFallback={labelFallback}
+  labelExpr={labelExpr}
+  helpKey={helpKey}
+  show={show}
+>
+  <div class="theme-color-field">
+    <input type="color" class="color-swatch" {...bind} />
+    <input type="text" placeholder={placeholder} {...bind} />
+  </div>
+</FormGroup>

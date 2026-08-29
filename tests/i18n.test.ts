@@ -54,11 +54,24 @@ describe('showHelp coverage', () => {
     }
     walk(srcDir);
     const used = new Set<string>();
-    const re = /showHelp\(\s*['"]([^'"]+)['"]\s*\)/g;
+    // Las claves aparecen de tres formas: la llamada directa, el prop
+    // `helpKey="..."` de los componentes de src/components/admin/ui, y el
+    // campo `helpKey: '...'` de los arrays de campos que arman los paneles.
+    const patterns = [
+      /showHelp\(\s*['"]([^'"]+)['"]\s*\)/g,
+      /helpKey=["']([^"']+)["']/g,
+      /helpKey:\s*['"]([^'"]+)['"]/g,
+    ];
     for (const file of files) {
       const content = fs.readFileSync(file, 'utf8');
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(content)) !== null) used.add(m[1]);
+      for (const re of patterns) {
+        re.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(content)) !== null) {
+          // `showHelp('${helpKey}')` en HelpIcon.astro es la plantilla, no una clave.
+          if (!m[1].includes('${')) used.add(m[1]);
+        }
+      }
     }
     const catalog = new Set(keysOf(helpEs));
     const missing = [...used].filter((k) => !catalog.has(k)).sort();

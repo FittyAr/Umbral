@@ -1,0 +1,60 @@
+---
+/**
+ * Modal del admin: `template x-if` + backdrop que cierra al click afuera y con
+ * Escape, más el header con título y botón de cerrar.
+ *
+ * El cuerpo va en el slot por defecto; el pie en el slot `footer`.
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  /** Expresión Alpine que controla la visibilidad, ej: `showPresetsModal`. */
+  show: string;
+  /** Expresión Alpine que cierra el modal, ej: `showPresetsModal = false`. */
+  close: string;
+  titleKey?: string;
+  titleFallback?: string;
+  titleExpr?: string;
+  /** Clases extra sobre `.modal`, ej: `modal--wide`. */
+  modalClass?: string;
+  modalStyle?: string;
+  /** Texto accesible del botón de cerrar. */
+  closeLabel?: string;
+}
+
+const {
+  useI18n,
+  tr,
+  show,
+  close,
+  titleKey,
+  titleFallback = '',
+  titleExpr,
+  modalClass,
+  modalStyle,
+  closeLabel = 'Cerrar',
+} = Astro.props;
+
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+const titleText = titleKey ? t(titleKey, titleFallback) : titleFallback;
+const hasFooter = Astro.slots.has('footer');
+---
+
+<template x-if={show}>
+  <div class="modal-backdrop" @click.self={close} @keydown.escape.window={close}>
+    <div class:list={['modal', modalClass]} style={modalStyle}>
+      <div class="modal-header">
+        <h2 x-text={titleExpr}>{titleText}</h2>
+        <button type="button" class="btn btn-ghost btn-sm" @click={close} aria-label={closeLabel}>✕</button>
+      </div>
+      <slot />
+      {
+        hasFooter && (
+          <div class="modal-footer">
+            <slot name="footer" />
+          </div>
+        )
+      }
+    </div>
+  </div>
+</template>

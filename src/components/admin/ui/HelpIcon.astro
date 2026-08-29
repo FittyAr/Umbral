@@ -1,0 +1,13 @@
+---
+/**
+ * Botón "?" que abre el modal de ayuda. Se repite ~150 veces en el admin.
+ * `helpKey` es una clave del catálogo de `src/i18n/help/`.
+ */
+interface Props {
+  helpKey: string;
+}
+
+const { helpKey } = Astro.props;
+---
+
+<button type="button" class="help-icon" @click={`showHelp('${helpKey}')`} :title="helpTooltipLabel()">?</button>

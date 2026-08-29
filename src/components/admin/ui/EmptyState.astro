@@ -1,0 +1,28 @@
+---
+/**
+ * Mensaje de lista vacía. Aparece en el icon picker, las plantillas, el audit
+ * log y varias listas del admin.
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  /** Expresión Alpine para `x-show`. Sin ella el bloque siempre se muestra. */
+  show?: string;
+  messageKey?: string;
+  messageFallback?: string;
+  messageExpr?: string;
+  /** Ocupa todo el ancho de una grilla. */
+  fullWidth?: boolean;
+}
+
+const { useI18n, tr, show, messageKey, messageFallback = '', messageExpr, fullWidth = false } =
+  Astro.props;
+
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+const message = messageKey ? t(messageKey, messageFallback) : messageFallback;
+---
+
+<div class:list={['admin-empty-state', fullWidth && 'admin-empty-state--full']} x-show={show}>
+  <p x-text={messageExpr}>{message}</p>
+  <slot />
+</div>

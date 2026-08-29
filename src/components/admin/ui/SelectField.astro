@@ -1,0 +1,48 @@
+---
+import FormGroup from './FormGroup.astro';
+import { optionLabel, type SelectOption } from '~/lib/admin-ui';
+
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  /** Path Alpine, ej: `cfg.theme.colorMode`. */
+  model: string;
+  options: SelectOption[];
+  labelKey?: string;
+  labelFallback?: string;
+  labelExpr?: string;
+  helpKey?: string;
+  show?: string;
+  /** Bindea con `.number` cuando el valor es numérico. */
+  numeric?: boolean;
+}
+
+const {
+  useI18n,
+  tr,
+  model,
+  options,
+  labelKey,
+  labelFallback,
+  labelExpr,
+  helpKey,
+  show,
+  numeric = false,
+} = Astro.props;
+
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+---
+
+<FormGroup
+  useI18n={useI18n}
+  tr={tr}
+  labelKey={labelKey}
+  labelFallback={labelFallback}
+  labelExpr={labelExpr}
+  helpKey={helpKey}
+  show={show}
+>
+  <select x-model={numeric ? undefined : model} x-model.number={numeric ? model : undefined}>
+    {options.map((option) => <option value={option.value}>{optionLabel(option, t)}</option>)}
+  </select>
+</FormGroup>

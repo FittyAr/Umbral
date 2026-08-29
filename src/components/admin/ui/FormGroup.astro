@@ -1,0 +1,62 @@
+---
+import HelpIcon from './HelpIcon.astro';
+
+/**
+ * Envoltorio `form-group` + `<label>` con la doble capa de i18n del admin:
+ * `t()` escribe el texto en el servidor y `labelExpr` lo sobrescribe en
+ * cliente vía `x-text`, evitando FOUC.
+ *
+ * El control va en el slot por defecto. Para checkbox, select, slider o color
+ * usá los campos especializados (ToggleField, SelectField, RangeField,
+ * ColorField), que ya componen este mismo envoltorio.
+ *
+ * Orden canónico dentro del label: texto, valor actual entre paréntesis,
+ * botón de ayuda.
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  labelKey?: string;
+  labelFallback?: string;
+  /** Expresión Alpine para `x-text` del label (ej: `themeAccentLabel()`). */
+  labelExpr?: string;
+  /** Clave del catálogo de ayuda. Sin ella no se renderiza el botón "?". */
+  helpKey?: string;
+  /** Expresión Alpine cuyo valor se muestra entre paréntesis. */
+  valueExpr?: string;
+  /** Unidad pegada al valor dentro del paréntesis, ej: `rem`, `px`. */
+  valueUnit?: string;
+  /** Expresión Alpine para `x-show` en el `form-group`. */
+  show?: string;
+  /** Clases extra sobre `form-group`. */
+  class?: string;
+  style?: string;
+}
+
+const {
+  useI18n,
+  tr,
+  labelKey,
+  labelFallback = '',
+  labelExpr,
+  helpKey,
+  valueExpr,
+  valueUnit,
+  show,
+  class: extraClass,
+  style,
+} = Astro.props;
+
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+const labelText = labelKey ? t(labelKey, labelFallback) : labelFallback;
+---
+
+<div class:list={['form-group', extraClass]} x-show={show} style={style}>
+  <label>
+    <span x-text={labelExpr}>{labelText}</span>
+    {valueExpr && <Fragment>(<span x-text={valueExpr}></span>{valueUnit})</Fragment>}
+    {helpKey && <HelpIcon helpKey={helpKey} />}
+    <slot name="label-extra" />
+  </label>
+  <slot />
+</div>

@@ -1,0 +1,68 @@
+---
+import { optionLabel, type TabItem } from '~/lib/admin-ui';
+
+/**
+ * Barra de botones tipo tab. Unifica los cuatro estilos que existían suelto en
+ * el admin (`tabs`, `theme-nav`, `icon-picker-tabs`, `theme-advanced-tabs`):
+ * el marcado es el mismo, sólo cambia la clase del contenedor.
+ *
+ * `state` es la propiedad Alpine que guarda el tab activo; el componente arma
+ * tanto el `:class` de activo como el `@click` que la asigna.
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  /** Propiedad Alpine con el tab activo, ej: `themeSection`. */
+  state: string;
+  items: TabItem[];
+  /** Clase del contenedor. */
+  variant?: 'tabs' | 'theme-nav' | 'icon-picker-tabs' | 'theme-advanced-tabs' | 'layout-breakpoint-tabs';
+  /** Clase de cada botón. Por defecto se deriva de `variant`. */
+  buttonClass?: string;
+  /**
+   * Expresión que se ejecuta al hacer click, con `$id` reemplazado por el id
+   * del ítem. Por defecto asigna `state`.
+   */
+  onSelect?: string;
+  style?: string;
+}
+
+const BUTTON_CLASS: Record<string, string | undefined> = {
+  tabs: 'tab',
+  'theme-nav': 'theme-nav-btn',
+  'icon-picker-tabs': 'icon-picker-tab',
+  'theme-advanced-tabs': undefined,
+  'layout-breakpoint-tabs': undefined,
+};
+
+const {
+  useI18n,
+  tr,
+  state,
+  items,
+  variant = 'tabs',
+  buttonClass = BUTTON_CLASS[variant],
+  onSelect,
+  style,
+} = Astro.props;
+
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+const clickExpr = (id: string) =>
+  onSelect ? onSelect.replaceAll('$id', id) : `${state} = '${id}'`;
+---
+
+<div class={variant} style={style}>
+  {
+    items.map((item) => (
+      <button
+        type="button"
+        class={buttonClass}
+        :class={`${state}==='${item.id}' && 'active'`}
+        x-show={item.show}
+        @click={clickExpr(item.id)}
+      >
+        <span x-text={item.labelExpr}>{optionLabel(item, t)}</span>
+      </button>
+    ))
+  }
+</div>
