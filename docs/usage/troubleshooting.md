@@ -202,6 +202,25 @@ curl -I -H "X-Forwarded-Proto: https" http://localhost:3000/ | grep -i strict-tr
 
 ---
 
+## Las plantillas de app aparecen sin ícono
+
+**Causa:** Umbral no trae ningún icon pack instalado. Las plantillas del modal
+"Nueva tarjeta desde plantilla" referencian íconos de Lucide, así que hasta que
+no instales ese pack no hay SVG que mostrar.
+
+**Solución:** instalá el pack desde la pestaña **Íconos** del admin. Después de
+instalarlo las plantillas muestran su ícono y las tarjetas nuevas lo guardan.
+
+El admin nunca pide un SVG de un pack que no esté instalado, así que la consola
+no debería mostrar `GET /api/icons/lucide/*.svg 404`. Si los ves, la lista de
+íconos disponibles quedó desactualizada: recargá el dashboard.
+
+Como el ícono de la plantilla no se puede resolver, la tarjeta se crea **sin**
+ícono en vez de guardar una referencia rota. Si instalás el pack más tarde,
+elegí el ícono a mano en el editor de la tarjeta.
+
+---
+
 ## "Card order" se vuelve raro después de drag-and-drop
 
 **Causa:** bug conocido si arrastrás mientras la app está guardando. (En general, no debería pasar — el form espera el save.)

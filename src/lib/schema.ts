@@ -644,7 +644,11 @@ export const HeadersSecuritySchema = z.object({
     .string()
     .nullable()
     .default(
-      "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
+      // Sin orígenes remotos: el render por defecto es 100% local. Quien active
+      // `theme.useGoogleFonts` tiene que agregar fonts.googleapis.com a
+      // style-src y fonts.gstatic.com a font-src. Debe coincidir con el
+      // default de `src/lib/config.ts`.
+      "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
     ),
   // X-Frame-Options. DENY por default (anti clickjacking).
   xFrameOptions: z.enum(['DENY', 'SAMEORIGIN', 'NONE']).default('DENY'),

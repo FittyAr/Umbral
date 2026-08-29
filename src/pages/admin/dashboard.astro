@@ -1925,7 +1925,7 @@ const THEME_PRESET_I18N = {
                 x-model="presetFilter"
                 placeholder="Buscar app (Grafana, Ollama, Nextcloud, GitLab...)"
                 style="width:100%"
-                autofocus
+                x-init="$nextTick(() => $el.focus())"
               />
               <button
                 type="button"
@@ -1976,7 +1976,9 @@ const THEME_PRESET_I18N = {
               >
                 <div style="display:flex;align-items:center;gap:0.5rem;width:100%;margin-bottom:0.4rem">
                   <div class="icon-preview" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">
-                    <img x-show="resolveIcon(p.icon)" :src="resolveIcon(p.icon)" style="max-width:20px;max-height:20px" :alt="p.name" />
+                    <template x-if="resolveIcon(p.icon)">
+                      <img :src="resolveIcon(p.icon)" style="max-width:20px;max-height:20px" :alt="p.name" />
+                    </template>
                   </div>
                   <strong style="font-size:0.9rem;flex:1" x-text="p.name"></strong>
                   <span class="color-dot" :style="`background:${p.color}`"></span>
@@ -2016,7 +2018,7 @@ const THEME_PRESET_I18N = {
           <form @submit.prevent="verifyAndSaveTotp()">
             <div class="form-group">
               <label>Código de verificación (6 dígitos)</label>
-              <input type="text" x-model="totpVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autofocus autocomplete="one-time-code" />
+              <input type="text" x-model="totpVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autocomplete="one-time-code" x-init="$nextTick(() => $el.focus())" />
             </div>
             <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
               <button type="button" class="btn btn-ghost" @click="showTotpSetupModal = false">Cancelar</button>
@@ -2099,6 +2101,7 @@ const THEME_PRESET_I18N = {
     } from '~/lib/cards-admin';
     import { isSystemCard as checkSystemCard, restoreSystemCardProtectedFields, SYSTEM_DOCS_ICON, SYSTEM_DOCS_ICON_PATH } from '~/lib/system-card';
     import { clampCardSpan, MAX_CARD_SPAN } from '~/lib/card-span';
+    import { createInstalledIconLookup } from '~/lib/icon-url';
     import { applyThemePreset, getBuiltinPreset, getPresetVariant } from '~/lib/theme-presets';
     import { mergeThemePartial, deriveTokensFromAccent, TOKEN_KEY_MAP, applyThemePartialInPlace, replaceThemeInPlace, computeThemeVars, contrastRatio, colorToHexApprox } from '~/lib/theme-tokens';
     installSortableGuard(Sortable);
@@ -2462,7 +2465,10 @@ const THEME_PRESET_I18N = {
             description: p.description,
             descriptionFormat: 'plain',
             url: '',
-            icon: p.icon,
+            // Las plantillas referencian íconos Lucide. Si ese pack no está
+            // instalado, guardar la referencia dejaría la tarjeta con un
+            // ícono roto en la portada, así que la creamos sin ícono.
+            icon: this.resolveIcon(p.icon) ? p.icon : '',
             category: cat ? cat.id : '',
             openInNewTab: true,
             color: p.color || this.cfg.theme.accentColor,
@@ -4775,6 +4781,18 @@ const THEME_PRESET_I18N = {
           }
         },
 
+        // `availableIcons` se reemplaza entero al instalar o desinstalar un
+        // pack, así que comparar la referencia alcanza para invalidar el
+        // lookup, y leerla acá mantiene la reactividad de Alpine.
+        _installedIcons: null,
+        isIconInstalled(icon) {
+          const list = this.availableIcons || [];
+          if (!this._installedIcons || this._installedIcons.source !== list) {
+            this._installedIcons = { source: list, has: createInstalledIconLookup(list) };
+          }
+          return this._installedIcons.has(icon);
+        },
+
         resolveIcon(icon, card) {
           if (card && checkSystemCard(card)) {
             icon = SYSTEM_DOCS_ICON;
@@ -4793,7 +4811,12 @@ const THEME_PRESET_I18N = {
             return prefix + icon.slice(1);
           }
           if (icon.includes('/')) {
-            return prefix + 'api/icons/' + icon.replace(/\.svg$/, '') + '.svg';
+            const clean = icon.replace(/\.svg$/, '');
+            // Sin el pack instalado el <img> dispara un 404 por ícono. Pasa
+            // seguido con las plantillas, que referencian Lucide, y el
+            // proyecto arranca sin ningún pack.
+            if (!this.isIconInstalled(clean)) return '';
+            return prefix + 'api/icons/' + clean + '.svg';
           }
           if (/\.(png|jpg|jpeg|webp|gif|ico)$/i.test(icon)) {
             return prefix + 'api/assets/' + icon;
