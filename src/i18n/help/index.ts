@@ -2,6 +2,12 @@ import type { Locale } from '../index.ts';
 import { helpEs, type HelpCatalog, type HelpText } from './es.ts';
 import { helpEn } from './en.ts';
 import { helpPt } from './pt.ts';
+import { helpFr } from './fr.ts';
+import { helpDe } from './de.ts';
+import { helpIt } from './it.ts';
+import { helpZh } from './zh.ts';
+import { helpJa } from './ja.ts';
+import { helpRu } from './ru.ts';
 
 export type { HelpCatalog, HelpText };
 
@@ -9,6 +15,12 @@ const CATALOGS: Record<Locale, HelpCatalog> = {
   es: helpEs,
   en: helpEn,
   pt: helpPt,
+  fr: helpFr,
+  de: helpDe,
+  it: helpIt,
+  zh: helpZh,
+  ja: helpJa,
+  ru: helpRu,
 };
 
 export function getHelpTexts(locale: Locale): HelpCatalog {

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { isFeatureEnabled } from '~/lib/features';
-import { isLocale, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '~/i18n';
+import { isLocale, LOCALES, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '~/i18n';
 import { getConfig } from '~/lib/config';
 
 export const prerender = false;
@@ -8,7 +8,7 @@ export const prerender = false;
 /**
  * POST /api/locale
  *
- * Body: { locale: 'es' | 'en' | 'pt' } (form-urlencoded o JSON).
+ * Body: { locale: string } (form-urlencoded o JSON).
  * Set cookie `umbral_locale` por 30 días, redirige a la página anterior.
  *
  * Gate: sólo funciona si `features.i18n.enabled === true`. Si la feature
@@ -38,7 +38,7 @@ export const POST: APIRoute = async ({ request, redirect, cookies }) => {
   }
 
   if (!locale || !isLocale(locale)) {
-    return new Response('Locale inválido (esperado: es | en | pt)', { status: 400 });
+    return new Response(`Locale inválido (esperado: ${LOCALES.join(' | ')})`, { status: 400 });
   }
 
   cookies.set(LOCALE_COOKIE, locale, {

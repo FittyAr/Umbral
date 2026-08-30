@@ -1,5 +1,6 @@
 ---
 import HelpIcon from '../ui/HelpIcon.astro';
+import { LOCALES, LOCALE_NAMES } from '~/i18n';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -39,6 +40,21 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         </div>
         <div x-show="isFeatureOn(f.name)" style="margin-top:0.5rem" x-cloak>
           <div style="font-size:0.75rem;color:var(--text-subtle)" x-text="f.body"></div>
+          <template x-if="f.name === 'i18n'">
+            <div style="margin-top:0.6rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+              <label style="font-size:0.8rem;font-weight:500;color:var(--text)">Idioma por defecto del portal:</label>
+              <select
+                class="input"
+                style="width:auto;padding:0.25rem 0.5rem;font-size:0.8rem"
+                :value="cfg.features?.i18n?.locale || 'es'"
+                @change="if (!cfg.features.i18n) cfg.features.i18n = { enabled: true }; cfg.features.i18n.locale = $event.target.value; dirty = true"
+              >
+                {LOCALES.map((loc) => (
+                  <option value={loc}>{LOCALE_NAMES[loc]} ({loc})</option>
+                ))}
+              </select>
+            </div>
+          </template>
         </div>
         <!-- Alerta de compatibilidad para el feature QR en modo demo.
              La generación dinámica de QRs en el server requiere el

@@ -40,9 +40,15 @@ import type { Config } from '~/lib/schema';
 import { es } from './es';
 import { en } from './en';
 import { pt } from './pt';
+import { fr } from './fr';
+import { de } from './de';
+import { it } from './it';
+import { zh } from './zh';
+import { ja } from './ja';
+import { ru } from './ru';
 
-export type Locale = 'es' | 'en' | 'pt';
-export const LOCALES: Locale[] = ['es', 'en', 'pt'];
+export type Locale = 'es' | 'en' | 'pt' | 'fr' | 'de' | 'it' | 'zh' | 'ja' | 'ru';
+export const LOCALES: Locale[] = ['es', 'en', 'pt', 'fr', 'de', 'it', 'zh', 'ja', 'ru'];
 export const DEFAULT_LOCALE: Locale = 'es';
 
 /** Nombre nativo del locale para mostrar en el switcher. */
@@ -50,6 +56,12 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   es: 'Español',
   en: 'English',
   pt: 'Português',
+  fr: 'Français',
+  de: 'Deutsch',
+  it: 'Italiano',
+  zh: '简体中文',
+  ja: '日本語',
+  ru: 'Русский',
 };
 
 /** Cookie que guarda el override del visitante. 30 días. */
@@ -62,6 +74,12 @@ const DICTIONARIES: Record<Locale, Messages> = {
   es,
   en,
   pt: pt as Messages, // PT puede tener keys faltantes; fallback abajo
+  fr: fr as Messages,
+  de: de as Messages,
+  it: it as Messages,
+  zh: zh as Messages,
+  ja: ja as Messages,
+  ru: ru as Messages,
 };
 
 /** Tipo de un diccionario (tipo estructural, no literal). */
@@ -179,7 +197,7 @@ export function resolveLocale(
 
 /** Type-guard para Locale. */
 export function isLocale(s: string): s is Locale {
-  return s === 'es' || s === 'en' || s === 'pt';
+  return (LOCALES as string[]).includes(s);
 }
 
 /**

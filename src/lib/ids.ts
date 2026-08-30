@@ -7,10 +7,13 @@
  * plantilla) producen el mismo id. Acá siempre lo lleva.
  */
 
-/** Sufijo aleatorio en base36. Cuatro caracteres alcanzan: el id ya está
- *  acotado al milisegundo, esto sólo desempata dentro de él. */
-function randomSuffix(length = 4): string {
-  return Math.random().toString(36).slice(2, 2 + length);
+let counter = 0;
+
+/** Sufijo aleatorio en base36 con contador secuencial para garantizar unicidad. */
+function randomSuffix(length = 6): string {
+  const seq = (++counter % 46656).toString(36).padStart(3, '0');
+  const rand = Math.random().toString(36).slice(2, 2 + length);
+  return `${seq}${rand}`;
 }
 
 /**
