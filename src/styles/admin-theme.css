@@ -45,7 +45,7 @@
   font-size: 0.85rem;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background var(--t), color var(--t), border-color var(--t);
 }
 
 .theme-nav-btn:hover {
@@ -199,24 +199,9 @@
 }
 
 .theme-preview-mode-btns {
-  display: flex;
+  --pill-pad: 0.2rem 0.45rem;
+  --pill-font: 0.72rem;
   gap: 0.25rem;
-}
-
-.theme-preview-mode-btns button {
-  padding: 0.2rem 0.45rem;
-  font-size: 0.72rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.theme-preview-mode-btns button.active {
-  background: var(--accent-muted);
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 .theme-preview-frame {
@@ -358,7 +343,7 @@
   font-weight: 600;
   /* Para que las opciones de hover de la sección Animaciones se sientan acá
      igual que en la portada. La duración la pisa el CSS generado. */
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform var(--t-slow) ease, box-shadow var(--t-slow) ease;
 }
 
 .theme-preview-card-icon {
@@ -388,7 +373,7 @@
 }
 
 .theme-contrast-fail {
-  color: #ef4444;
+  color: var(--status-error-text);
 }
 
 .theme-preview-footer {
@@ -415,7 +400,7 @@
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--surface);
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color var(--t), transform var(--t);
   text-align: left;
   display: flex;
   flex-direction: column;
@@ -538,25 +523,13 @@
 }
 
 .theme-advanced-tabs {
-  display: flex;
-  gap: 0.35rem;
+  --pill-pad: 0.35rem 0.65rem;
+  --pill-font: 0.8rem;
+  --pill-radius: var(--radius-sm);
+  /* Estas tabs marcan el activo con el color de texto pleno, no con el acento:
+     conviven con swatches de color y el acento competía visualmente. */
+  --pill-active-fg: var(--text);
   margin-bottom: 0.75rem;
-}
-
-.theme-advanced-tabs button {
-  padding: 0.35rem 0.65rem;
-  font-size: 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.theme-advanced-tabs button.active {
-  background: var(--accent-muted);
-  border-color: var(--accent);
-  color: var(--text);
 }
 
 .theme-token-list {

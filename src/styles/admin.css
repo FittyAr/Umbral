@@ -34,7 +34,7 @@
   padding: 0.4rem 0.7rem;
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--t), color var(--t);
 }
 .nav-home:hover { background: var(--surface-hover); color: var(--text); text-decoration: none; }
 .nav-divider { width: 1px; height: 20px; background: var(--border); }
@@ -67,7 +67,7 @@
   font-family: inherit;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color var(--t), border-color var(--t);
 }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
@@ -151,7 +151,7 @@ input[type="color"], input[type="email"], select, textarea {
   font-size: 0.9rem;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--t);
 }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 input::placeholder, textarea::placeholder { color: var(--text-faint); }
@@ -169,7 +169,7 @@ textarea { resize: vertical; min-height: 60px; }
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.15s;
+  transition: all var(--t);
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -181,11 +181,49 @@ textarea { resize: vertical; min-height: 60px; }
 .btn-loading { cursor: wait !important; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .spin { animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; }
-.btn-danger { background: #dc2626; color: #ffffff; }
-.btn-danger:hover { background: #b91c1c; }
+.btn-danger { background: var(--status-error); color: #ffffff; }
+.btn-danger:hover { background: color-mix(in srgb, var(--status-error), #000 18%); }
 .btn-ghost { background: transparent; color: var(--text-subtle); border-color: var(--border); }
 .btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
 .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+
+/* ── Grupo de tabs-píldora ──
+   Tres grupos (breakpoints de layout, viewport de la vista previa, modo de la
+   vista previa de tema y las tabs avanzadas) tenían la misma definición
+   copiada, diferenciándose sólo en el padding, el tamaño de fuente y el color
+   del activo. Ahora eso son tres custom properties. */
+.pill-tabs,
+.layout-breakpoint-tabs,
+.layout-preview-viewport-btns,
+.theme-preview-mode-btns,
+.theme-advanced-tabs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.pill-tabs > button,
+.layout-breakpoint-tabs button,
+.layout-preview-viewport-btns button,
+.theme-preview-mode-btns button,
+.theme-advanced-tabs button {
+  padding: var(--pill-pad, 0.3rem 0.6rem);
+  font-size: var(--pill-font, 0.78rem);
+  border: 1px solid var(--border);
+  border-radius: var(--pill-radius, 4px);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+.pill-tabs > button.active,
+.layout-breakpoint-tabs button.active,
+.layout-preview-viewport-btns button.active,
+.theme-preview-mode-btns button.active,
+.theme-advanced-tabs button.active {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--pill-active-fg, var(--accent));
+}
 
 /* ─────────────────────────────────────────────────────────────────────
    Card list (sortable)
@@ -203,7 +241,7 @@ textarea { resize: vertical; min-height: 60px; }
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: grab;
-  transition: border-color 0.15s;
+  transition: border-color var(--t);
 }
 .card-item:hover { border-color: var(--border-strong); }
 .card-item.sortable-ghost { opacity: 0.4; }
@@ -287,7 +325,7 @@ textarea { resize: vertical; min-height: 60px; }
   text-align: center;
   color: var(--text-subtle);
   margin-bottom: 1rem;
-  transition: all 0.15s;
+  transition: all var(--t);
   cursor: pointer;
 }
 .uploader.dragover {
@@ -445,7 +483,7 @@ textarea { resize: vertical; min-height: 60px; }
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
-  transition: border-color 0.12s, background 0.12s, color 0.12s;
+  transition: border-color var(--t-fast), background var(--t-fast), color var(--t-fast);
 }
 .icon-picker-tile:hover {
   border-color: var(--accent);
@@ -501,7 +539,7 @@ textarea { resize: vertical; min-height: 60px; }
   box-shadow: var(--shadow-modal);
   opacity: 0;
   transform: translateX(20px);
-  transition: all 0.3s;
+  transition: all var(--t-slower);
   max-width: 320px;
   font-size: 0.85rem;
 }
@@ -513,10 +551,21 @@ textarea { resize: vertical; min-height: 60px; }
 /* ─────────────────────────────────────────────────────────────────────
    Misc
    ───────────────────────────────────────────────────────────────────── */
-.empty-state {
+/* Estado vacío. `.empty-state` y `.admin-empty-state` eran dos definiciones
+   casi iguales con distinto color y padding: ahora es una, y el componente
+   EmptyState del kit usa la variante `--full` para ocupar toda la grilla. */
+.empty-state,
+.admin-empty-state {
   text-align: center;
-  padding: 2rem;
-  color: var(--text-faint);
+  padding: 2rem 1rem;
+  color: var(--text-subtle);
+  font-size: 0.85rem;
+}
+.admin-empty-state p {
+  margin: 0;
+}
+.admin-empty-state--full {
+  grid-column: 1 / -1;
 }
 
 .preview-box {
@@ -550,26 +599,8 @@ textarea { resize: vertical; min-height: 60px; }
   margin-left: auto;
 }
 
-/* Mode toggle in the admin nav (matches the one in the public home). */
-.mode-toggle-admin {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-subtle);
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s;
-  padding: 0;
-}
-.mode-toggle-admin:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
-  color: var(--text);
-}
+/* El mode toggle del admin comparte definición con el de la portada y el
+   refresh: `.icon-pill` y sus alias viven en global.css. */
 
 /* ── Feature flags grid (tab Avanzado → Features) ──────────────────── */
 .features-grid {
@@ -583,7 +614,7 @@ textarea { resize: vertical; min-height: 60px; }
   border-radius: 8px;
   padding: 0.75rem 0.9rem;
   background: var(--surface);
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--t), background var(--t);
 }
 .feature-card:hover {
   border-color: var(--border-strong);
@@ -607,7 +638,7 @@ textarea { resize: vertical; min-height: 60px; }
   cursor: pointer;
   inset: 0;
   background-color: var(--border-strong);
-  transition: 0.2s;
+  transition: var(--t-slow);
   border-radius: 999px;
 }
 .switch .slider::before {
@@ -618,7 +649,7 @@ textarea { resize: vertical; min-height: 60px; }
   left: 3px;
   bottom: 3px;
   background-color: white;
-  transition: 0.2s;
+  transition: var(--t-slow);
   border-radius: 50%;
 }
 .switch input:checked + .slider {
@@ -766,7 +797,7 @@ textarea { resize: vertical; min-height: 60px; }
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.6rem 0.8rem;
-  transition: opacity 0.15s;
+  transition: opacity var(--t);
 }
 .webhook-disabled { opacity: 0.5; }
 .webhook-item:hover { border-color: var(--border-strong); }
@@ -828,21 +859,6 @@ textarea { resize: vertical; min-height: 60px; }
   border: 1px solid var(--border);
   color: var(--text-subtle);
   font-size: 0.7rem;
-}
-
-.admin-empty-state {
-  text-align: center;
-  padding: 2rem 1rem;
-  color: var(--text-subtle);
-  font-size: 0.85rem;
-}
-
-.admin-empty-state p {
-  margin: 0;
-}
-
-.admin-empty-state--full {
-  grid-column: 1 / -1;
 }
 
 /* ── Modals & Badges ────────────────────────────────────────────────── */
@@ -933,7 +949,7 @@ html[data-mode="light"] .modal {
   line-height: 1;
   cursor: pointer;
   vertical-align: middle;
-  transition: background 0.12s, color 0.12s, transform 0.12s;
+  transition: background var(--t-fast), color var(--t-fast), transform var(--t-fast);
 }
 
 .help-icon:hover {

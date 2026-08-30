@@ -48,7 +48,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
               <div class="layout-preview-grid">
                 <template x-for="(card, i) in group.cards" :key="group.id + '-' + i">
                   <div
-                    class="layout-preview-card"
+                    class="layout-preview-card card-surface"
                     :data-style="cfg.theme.cardStyle"
                     :data-size="cfg.layout.cardSize"
                     :style="`border-radius:${cfg.layout.cardRadius ?? 12}px`"

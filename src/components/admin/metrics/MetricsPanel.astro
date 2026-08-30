@@ -39,7 +39,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   </div>
 
   <div x-show="metricsLoading" style="color:var(--text-subtle);padding:0.5rem 0" x-cloak x-text="metricsLoadingLabel()">Cargando…</div>
-  <div x-show="metricsError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="metricsError"></div>
+  <div x-show="metricsError" style="color:var(--status-error-text);padding:0.5rem 0" x-cloak x-text="metricsError"></div>
 
   <div x-show="!metricsLoading && !metricsError" x-cloak>
     <div style="overflow:auto">

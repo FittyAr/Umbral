@@ -31,8 +31,9 @@
     "test:admin-alpine": "node --test --experimental-strip-types tests/admin-alpine.test.ts",
     "test:config-gating": "node --test --experimental-strip-types tests/config-gating.test.ts",
     "test:lib-shared": "node --test --experimental-strip-types tests/lib-shared.test.ts",
+    "test:css-split": "node --test --experimental-strip-types tests/css-split.test.ts",
     "test:astro": "vitest run",
-    "test": "npm run test:astro && npm run test:client-config && npm run test:admin-alpine && npm run test:config-gating && npm run test:lib-shared && npm run test:offline && npm run test:animations && npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:card-span && npm run test:icon-url && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
+    "test": "npm run test:astro && npm run test:client-config && npm run test:admin-alpine && npm run test:config-gating && npm run test:lib-shared && npm run test:css-split && npm run test:offline && npm run test:animations && npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:card-span && npm run test:icon-url && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
     "astro": "astro"
   },
   "dependencies": {

@@ -98,7 +98,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
               <button
                 type="button"
                 class="btn btn-sm btn-ghost"
-                style="color:#ef4444"
+                style="color:var(--status-error-text)"
                 @click="uninstallPack(pack.id)"
                 :disabled="isPackActionBlocked(pack.id)"
                 :class="{ 'btn-loading': isPackBusy(pack.id) }"
