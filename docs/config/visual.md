@@ -1,279 +1,90 @@
-# Personalización visual
+# Personalización Visual y Temas en Umbral
 
-> Cómo customizar el look de la portada. Todo se hace desde el panel admin (`/admin`) o editando `data/config.json` directamente.
+Umbral ofrece un sistema de diseño visual flexible y de alto rendimiento que permite personalizar completamente el aspecto de la portada y de las tarjetas sin depender de frameworks pesados de CSS.
 
-## Tabs relevantes
+---
 
-- **Branding** — nombre de la empresa, logo, favicon.
-- **Tema** — fondo, colores, fuente, modo claro/oscuro, estilo de tarjeta.
-- **Layout** — columnas, tamaño de card, descripciones.
+## 🎨 Galería de Presets Integrados
 
-## Branding
+Umbral incluye **8 temas predefinidos con paletas duales completas** (optimizadas para modo claro y oscuro):
 
-### Nombre de empresa
+| Preset | Características Visuales | Tono Predominante |
+|---|---|---|
+| **Midnight** | Gradiente azul medianoche profundo con desenfoque suave. Tema por defecto. | Azul oscuro / Índigo |
+| **Ocean** | Tonos marinos profundos con alto contraste para texto claro. | Azul océano |
+| **Forest** | Verde esmeralda y musgo con toques orgánicos. | Verde natural |
+| **Sunset** | Degradados cálidos en tonos ámbar, naranja y magenta. | Atardecer cálido |
+| **Corporate** | Esquema sobrio, limpio y profesional con contraste optimizado para oficinas. | Gris pizarra / Azul marino |
+| **Terminal** | Fondo negro absoluto (`#000000`) con acentos verde fósforo estilo consola hacker. | Monocromático / Verde |
+| **Glass Aurora** | Efecto glassmorphism avanzado con halos en púrpura y magenta. | Púrpura galáctico |
+| **Minimal Mono** | Escala de grises minimalista en blanco y negro de máxima claridad. | Monocromo |
 
-- Aparece en el `<h1>` del header y en el `<title>` HTML.
-- Default: "Mi Empresa".
-- 1-80 chars.
+> 💡 **Presets personalizados:** Puedes guardar hasta 5 configuraciones de tema propias directamente desde el panel para reutilizarlas o exportarlas en formato JSON.
 
-### Logo
+---
 
-- Si subís uno, aparece a la izquierda del título en el header.
-- Si no, se muestra la **inicial** del nombre (ej: "A" para "Acme") en un cuadrado con el color de acento.
-- Tamaño recomendado: 200x60 px, fondo transparente, PNG o SVG.
-- Subilo desde `/admin` → tab **Assets** (kind: "logo"), después seleccionalo en **Branding**.
+## 🖼️ Fondos Independientes por Modo (Light & Dark)
 
-### Favicon
+Umbral soporta fondos diferenciados para el modo oscuro (`theme.background`) y el modo claro (`theme.backgroundLight`):
 
-- El ícono que aparece en la pestaña del browser.
-- 32x32 px, ICO o PNG.
-- Default: el que viene en el repo (`public/favicon.svg`).
+1. **Creador Visual de Gradientes:**
+   - Permite ajustar ángulos interactivos (de 0° a 360°) y múltiples paradas de color con selector visual.
+   - Genera automáticamente código CSS válido (`linear-gradient`, `radial-gradient`).
+2. **Color Sólido:**
+   - Permite seleccionar un color hexadecimal fijo.
+3. **Imagen de Fondo:**
+   - Selecciona imágenes cargadas en el gestor de assets (`/api/assets/...`).
+   - Se optimiza con **Desenfoque (Blur de 0 a 40px)** y **Capa de superposición (Overlay de 0 a 1)** para garantizar legibilidad del texto.
+4. **Duplicación con Un Clic:**
+   - Botón "Copiar de otro modo" para transferir la configuración de un modo al otro instantáneamente.
 
-## Tema
+---
 
-El tab **Tema** del admin está organizado en secciones: **Presets**, **Fondo**, **Colores**, **Tipografía**, **Tarjetas**, **Widgets** y **Avanzado** (design tokens).
+## 🃏 Estilos de Tarjetas
 
-### Presets (`theme` — galería)
+La propiedad `theme.cardStyle` define la estética de los contenedores de enlaces y notas:
 
-Ocho presets built-in (Midnight, Ocean, Forest, Sunset, Corporate, Terminal, Glass Aurora, Minimal Mono) más hasta **5 presets custom** guardados desde el panel. Cada preset built-in define una **paleta dual completa**: fondo oscuro (`background`), fondo claro (`backgroundLight`) y tokens por modo (`theme.tokens.dark` / `theme.tokens.light`) con rampa de texto, superficies, bordes y acento. Los botones **Oscuro** / **Claro** aplican el preset y fijan el `colorMode` inicial; el toggle de la portada alterna entre ambas mitades de la paleta.
+- **`glass` (Glassmorphism, por defecto):** Utiliza `backdrop-filter: blur(12px)` con fondos translúcidos y bordes sutiles.
+- **`flat`:** Tarjetas sólidas con fondo opaco y sombras suaves.
+- **`outlined`:** Fondos transparentes con bordes nítidos de 1px o 2px.
 
-### Vista previa
+---
 
-- **Preview embebido** en el panel con toggle Dark / Light / Auto.
-- **Abrir preview en pestaña** (`/?themePreview=1`) aplica el draft desde `localStorage` sin persistir.
+## 🔠 Tipografías y Carga Segura
 
-### Fondo (`theme.background` / `theme.backgroundLight`)
+El selector de fuentes soporta una lista curada de tipografías populares de Google Fonts y fuentes del sistema:
+- **Fuentes sans-serif:** `Inter` (por defecto), `Roboto`, `Outfit`, `Poppins`, `Montserrat`, `Open Sans`.
+- **Fuentes monoespaciadas:** `Fira Code`, `JetBrains Mono`.
+- **Fuentes del sistema:** `system-ui` (costo de red cero).
 
-- **`background`:** fondo del modo oscuro.
-- **`backgroundLight` (opcional):** fondo del modo claro. Si falta, se reutiliza `background`.
+La URL de fuentes (`theme.fontUrl`) se valida de forma estricta contra el dominio oficial `fonts.googleapis.com` para prevenir inyecciones de código.
 
-Tres tipos:
+---
 
-#### Gradient (default)
+## 🎬 Sistema de Animaciones CSS
 
-CSS libre en `value`. Ejemplos:
+Cuando la feature `animations` está activa, Umbral inyecta estilos CSS puros para transiciones fluidas:
 
-```css
-linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%)
-radial-gradient(ellipse at top, #1e293b, #0f172a)
-conic-gradient(from 180deg at 50% 50%, #0f172a 0deg, #1e3a8a 180deg, #0f172a 360deg)
-```
+### Efectos Disponibles
+- **Entrada de tarjetas (`cardEntrance`):** `fade`, `scale`, `slideUp`, `slideDown`, `slideLeft`, `slideRight`, `blur`.
+- **Retardo escalonado (`cardEntranceStagger`):** De 0 a 100ms entre tarjetas consecutivas para generar un efecto de cascada natural.
+- **Hover en tarjetas (`cardHover`):**
+  - `lift`: Elevación vertical sutil con sombra dinámica.
+  - `grow`: Aumento de escala suave (1.03x).
+  - `glow`: Resplandor perimetral con el color de acento.
+  - `tilt`: Inclinación en perspectiva 3D.
+- **Efectos de encabezado:** Título con efecto de máquina de escribir y contadores de apps animados.
 
-- **Blur (0-40 px):** desenfoca el fondo. Útil si querés un gradiente o color fuerte detrás sin que distraiga.
-- **Overlay (0-1):** multiplica una capa de color encima. Útil para oscurecer y mejorar contraste con el texto.
-- **Overlay color:** cualquier hex.
+### Accesibilidad Nativa
+Todas las animaciones respetan automáticamente la preferencia `@media (prefers-reduced-motion: reduce)` del sistema operativo del visitante si `respectReducedMotion` está habilitado.
 
-#### Color sólido
+---
 
-```css
-#0f172a
-#1a1a1a
-white
-```
+## 🧩 Widgets de Interfaz
 
-#### Imagen subida
-
-- Subila desde **Assets** (kind: "background"), después elegila en el dropdown.
-- Tamaño recomendado: 1920x1080 o más, JPG o WebP.
-- Si el archivo es muy pesado, la app lo redimensiona a 1920px max con sharp (si `processImages: true`).
-
-### Estilo de tarjeta (`theme.cardStyle`)
-
-- **glass (default):** `backdrop-filter: blur()` + fondo semitransparente. Look "glassmorphism".
-- **flat:** fondo sólido sin bordes.
-- **outlined:** solo borde, fondo transparente.
-
-### Colores
-
-- **`accentColor`** — color de los highlights, focus rings y (opcionalmente) tinte de iconos.
-- **`textColor` (legacy)** — color escalar heredado; se asigna automáticamente al modo que corresponda por luminancia (claro → oscuro, oscuro → claro). Preferí overrides en `theme.tokens.dark.text` / `theme.tokens.light.text`.
-- **`iconTint`** — `original` (default, sin tintar logos de marca) | `accent` | `text` | `custom` (usa `tokens[mode].icon`).
-- Rampa de texto por modo: `text`, `textMuted`, `textSubtle`, `textFaint` en `theme.tokens.dark` / `theme.tokens.light`.
-
-> **Tip:** El panel muestra un badge de contraste WCAG (AA ≥ 4.5:1) al editar `--text` contra `--surface`.
-
-### Tipografía (`theme.fontFamily`)
-
-Whitelist de Google Fonts (los más comunes) + `system-ui`:
-
-- Inter (default)
-- Roboto
-- Open Sans
-- Lato
-- Poppins
-- Montserrat
-- Source Sans 3
-- Nunito
-- Raleway
-- system-ui (no carga Google Fonts, usa la del OS)
-
-Si necesitás otra font de Google, editá el array en el admin (es un `<select>` con esas 10 opciones) o cambiá `fontUrl` a mano apuntando a la URL de `fonts.googleapis.com/css2?...`.
-
-### Modo de color (`theme.colorMode`)
-
-- **`auto` (default):** respeta `theme.autoStrategy`:
-  - **`system` (default):** `prefers-color-scheme` del OS/navegador.
-  - **`schedule`:** claro entre 7 y 19, oscuro en otros rangos.
-- **`light`:** forzado a claro.
-- **`dark`:** forzado a oscuro.
-
-El toggle en la portada (icono sol/luna) override el `colorMode` y persiste en `localStorage`. Se puede ocultar con `theme.showModeToggle: false`.
-
-### Widgets (`theme.showClock`, `showRefresh`, `showStatusBar`)
-
-- **`showClock`:** reloj en vivo. Configurable: `clockPosition` (`header-left` | `header-right`), `clockFormat` (`12h` | `24h`).
-- **`showRefresh`:** botón para recargar config sin refresh completo.
-- **`showStatusBar`:** pie con versión + última actualización.
-- **`headerOpacity` / `footerOpacity`:** opacidad del header y status bar (0–1).
-
-### Animaciones (`theme.animations`) — opt-in
-
-Requiere prender la feature `animations` en **Avanzado → Features**. La sección aparece
-recién entonces en el tab Tema, y **todos los valores arrancan en "sin animación"**: prender
-la feature no cambia nada de lo que se ve hasta que elijas un efecto.
-
-- **`cardEntrance`:** `none` | `fade` | `scale` | `slide-up` | `slide-down` | `slide-left` |
-  `slide-right` | `blur`. Cómo entran las tarjetas.
-- **`categoryEntrance`:** mismo set, aplicado al bloque entero de cada categoría. Se puede
-  combinar con el de las tarjetas.
-- **`headerEffect`:** mismo set, aplicado al header. Siempre entra al cargar, aunque el
-  resto espere al scroll: está arriba de todo.
-- **`cardEntranceDuration`:** 100–2000 ms (default 600). Compartida por los tres.
-- **`cardEntranceStagger`:** 0–300 ms (default 0). Retardo acumulado por tarjeta (y por
-  categoría) para el efecto cascada. El escalonado se corta en el elemento 12: más allá, el
-  retardo acumulado haría que el último aparezca mucho después de que el visitante ya
-  scrolleó.
-- **`entranceEasing`:** `ease-out` (default) | `ease-in-out` | `linear` | `spring`. La
-  curva `spring` se pasa del valor final y vuelve.
-- **`entranceTrigger`:** `load` (default) | `scroll`. Con `scroll` cada tarjeta o categoría
-  anima al entrar en pantalla, vía un `IntersectionObserver` inline de unas pocas líneas.
-  **Sin JavaScript no se esconde nada**: el portal se ve completo y quieto.
-- **`entranceDistance`:** 4–64 px (default 16). Sólo afecta a los efectos de slide.
-- **`cardHover`:** `default` (el de siempre) | `none` | `lift` | `grow` | `glow` | `tilt`.
-- **`hoverDuration`:** 0–600 ms (default 180, el valor histórico).
-- **`titleTypewriter`:** escribe el nombre de la empresa letra por letra.
-- **`counters`:** el contador de apps de la status bar cuenta desde cero (necesita
-  `showStatusBar`).
-- **`respectReducedMotion`:** default `true`. No anima nada para quien configuró «reducir
-  movimiento» en su sistema operativo.
-
-La entrada de tarjetas y el header son CSS generado en el servidor. El título y los
-contadores usan un script mínimo, pero **el texto completo siempre se sirve en el HTML**:
-sin JavaScript el portal se ve normal, no vacío. Independientemente de la config, un guard
-global de `prefers-reduced-motion` desactiva animaciones y transiciones para quien pidió
-menos movimiento.
-
-### Tipografía avanzada
-
-- **`fontWeight`:** 400 | 500 | 600 | 700.
-- **`useGoogleFonts`:** si está activo, genera `fontUrl` apuntando a Google Fonts. Por defecto off (offline-first).
-
-### Design tokens avanzados (`theme.tokens`)
-
-Override opcional por modo:
-
-```json
-{
-  "theme": {
-    "tokens": {
-      "shared": { "radius": 10, "cardBlur": 12, "shadowIntensity": "normal" },
-      "dark": { "bg": "#0b1220", "surface": "rgba(255,255,255,0.04)" },
-      "light": { "bg": "#f6f8fb" }
-    }
-  }
-}
-```
-
-Campos soportados en `dark`/`light`: `bg`, `bgElev`, `surface`, `surfaceHover`, `surfaceStrong`, `text`, `textMuted`, `textSubtle`, `textFaint`, `border`, `borderStrong`, `accent`, `accentMuted`, `accentFg`, `icon`, `shadowCard`, etc. (ver `TokenOverridesSchema` en `src/lib/schema.ts`).
-
-Import/export de tema solo: botones en sección **Avanzado** del panel.
-
-## Layout
-
-### Columnas
-
-- **`columnsDesktop` (2-8):** viewports > 1024px.
-- **`columnsTablet` (2-6):** 640-1024px.
-- **`columnsMobile` (1-3):** < 640px.
-
-Tips:
-- 4 columnas desktop + 2 mobile es el default balanceado.
-- Si tenés muchas tarjetas (50+), subí desktop a 6 u 8.
-- Si tenés poco texto y querés cards grandes, bajá a 2 o 3.
-
-### Tamaño de card (`layout.cardSize`)
-
-- **`small`:** ícono 24px, padding chico. Más cards visibles.
-- **`medium` (default):** ícono 32px, balance.
-- **`large`:** ícono 48px, padding generoso. Mejor para touch / kioskos.
-
-### Descripciones
-
-- **`showDescriptions` (true/false):** si false, oculta la línea de descripción debajo del título. Útil si tus tarjetas tienen sólo ícono + título.
-
-## Íconos de tarjeta
-
-Umbral **no incluye iconos built-in**. Los iconos provienen de **packs instalables** (pestaña **Íconos Git** en el admin: Lucide, Simple Icons, Tabler, etc.) o de **assets subidos**.
-
-### Packs Git
-
-1. Activá la feature `iconPacks` en **Avanzado → Features**.
-2. Instalá un pack (recomendado: **Lucide** para UI genérica, **Simple Icons** para marcas).
-3. En el editor de tarjeta, elegí `pack/nombre` (ej: `lucide/server`, `simple-icons/github`).
-
-Los presets del catálogo ya referencian iconos calificados (`lucide/...`, `simple-icons/...`). Si el pack no está instalado, la tarjeta se muestra sin icono hasta que lo instales.
-
-### Assets subidos
-
-- Subí PNG, JPEG, WebP, SVG, GIF desde el tab **Assets** (kind: "icon").
-- Después, en la tarjeta, elegí `/api/assets/<nombre-archivo>` del dropdown o pegá la URL en el campo custom.
-- Tamaño recomendado: 128x128 px o 64x64 para favicons.
-
-## Vista previa de widgets (admin → Tema)
-
-La preview embebida refleja:
-
-- **Reloj** — posición (`clockPosition`) y formato (`clockFormat` 12h/24h)
-- **Refresh** — botón en header si `showRefresh`
-- **Toggle claro/oscuro** — si `showModeToggle`
-- **Status bar** — footer si `showStatusBar`
-- **Opacidad** — `headerOpacity` / `footerOpacity`
-
-## Ayuda contextual
-
-Cada control del admin puede mostrar un icono **?** con explicación. Los textos viven en `src/i18n/help/{es,en,pt}.ts` (139 claves). Para agregar una:
-
-1. Añadí la entrada en `help/es.ts` con `{ title, short, body }` (markdown en `body`).
-2. Traducí en `help/en.ts` y `help/pt.ts` (`satisfies HelpCatalog`).
-3. Cableá `<button class="help-icon" @click="showHelp('tu.clave')">` en el template.
-4. El modal pre-renderiza markdown sanitizado en el servidor (`bodyHtml`).
-
-## Favicons y OG image
-
-- **Favicon:** tab **Branding** → Favicon → seleccionar de Assets. 32x32 px.
-- **Open Graph / Twitter card:** la app usa el logo como `og:image` automáticamente. Si no hay logo, no se setea.
-
-## CSS vars que podés usar en custom themes
-
-Si querés meter CSS custom (ej: en una extensión de la app), las variables que el theme emite son:
-
-```css
-:root {
-  --accent: #60a5fa;
-  --text: #f1f5f9;
-  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-}
-.page-wrap {
-  --cols-mobile: 2;
-  --cols-tablet: 3;
-  --cols-desktop: 4;
-}
-```
-
-## Vista previa
-
-El tab **Tema** tiene una vista previa en vivo de 2 cards "fantasma" con el estilo actual. Útil para iterar sin tener que ir a la portada.
-
-## Reset visual
-
-Si la customización se te fue de las manos, `/admin` → tab **Avanzado** → **Reset a defaults** restaura TODO (incluido el theme). La password actual se preserva.
+En `theme.widgets` se pueden encender o apagar los componentes de la interfaz:
+- **Reloj:** Posicionamiento a la izquierda o derecha del encabezado, en formatos 12h o 24h.
+- **Botón de refresco:** Permite a los usuarios recargar la lista de servicios en caliente.
+- **Barra de estado:** Contador de aplicaciones y estado general del sistema.
+- **Interruptor de tema:** Toggle para alternar entre modo claro y oscuro.
+- **Opacidades:** Ajuste de transparencia del encabezado y pie de página.
