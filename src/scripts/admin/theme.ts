@@ -10,7 +10,7 @@ import {
   colorToHexApprox,
 } from "~/lib/theme-tokens";
 import { getBuiltinPreset } from "~/lib/theme-presets";
-import { computeAnimationCss, PREVIEW_TARGETS } from "~/lib/animations";
+import { getAnimationsClient, loadAnimationsClient } from "./lazy-clients.ts";
 import { newId } from '~/lib/ids';
 import { confirmAction } from './confirm.ts';
 
@@ -24,6 +24,7 @@ export function createThemeState(): AdminFragment {
   return {
     themePreviewMode: 'auto',
     themePreviewRev: 0,
+    _animationsClientReady: false,
     themeAdvancedMode: 'dark',
     themeBgEditMode: 'dark',
     themeTextEditMode: 'dark',
@@ -347,9 +348,17 @@ export function createThemeState(): AdminFragment {
      */
     themePreviewAnimationCss() {
       if (!this.isFeatureOn('animations')) return '';
+      // El generador de CSS de animaciones se carga on-demand; hasta que
+      // llegue, la miniatura va sin animación (ver lazy-clients.ts).
+      const anim = getAnimationsClient();
+      if (!anim || !this._animationsClientReady) {
+        if (!anim) loadAnimationsClient().then(() => { this._animationsClientReady = true; });
+        else this._animationsClientReady = true;
+        if (!anim) return '';
+      }
       const animations = { ...this.cfg.theme.animations, entranceTrigger: 'load' };
-      const targets = { ...PREVIEW_TARGETS, nameSuffix: `-p${this.themePreviewRev}` };
-      return computeAnimationCss(animations, targets);
+      const targets = { ...anim.PREVIEW_TARGETS, nameSuffix: `-p${this.themePreviewRev}` };
+      return anim.computeAnimationCss(animations, targets);
     },
 
     themePreviewCards() {

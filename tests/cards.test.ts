@@ -347,8 +347,13 @@ describe('Card.astro kind', () => {
 
 describe('dashboard card Sortable', () => {
   test('uses card-item draggable, drop filler, frozen layout, and reconcile lifecycle', async () => {
+    // El guard se instala dentro del loader diferido de Sortable, no en el
+    // dashboard: así el panel no arrastra los ~45 kB en el chunk inicial.
+    const loader = await readFile(new URL('../src/scripts/admin/sortable-loader.ts', import.meta.url), 'utf8');
+    assert.match(loader, /installSortableGuard\(Sortable\)/);
+    assert.match(loader, /import\('sortablejs'\)/);
     const dashboard = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
-    assert.match(dashboard, /installSortableGuard\(Sortable\)/);
+    assert.doesNotMatch(dashboard, /import Sortable from 'sortablejs'/);
     // El drag&drop de cards vive en el fragmento Alpine del dominio cards.
     const src = await readFile(new URL('../src/scripts/admin/cards.ts', import.meta.url), 'utf8');
     assert.match(src, /draggable:\s*['"]\.card-item['"]/);

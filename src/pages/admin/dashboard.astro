@@ -179,8 +179,6 @@ const THEME_PRESET_I18N = {
   </script>
   <script>
     import Alpine from 'alpinejs';
-    import Sortable from 'sortablejs';
-    import { installSortableGuard } from '~/lib/sortable-guard';
     import { isSystemCard as checkSystemCard, restoreSystemCardProtectedFields } from '~/lib/system-card';
     // Fragmentos del objeto Alpine, uno por dominio. Ver src/scripts/admin/.
     import { createOidcState } from '~/scripts/admin/oidc';
@@ -203,9 +201,10 @@ const THEME_PRESET_I18N = {
     import { createLayoutState } from '~/scripts/admin/layout';
     import { createPasswordState } from '~/scripts/admin/password';
     import { createBackupState } from '~/scripts/admin/backup';
-    installSortableGuard(Sortable);
+    import { prefetchAdminClients } from '~/scripts/admin/lazy-clients';
+    // SortableJS se carga on-demand desde scripts/admin/sortable-loader.ts,
+    // junto con su guard: no entra en el chunk inicial del panel.
     window.Alpine = Alpine;
-    window.Sortable = Sortable;
 
     Alpine.data('adminApp', () => ({
         tab: 'cards',
@@ -246,6 +245,10 @@ const THEME_PRESET_I18N = {
           // catálogo para dibujar sus íconos, pero el resto del init no
           // depende de él.
           this.ensureAvailableIcons();
+          // Los módulos de las vistas previas (animaciones, layout) se piden
+          // cuando el navegador está ocioso: no bloquean el primer render y
+          // ya están cuando alguien abre esos tabs.
+          prefetchAdminClients();
           // Banner de password inseguro (default). Llamamos al endpoint
           // /api/auth/check-default-password; si isDefault=true, mostramos
           // un banner rojo en la parte superior del dashboard con un link

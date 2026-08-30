@@ -1,37 +1,53 @@
 import type { AdminFragment } from "./types";
-import * as layoutClient from "~/lib/layout-admin-client";
+import { getLayoutClient, loadLayoutClient } from "./lazy-clients.ts";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio layout.
  *
  * Se compone con spread en `dashboard.astro`, así que los métodos siguen
  * resolviendo `this` contra el objeto completo.
+ *
+ * El cliente de layout se carga on-demand (ver lazy-clients.ts); mientras no
+ * esté, los getters devuelven un valor neutro y la bandera reactiva
+ * `_layoutClientReady` los hace volver a correr cuando llega.
  */
 export function createLayoutState(): AdminFragment {
   return {
     layoutBreakpoint: 'desktop',
     layoutPreviewViewport: 'desktop',
+    _layoutClientReady: false,
+    /** Devuelve el módulo o `null`, disparando la carga la primera vez. */
+    layoutClient() {
+      const mod = getLayoutClient();
+      // Leer la bandera registra la dependencia reactiva del getter que llama.
+      if (this._layoutClientReady && mod) return mod;
+      if (mod) {
+        this._layoutClientReady = true;
+        return mod;
+      }
+      loadLayoutClient().then(() => { this._layoutClientReady = true; });
+      return null;
+    },
     layoutPreviewFrameStyle() {
-      return layoutClient.layoutPreviewFrameStyle(
-        this.cfg.layout,
-        this.layoutPreviewViewport,
-      );
+      const c = this.layoutClient();
+      if (!c) return '';
+      return c.layoutPreviewFrameStyle(this.cfg.layout, this.layoutPreviewViewport);
     },
     layoutPreviewPageStyle() {
-      return layoutClient.layoutPreviewPageStyle(
-        this.cfg.layout,
-        this.layoutPreviewViewport,
-      );
+      const c = this.layoutClient();
+      if (!c) return '';
+      return c.layoutPreviewPageStyle(this.cfg.layout, this.layoutPreviewViewport);
     },
     layoutPreviewGroups() {
-      const cols = layoutClient.getPreviewColumns(this.cfg.layout, this.layoutPreviewViewport);
-      return layoutClient.layoutPreviewSampleGroups(
-        Boolean(this.cfg.layout.showDescriptions),
-        cols,
-      );
+      const c = this.layoutClient();
+      if (!c) return [];
+      const cols = c.getPreviewColumns(this.cfg.layout, this.layoutPreviewViewport);
+      return c.layoutPreviewSampleGroups(Boolean(this.cfg.layout.showDescriptions), cols);
     },
     layoutPreviewMetaLabel() {
-      const cols = layoutClient.getPreviewColumns(this.cfg.layout, this.layoutPreviewViewport);
+      const c = this.layoutClient();
+      if (!c) return '';
+      const cols = c.getPreviewColumns(this.cfg.layout, this.layoutPreviewViewport);
       const vp = this.layoutPreviewViewport;
       const vpLabel =
         vp === 'mobile' ? this.layoutPreviewMobile()

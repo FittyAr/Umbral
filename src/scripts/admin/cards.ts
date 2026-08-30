@@ -3,7 +3,7 @@ import { cardGroups as buildCardGroups, adminCardsLayout as buildAdminCardsLayou
 import { isSystemCard as checkSystemCard, SYSTEM_DOCS_ICON, SYSTEM_DOCS_ICON_PATH } from "~/lib/system-card";
 import { clampCardSpan, MAX_CARD_SPAN } from "~/lib/card-span";
 import { createInstalledIconLookup } from "~/lib/icon-url";
-import Sortable from "sortablejs";
+import { loadSortable, getSortable } from './sortable-loader.ts';
 import { newId } from '~/lib/ids';
 import { confirmAction } from './confirm.ts';
 
@@ -325,7 +325,8 @@ export function createCardsState(): AdminFragment {
       };
     },
 
-    initSortable() {
+    async initSortable() {
+      const Sortable = await loadSortable();
       const catsEl = document.getElementById('categories-sortable');
       if (catsEl && !Sortable.get(catsEl)) {
         Sortable.create(catsEl, {
@@ -357,6 +358,14 @@ export function createCardsState(): AdminFragment {
 
     reconcileCardSortables() {
       if (this._cardsDragging) return;
+
+      // Camino sincrónico: si Sortable todavía no llegó, disparamos la carga y
+      // volvemos a entrar. Los `$nextTick` que llaman acá no pueden esperar.
+      const Sortable = getSortable();
+      if (!Sortable) {
+        loadSortable().then(() => this.reconcileCardSortables());
+        return;
+      }
 
       if (this.cardFilter.trim()) {
         this.destroyAllCardSortables();
