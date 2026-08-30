@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { CardSchema, CategorySchema } from '../src/lib/schema.ts';
+import { CardSchema, CategorySchema } from '../src/lib/schema/index.ts';
 import {
   cardGroups,
   adminCardsLayout,

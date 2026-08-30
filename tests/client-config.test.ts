@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sanitizeConfigForClient, buildBootScript } from '../src/lib/client-config.ts';
-import { ConfigSchema, type Config } from '../src/lib/schema.ts';
+import { ConfigSchema, type Config } from '../src/lib/schema/index.ts';
 
 function makeConfig(): Config {
   return ConfigSchema.parse({

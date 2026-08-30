@@ -1,7 +1,7 @@
 /**
- * Parser del audit log.
+ * Escritura y parseo del audit log.
  *
- * El formato (definido en src/lib/config.ts → audit()) es:
+ * El formato (definido más abajo en `audit()`) es:
  *
  *   {ISO timestamp}\t{action}\t{detail}\n
  *
@@ -16,6 +16,55 @@
  */
 
 import { promises as fs } from 'node:fs';
+import { AUDIT_LOG_PATH, ensureDirs } from './config/paths';
+
+/** Audit log (append-only). Best-effort, no I/O failure propagation.
+ *  Rota cuando supera AUDIT_MAX_BYTES (10MB) → renombra a .1 y empieza de nuevo.
+ *  Evita que un deployment largo se quede sin disco. */
+const AUDIT_MAX_BYTES = 10 * 1024 * 1024;
+const AUDIT_KEEP_ROTATIONS = 3;
+
+let auditWriteLock: Promise<void> = Promise.resolve();
+
+export async function audit(action: string, detail?: string) {
+  // BUGFIX: serializamos TODAS las escrituras del audit log. Antes dos
+  // audit() concurrentes podian ver "needsRotate=false" ambos, los dos
+  // appendeaban, y el archivo pasaba de 10MB. Con la lock, sólo uno chequea
+  // tamaño/rota a la vez; el otro appendea al final de la cola.
+  const myTurn = auditWriteLock.then(async () => {
+    try {
+      await ensureDirs();
+      // Chequeamos tamaño antes de appendear.
+      let needsRotate = false;
+      try {
+        const st = await fs.stat(AUDIT_LOG_PATH);
+        if (st.size >= AUDIT_MAX_BYTES) needsRotate = true;
+      } catch {
+        // archivo no existe aún, no rotar
+      }
+      if (needsRotate) {
+        // Shift rotaciones: audit.log.2 → audit.log.3, audit.log.1 → audit.log.2, etc.
+        // Borrar la más vieja si excede el keep. Cada rename puede fallar
+        // en Windows si el destino existe — por eso los try/catch.
+        const oldest = `${AUDIT_LOG_PATH}.${AUDIT_KEEP_ROTATIONS}`;
+        try { await fs.unlink(oldest); } catch { /* puede no existir */ }
+        for (let i = AUDIT_KEEP_ROTATIONS - 1; i >= 1; i--) {
+          const from = `${AUDIT_LOG_PATH}.${i}`;
+          const to = `${AUDIT_LOG_PATH}.${i + 1}`;
+          try { await fs.rename(from, to); } catch { /* skip */ }
+        }
+        try { await fs.rename(AUDIT_LOG_PATH, `${AUDIT_LOG_PATH}.1`); } catch { /* skip */ }
+      }
+      const line = `${new Date().toISOString()}\t${action}\t${detail ?? ''}\n`;
+      await fs.appendFile(AUDIT_LOG_PATH, line, 'utf8');
+    } catch (err) {
+      console.error('[umbral] audit log write failed:', err);
+    }
+  });
+  // Encadenamos la siguiente escritura; si esta falla, la lock se libera igual.
+  auditWriteLock = myTurn.catch(() => { });
+  await myTurn;
+}
 
 export interface AuditEntry {
   /** ISO timestamp parseado. */

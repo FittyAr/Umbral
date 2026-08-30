@@ -7,7 +7,7 @@ import {
   MAX_CARD_SPAN,
   CARD_SPAN_BREAKPOINTS,
 } from '../src/lib/card-span.ts';
-import { CardSchema, LayoutSchema } from '../src/lib/schema.ts';
+import { CardSchema, LayoutSchema } from '../src/lib/schema/index.ts';
 
 function layout(columnsMobile: number, columnsTablet: number, columnsDesktop: number) {
   return LayoutSchema.parse({ columnsMobile, columnsTablet, columnsDesktop });

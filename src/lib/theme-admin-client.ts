@@ -3,8 +3,8 @@
  * Mirrors src/lib/theme-tokens.ts for live preview in the admin panel.
  */
 
-import type { Theme, Background } from './schema.ts';
-import { ThemeSchema } from './schema.ts';
+import type { Theme, Background } from './schema/index.ts';
+import { ThemeSchema } from './schema/index.ts';
 import {
   computeThemeVars,
   themeVarsToCss,
@@ -12,45 +12,25 @@ import {
   computeBackgroundStyle,
   type ColorMode,
 } from './theme-tokens.ts';
+import { deriveAccentVariants as deriveAccentVariantsCanonical } from './theme/color-utils.ts';
 
 export const THEME_PREVIEW_STORAGE_KEY = 'umbral-theme-preview';
 export const THEME_PREVIEW_FONT_LINK_ID = 'umbral-theme-preview-font';
 
-export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  let h = hex.replace('#', '');
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
-  return {
-    r: parseInt(h.slice(0, 2), 16),
-    g: parseInt(h.slice(2, 4), 16),
-    b: parseInt(h.slice(4, 6), 16),
-  };
-}
+export { hexToRgb, buildGradientCss } from './theme/color-utils.ts';
 
-export function deriveAccentVariants(accentHex: string, mode: 'light' | 'dark') {
-  const rgb = hexToRgb(accentHex);
-  if (!rgb) {
-    return {
-      accentMuted: mode === 'dark' ? 'rgba(96, 165, 250, 0.12)' : 'rgba(37, 99, 235, 0.10)',
-      accentStrong: mode === 'dark' ? '#2563eb' : '#1d4ed8',
-    };
-  }
-  const { r, g, b } = rgb;
-  const t = mode === 'dark' ? 0.35 : 0.25;
-  const strongR = Math.round(mode === 'dark' ? r * (1 - t) : r + (255 - r) * t);
-  const strongG = Math.round(mode === 'dark' ? g * (1 - t) : g + (255 - g) * t);
-  const strongB = Math.round(mode === 'dark' ? b * (1 - t) : b + (255 - b) * t);
-  const strongHex = `#${[strongR, strongG, strongB].map((n) => Math.min(255, Math.max(0, n)).toString(16).padStart(2, '0')).join('')}`;
+/**
+ * La misma derivación que usa el render público, con las claves en camelCase
+ * que espera el editor del admin. Antes era una segunda implementación con la
+ * misma matemática escrita distinto: cualquier ajuste en una dejaba a la
+ * vista previa mintiendo sobre el resultado final.
+ */
+export function deriveAccentVariants(accentHex: string, mode: ColorMode) {
+  const vars = deriveAccentVariantsCanonical(accentHex, mode);
   return {
-    accentMuted: `rgba(${r}, ${g}, ${b}, ${mode === 'dark' ? 0.12 : 0.10})`,
-    accentStrong: strongHex,
+    accentMuted: vars['--accent-muted'],
+    accentStrong: vars['--accent-strong'],
   };
-}
-
-export function buildGradientCss(angle: number, stops: { color: string; pos: number }[]): string {
-  const sorted = [...stops].sort((a, b) => a.pos - b.pos);
-  const parts = sorted.map((s) => `${s.color} ${s.pos}%`).join(', ');
-  return `linear-gradient(${angle}deg, ${parts})`;
 }
 
 /** @deprecated Use themeFrameInlineStyle + computeThemeVars for full token parity. */

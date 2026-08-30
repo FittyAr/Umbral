@@ -81,7 +81,7 @@ describe('showHelp coverage', () => {
 
 describe('icon references', () => {
   test('presets and config use pack-qualified icons only', () => {
-    const files = ['src/lib/presets.ts', 'src/lib/config.ts'];
+    const files = ['src/lib/presets.ts', 'src/lib/config/defaults.ts'];
     const bare: string[] = [];
     const re = /icon:\s*'([^']+)'/g;
     for (const rel of files) {

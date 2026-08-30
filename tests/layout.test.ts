@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
-import { LayoutSchema } from '../src/lib/schema.ts';
+import { LayoutSchema } from '../src/lib/schema/index.ts';
 import {
   buildLayoutCssVars,
   layoutCssVarsToString,

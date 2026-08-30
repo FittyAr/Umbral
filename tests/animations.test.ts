@@ -12,7 +12,7 @@ import {
   useAnimatedCounters,
   useTypewriter,
 } from '../src/lib/animations.ts';
-import { ThemeAnimationsSchema, ThemeSchema } from '../src/lib/schema.ts';
+import { ThemeAnimationsSchema, ThemeSchema } from '../src/lib/schema/index.ts';
 
 const anim = (overrides: Record<string, unknown> = {}) =>
   ThemeAnimationsSchema.parse(overrides);

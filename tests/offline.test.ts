@@ -4,7 +4,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { HeadersSecuritySchema, ThemeSchema } from '../src/lib/schema.ts';
+import { HeadersSecuritySchema, ThemeSchema } from '../src/lib/schema/index.ts';
 
 /**
  * Umbral tiene que funcionar detrás de una VPN sin salida a internet, así que

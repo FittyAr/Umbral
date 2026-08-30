@@ -15,7 +15,7 @@ import {
   computeBackgroundStyle,
 } from '../src/lib/theme-tokens.ts';
 import { applyThemePreset, applyThemePresetPartial, getBuiltinPreset, getPresetVariant, BUILTIN_THEME_PRESETS } from '../src/lib/theme-presets.ts';
-import { ThemeSchema } from '../src/lib/schema.ts';
+import { ThemeSchema } from '../src/lib/schema/index.ts';
 import {
   applyThemeDraft,
   backgroundPreviewStyle,
