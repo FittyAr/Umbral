@@ -52,6 +52,12 @@ import { ko } from './ko';
 import { tr } from './tr';
 import { uk } from './uk';
 import { sv } from './sv';
+import { cs } from './cs';
+import { da } from './da';
+import { fi } from './fi';
+import { no } from './no';
+import { hu } from './hu';
+import { ro } from './ro';
 
 export type Locale =
   | 'es'
@@ -68,7 +74,13 @@ export type Locale =
   | 'ko'
   | 'tr'
   | 'uk'
-  | 'sv';
+  | 'sv'
+  | 'cs'
+  | 'da'
+  | 'fi'
+  | 'no'
+  | 'hu'
+  | 'ro';
 export const LOCALES: Locale[] = [
   'es',
   'en',
@@ -85,6 +97,12 @@ export const LOCALES: Locale[] = [
   'tr',
   'uk',
   'sv',
+  'cs',
+  'da',
+  'fi',
+  'no',
+  'hu',
+  'ro',
 ];
 export const DEFAULT_LOCALE: Locale = 'es';
 
@@ -105,6 +123,12 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   tr: 'Türkçe',
   uk: 'Українська',
   sv: 'Svenska',
+  cs: 'Čeština',
+  da: 'Dansk',
+  fi: 'Suomi',
+  no: 'Norsk',
+  hu: 'Magyar',
+  ro: 'Română',
 };
 
 /** Cookie que guarda el override del visitante. 30 días. */
@@ -129,6 +153,12 @@ const DICTIONARIES: Record<Locale, Messages> = {
   tr: tr as Messages,
   uk: uk as Messages,
   sv: sv as Messages,
+  cs: cs as Messages,
+  da: da as Messages,
+  fi: fi as Messages,
+  no: no as Messages,
+  hu: hu as Messages,
+  ro: ro as Messages,
 };
 
 /** Tipo de un diccionario (tipo estructural, no literal). */

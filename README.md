@@ -1,4 +1,4 @@
-﻿# Umbral
+# Umbral
 
 > El portal a tus herramientas internas. Self-hosted, single container, sin base de datos. Centraliza accesos a Mattermost, Excalidraw, etc. detrás de la VPN.
 
@@ -283,7 +283,11 @@ public/                    # assets estáticos, íconos, manifest, sw
 docs/                      # documentación en .md (se renderiza en /docs)
 ```
 
-Ver [Arquitectura](./docs/dev/architecture.md) para detalle.
+## Internationalization (i18n) & Translations
+
+Umbral supports 20+ languages out of the box (Spanish, English, Portuguese, French, German, Italian, Chinese, Japanese, Russian, Dutch, Polish, Korean, Turkish, Ukrainian, Swedish, Czech, Danish, Finnish, Norwegian, Hungarian, Romanian, and more).
+
+> **A Note on Translations:** Because this is an open-source project with no budget for hiring professional translation services, initial translations were assisted by AI. If you spot any mistakes, awkward phrasing, or missing nuances, we sincerely apologize — no disrespect to any native language is ever intended. We deeply welcome and appreciate community contributions and Pull Requests! Please see [`src/i18n/README.md`](./src/i18n/README.md) for details and guidelines.
 
 ## Licencia
 

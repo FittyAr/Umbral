@@ -43,6 +43,12 @@ export const FeaturesSchema = z.object({
           'tr',
           'uk',
           'sv',
+          'cs',
+          'da',
+          'fi',
+          'no',
+          'hu',
+          'ro',
         ])
         .default('es'),
     })
