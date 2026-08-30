@@ -28,6 +28,7 @@ import { resolveAndCheckUrl } from '~/lib/ssrf';
 import { audit } from '~/lib/config';
 import { getActiveWindowsForCard } from '~/lib/maintenance';
 import type { Config, Webhook, WebhookEvent } from '~/lib/schema';
+import { fetchWithTimeout } from './fetch-timeout.ts';
 
 export interface CheckResult {
   cardId: string;
@@ -164,22 +165,21 @@ export function adaptPayload(preset: string, payload: WebhookPayload): { body: s
 
 /** POST al webhook con timeout corto. Devuelve { ok, status, error }. */
 async function postWebhook(url: string, body: string, contentType: string, extraHeaders: Record<string, string>): Promise<{ ok: boolean; status?: number; error?: string }> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 8000); // 8s — más que suficiente para webhooks
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': contentType, ...extraHeaders },
-      body,
-      signal: ctrl.signal,
-      // No seguir redirects para evitar bypass de SSRF
-      redirect: 'manual',
-    });
+    const res = await fetchWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': contentType, ...extraHeaders },
+        body,
+        // No seguir redirects para evitar bypass de SSRF
+        redirect: 'manual',
+      },
+      8000, // 8s — más que suficiente para webhooks
+    );
     return { ok: res.ok, status: res.status };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
-  } finally {
-    clearTimeout(timer);
   }
 }
 

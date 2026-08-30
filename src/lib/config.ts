@@ -11,7 +11,9 @@
 import { ConfigSchema, type Config, type ConfigUpdate } from './schema';
 import { hashPassword, generateToken } from './auth';
 import { reconcileSystemCards } from './system-card.ts';
-import { normalizeGhostCategories } from './cards-admin.ts';
+// El dominio puro, no el barrel: así el grafo del servidor no arrastra el
+// módulo que lee el DOM.
+import { normalizeGhostCategories } from './cards/domain.ts';
 import { portalConfigPath as _portalConfigPath } from './multi-portal';
 import {
   CONFIG_PATH,

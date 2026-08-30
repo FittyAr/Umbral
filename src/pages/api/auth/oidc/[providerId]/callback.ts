@@ -13,6 +13,7 @@ import type { APIRoute } from 'astro';
 import { getActiveOIDCProvider, consumeStateFlow, exchangeCode, verifyIdToken, resolveRole } from '~/lib/oidc';
 import { getConfig, saveConfig, audit } from '~/lib/config';
 import { createSessionToken, buildSessionCookie } from '~/lib/auth';
+import { newId } from '~/lib/ids';
 
 export const prerender = false;
 
@@ -86,7 +87,7 @@ export const GET: APIRoute = async ({ params, request, url }) => {
       return new Response(`El user "${username}" no existe. Pedile al admin que te cree una cuenta o active autoProvision.`, { status: 403 });
     }
     role = resolveRole(tokens.idToken, provider, null);
-    userId = 'u-oidc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+    userId = newId('u-oidc');
     userEpoch = 0;
     const newUser = {
       id: userId,

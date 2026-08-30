@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { JSDOM } from 'jsdom';
 import { json, error } from '~/lib/http';
 import { getConfig } from '~/lib/config';
-import { resolveAndCheckUrl } from '~/lib/ssrf';
+import { isCloudMetadataHost, resolveAndCheckUrl } from '~/lib/ssrf';
 
 export const prerender = false;
 
@@ -45,7 +45,7 @@ export const GET: APIRoute = async ({ url }) => {
       }
     } else {
       // Aún en modo permisivo, bloqueamos cloud metadata (169.254/16) por seguridad.
-      if (parsed.hostname === '169.254.169.254' || parsed.hostname === 'metadata.google.internal') {
+      if (isCloudMetadataHost(parsed.hostname)) {
         return error('Cloud metadata bloqueado por seguridad', 400);
       }
     }

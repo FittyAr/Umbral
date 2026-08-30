@@ -38,6 +38,23 @@ export function isPrivateOrLoopback(host: string): boolean {
   return false;
 }
 
+/**
+ * Hosts de metadata de la nube. Se bloquean **siempre**, incluso con
+ * `allowInternalHosts` prendido: un portal en LAN quiere monitorear sus
+ * servicios internos, no leer las credenciales de la instancia. Estaba
+ * escrito a mano como comparación literal en dos endpoints, así que agregar
+ * un host nuevo dejaba al otro sin cubrir.
+ */
+const CLOUD_METADATA_HOSTS = new Set([
+  '169.254.169.254',
+  'metadata.google.internal',
+  'metadata.goog',
+]);
+
+export function isCloudMetadataHost(hostname: string): boolean {
+  return CLOUD_METADATA_HOSTS.has(hostname.toLowerCase());
+}
+
 /** Resuelve el hostname por DNS y devuelve {ok, reason}. Cierra el bypass
  *  clásico de SSRF: el admin pone url=http://attacker.com/ que devuelve un
  *  redirect a http://127.0.0.1:6379/ (internal redis). Si sólo bloqueamos

@@ -4,6 +4,7 @@ import { isSystemCard as checkSystemCard, SYSTEM_DOCS_ICON, SYSTEM_DOCS_ICON_PAT
 import { clampCardSpan, MAX_CARD_SPAN } from "~/lib/card-span";
 import { createInstalledIconLookup } from "~/lib/icon-url";
 import Sortable from "sortablejs";
+import { newId } from '~/lib/ids';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio cards.
@@ -250,7 +251,7 @@ export function createCardsState(): AdminFragment {
       let cat = this.realCategories().find((c) => c.name.toLowerCase() === (p.defaultCategoryName || '').toLowerCase() || c.id === p.category);
       if (!cat) cat = this.realCategories()[0];
       const newCard = {
-        id: 'card-' + Date.now().toString(36),
+        id: newId('card'),
         title: p.name,
         kind: 'link',
         description: p.description,
@@ -488,7 +489,7 @@ export function createCardsState(): AdminFragment {
       this.editingIndex = -1;
       this.editingKey = (this.editingKey || 0) + 1;
       this.editingCard = {
-        id: 'card-' + Date.now().toString(36),
+        id: newId('card'),
         title: 'Nueva tarjeta',
         kind: 'link',
         description: '',
@@ -767,7 +768,7 @@ export function createCardsState(): AdminFragment {
     },
 
     addCategory() {
-      this.cfg.categories.push({ id: 'cat-' + Date.now().toString(36), name: 'Nueva', icon: 'folder', isLocked: false, password: '', isSubpage: false, isGhost: false });
+      this.cfg.categories.push({ id: newId('cat'), name: 'Nueva', icon: 'folder', isLocked: false, password: '', isSubpage: false, isGhost: false });
       this.markDirty();
     },
     removeCategoryById(id) {

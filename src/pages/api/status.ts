@@ -4,6 +4,7 @@ import { json, error } from '~/lib/http';
 import { isPrivateOrLoopback, resolveAndCheckUrl } from '~/lib/ssrf';
 import { processHealthResults } from '~/lib/webhooks';
 import { recordSample } from '~/lib/metrics';
+import { fetchWithTimeout } from '~/lib/fetch-timeout';
 
 export const prerender = false;
 
@@ -57,18 +58,11 @@ export const POST: APIRoute = async ({ request }) => {
         return result;
       }
       try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 5000);
         // redirect: 'manual' — NO seguimos redirects. Si la URL apunta a
         // attacker.com y redirige a 127.0.0.1, no nos interesa: el admin
         // debería apuntar al destino final. Esto cierra el bypass clásico
         // de SSRF por redirección.
-        const res = await fetch(c.url, {
-          method: 'HEAD',
-          signal: ctrl.signal,
-          redirect: 'manual',
-        });
-        clearTimeout(timer);
+        const res = await fetchWithTimeout(c.url, { method: 'HEAD', redirect: 'manual' }, 5000);
         const result: StatusResult = { id: c.id, url: c.url, ok: res.ok, status: res.status, latencyMs: Date.now() - t0 };
         if (c.healthCheck) {
           recordSample(c.id, { ts: new Date().toISOString(), latencyMs: result.latencyMs ?? 0, ok: result.ok });

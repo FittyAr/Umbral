@@ -11,6 +11,7 @@ import {
 } from "~/lib/theme-tokens";
 import { getBuiltinPreset } from "~/lib/theme-presets";
 import { computeAnimationCss, PREVIEW_TARGETS } from "~/lib/animations";
+import { newId } from '~/lib/ids';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio theme.
@@ -158,7 +159,7 @@ export function createThemeState(): AdminFragment {
     saveCustomThemePreset() {
       const name = prompt('Nombre del preset:', 'Mi tema');
       if (!name) return;
-      const id = 'custom-' + Date.now().toString(36);
+      const id = newId('custom');
       if (!this.cfg.theme.customPresets) this.cfg.theme.customPresets = [];
       if (this.cfg.theme.customPresets.length >= 5) {
         window.umbralAdmin.toast('Máximo 5 presets custom', 'error');

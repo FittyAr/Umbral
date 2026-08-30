@@ -1,4 +1,5 @@
 import type { AdminFragment } from "./types";
+import { newId } from '~/lib/ids';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio maintenance.
@@ -60,7 +61,7 @@ export function createMaintenanceState(): AdminFragment {
         return;
       }
       this.cfg.maintenanceWindows.items.push({
-        id: 'mw-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+        id: newId('mw'),
         cardIds,
         startsAt: startIso,
         endsAt: endIso,

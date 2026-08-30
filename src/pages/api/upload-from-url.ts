@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { json, error } from '~/lib/http';
 import { getConfig } from '~/lib/config';
-import { resolveAndCheckUrl } from '~/lib/ssrf';
+import { isCloudMetadataHost, resolveAndCheckUrl } from '~/lib/ssrf';
 
 export const prerender = false;
 
@@ -68,7 +68,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (!check.ok) {
       return error(check.reason || 'Host bloqueado por SSRF. Si es deploy interno, activá "Permitir hosts internos" en Hardening.', 400);
     }
-  } else if (parsed.hostname === '169.254.169.254' || parsed.hostname === 'metadata.google.internal') {
+  } else if (isCloudMetadataHost(parsed.hostname)) {
     return error('Cloud metadata bloqueado por seguridad', 400);
   }
 

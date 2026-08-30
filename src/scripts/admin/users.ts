@@ -1,4 +1,5 @@
 import type { AdminFragment } from "./types";
+import { newId } from '~/lib/ids';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio users.
@@ -49,7 +50,7 @@ export function createUsersState(): AdminFragment {
       this.hashPasswordClientSide(u.password).then((hash) => {
         if (!this.cfg.auth) return;
         this.cfg.auth.users.push({
-          id: 'u-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+          id: newId('u'),
           username: u.username.trim(),
           displayName: (u.displayName || '').trim(),
           passwordHash: hash,

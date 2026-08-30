@@ -1,4 +1,5 @@
 import type { AdminFragment } from "./types";
+import { newId } from '~/lib/ids';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio webhooks.
@@ -38,7 +39,7 @@ export function createWebhooksState(): AdminFragment {
         return;
       }
       this.cfg.webhooks.items.push({
-        id: 'wh-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+        id: newId('wh'),
         name: w.name.trim(),
         url: w.url.trim(),
         events,

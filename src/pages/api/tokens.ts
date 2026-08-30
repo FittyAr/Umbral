@@ -11,6 +11,7 @@ import { getConfig, saveConfig, audit } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { json, error, readJson } from '~/lib/http';
 import type { ApiToken } from '~/lib/schema';
+import { newId } from '~/lib/ids';
 
 export const prerender = false;
 
@@ -33,7 +34,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const plainToken = generateApiTokenPlaintext();
   const tokenHash = await bcrypt.hash(plainToken, 10);
   const tokenLast4 = plainToken.slice(-4);
-  const id = 'tok-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+  const id = newId('tok');
   const createdAt = new Date().toISOString();
   let expiresAt: string | null = null;
   if (body.expiresInDays && Number(body.expiresInDays) > 0) {
