@@ -12,6 +12,12 @@ import { it } from '../src/i18n/it.ts';
 import { zh } from '../src/i18n/zh.ts';
 import { ja } from '../src/i18n/ja.ts';
 import { ru } from '../src/i18n/ru.ts';
+import { nl } from '../src/i18n/nl.ts';
+import { pl } from '../src/i18n/pl.ts';
+import { ko } from '../src/i18n/ko.ts';
+import { tr } from '../src/i18n/tr.ts';
+import { uk } from '../src/i18n/uk.ts';
+import { sv } from '../src/i18n/sv.ts';
 import { helpEs } from '../src/i18n/help/es.ts';
 import { helpEn } from '../src/i18n/help/en.ts';
 import { helpPt } from '../src/i18n/help/pt.ts';
@@ -21,6 +27,12 @@ import { helpIt } from '../src/i18n/help/it.ts';
 import { helpZh } from '../src/i18n/help/zh.ts';
 import { helpJa } from '../src/i18n/help/ja.ts';
 import { helpRu } from '../src/i18n/help/ru.ts';
+import { helpNl } from '../src/i18n/help/nl.ts';
+import { helpPl } from '../src/i18n/help/pl.ts';
+import { helpKo } from '../src/i18n/help/ko.ts';
+import { helpTr } from '../src/i18n/help/tr.ts';
+import { helpUk } from '../src/i18n/help/uk.ts';
+import { helpSv } from '../src/i18n/help/sv.ts';
 import { HELP_CATALOG_KEYS } from '../src/i18n/help/index.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -35,10 +47,10 @@ function diff(a: string[], b: string[]): string[] {
 }
 
 describe('i18n locale parity', () => {
-  test('all 8 target locales have same keys as es', () => {
+  test('all 14 target locales have same keys as es', () => {
     const esKeys = keysOf(es);
     const dictionaries: Record<string, Record<string, unknown>> = {
-      en, pt, fr, de, it, zh, ja, ru
+      en, pt, fr, de, it, zh, ja, ru, nl, pl, ko, tr, uk, sv
     };
     for (const [loc, dict] of Object.entries(dictionaries)) {
       const missing = diff(esKeys, keysOf(dict));
@@ -52,7 +64,7 @@ describe('help catalog parity', () => {
     const esKeys = keysOf(helpEs);
     assert.equal(HELP_CATALOG_KEYS.length, esKeys.length);
     const catalogs: Record<string, Record<string, unknown>> = {
-      helpEn, helpPt, helpFr, helpDe, helpIt, helpZh, helpJa, helpRu
+      helpEn, helpPt, helpFr, helpDe, helpIt, helpZh, helpJa, helpRu, helpNl, helpPl, helpKo, helpTr, helpUk, helpSv
     };
     for (const [name, cat] of Object.entries(catalogs)) {
       const missing = diff(esKeys, keysOf(cat));

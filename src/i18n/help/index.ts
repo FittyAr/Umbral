@@ -8,6 +8,12 @@ import { helpIt } from './it.ts';
 import { helpZh } from './zh.ts';
 import { helpJa } from './ja.ts';
 import { helpRu } from './ru.ts';
+import { helpNl } from './nl.ts';
+import { helpPl } from './pl.ts';
+import { helpKo } from './ko.ts';
+import { helpTr } from './tr.ts';
+import { helpUk } from './uk.ts';
+import { helpSv } from './sv.ts';
 
 export type { HelpCatalog, HelpText };
 
@@ -21,6 +27,12 @@ const CATALOGS: Record<Locale, HelpCatalog> = {
   zh: helpZh,
   ja: helpJa,
   ru: helpRu,
+  nl: helpNl,
+  pl: helpPl,
+  ko: helpKo,
+  tr: helpTr,
+  uk: helpUk,
+  sv: helpSv,
 };
 
 export function getHelpTexts(locale: Locale): HelpCatalog {

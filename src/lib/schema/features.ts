@@ -26,7 +26,25 @@ export const FeaturesSchema = z.object({
   i18n: z
     .object({
       enabled: z.boolean().default(false),
-      locale: z.enum(['es', 'en', 'pt', 'fr', 'de', 'it', 'zh', 'ja', 'ru']).default('es'),
+      locale: z
+        .enum([
+          'es',
+          'en',
+          'pt',
+          'fr',
+          'de',
+          'it',
+          'zh',
+          'ja',
+          'ru',
+          'nl',
+          'pl',
+          'ko',
+          'tr',
+          'uk',
+          'sv',
+        ])
+        .default('es'),
     })
     .default({ enabled: false, locale: 'es' }),
   markdown: FeatureFlagSchema.default({ enabled: false }),

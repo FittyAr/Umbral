@@ -46,9 +46,46 @@ import { it } from './it';
 import { zh } from './zh';
 import { ja } from './ja';
 import { ru } from './ru';
+import { nl } from './nl';
+import { pl } from './pl';
+import { ko } from './ko';
+import { tr } from './tr';
+import { uk } from './uk';
+import { sv } from './sv';
 
-export type Locale = 'es' | 'en' | 'pt' | 'fr' | 'de' | 'it' | 'zh' | 'ja' | 'ru';
-export const LOCALES: Locale[] = ['es', 'en', 'pt', 'fr', 'de', 'it', 'zh', 'ja', 'ru'];
+export type Locale =
+  | 'es'
+  | 'en'
+  | 'pt'
+  | 'fr'
+  | 'de'
+  | 'it'
+  | 'zh'
+  | 'ja'
+  | 'ru'
+  | 'nl'
+  | 'pl'
+  | 'ko'
+  | 'tr'
+  | 'uk'
+  | 'sv';
+export const LOCALES: Locale[] = [
+  'es',
+  'en',
+  'pt',
+  'fr',
+  'de',
+  'it',
+  'zh',
+  'ja',
+  'ru',
+  'nl',
+  'pl',
+  'ko',
+  'tr',
+  'uk',
+  'sv',
+];
 export const DEFAULT_LOCALE: Locale = 'es';
 
 /** Nombre nativo del locale para mostrar en el switcher. */
@@ -62,6 +99,12 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   zh: '简体中文',
   ja: '日本語',
   ru: 'Русский',
+  nl: 'Nederlands',
+  pl: 'Polski',
+  ko: '한국어',
+  tr: 'Türkçe',
+  uk: 'Українська',
+  sv: 'Svenska',
 };
 
 /** Cookie que guarda el override del visitante. 30 días. */
@@ -80,6 +123,12 @@ const DICTIONARIES: Record<Locale, Messages> = {
   zh: zh as Messages,
   ja: ja as Messages,
   ru: ru as Messages,
+  nl: nl as Messages,
+  pl: pl as Messages,
+  ko: ko as Messages,
+  tr: tr as Messages,
+  uk: uk as Messages,
+  sv: sv as Messages,
 };
 
 /** Tipo de un diccionario (tipo estructural, no literal). */
