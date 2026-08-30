@@ -1,4 +1,5 @@
 ---
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -11,7 +12,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 <div class="panel" :class="tab==='advanced' && 'active'">
   <h2 style="margin-top:0" x-text="tabAdvanced()">Avanzado</h2>
 
-  <h3 style="margin-top:1.5rem;display:flex;align-items:center;gap:0.35rem"><span x-text="featuresTitle()">Features (opt-in)</span><button type="button" class="help-icon" @click="showHelp('advanced.features')" :title="helpTooltipLabel()">?</button></h3>
+  <h3 style="margin-top:1.5rem;display:flex;align-items:center;gap:0.35rem"><span x-text="featuresTitle()">Features (opt-in)</span><HelpIcon helpKey="advanced.features" /></h3>
   <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem" x-html="featuresIntro()">
     Cada feature nueva arranca <strong>apagada</strong> por default. Si no la activás, ni se ejecuta, ni se carga su dependencia, ni aparece en la UI. Al encender una feature, aparecerá automáticamente su pestaña correspondiente en la barra superior.
   </p>
@@ -60,7 +61,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     </template>
   </div>
 
-  <h3 style="margin-top:2rem">Export / Import <button type="button" class="help-icon" @click="showHelp('advanced.export')" :title="helpTooltipLabel()">?</button></h3>
+  <h3 style="margin-top:2rem">Export / Import <HelpIcon helpKey="advanced.export" /></h3>
   <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
     <button class="btn btn-ghost" @click="exportConfig()">Descargar config.json</button>
     <span style="color:#94a3b8;font-size:0.85rem">backup / migración / versionar</span>
@@ -70,15 +71,15 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       Importar config.json
       <input type="file" accept="application/json" @change="importConfig($event)" hidden />
     </label>
-    <button type="button" class="help-icon" @click="showHelp('advanced.import')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="advanced.import" />
     <span style="color:#94a3b8;font-size:0.85rem">reemplaza la config actual (no es merge)</span>
   </div>
 
-  <h3>Healthcheck <button type="button" class="help-icon" @click="showHelp('advanced.healthcheck')" :title="helpTooltipLabel()">?</button></h3>
+  <h3>Healthcheck <HelpIcon helpKey="advanced.healthcheck" /></h3>
   <button class="btn btn-ghost" @click="checkHealth()">Probar /api/health</button>
   <pre x-show="healthInfo" x-text="JSON.stringify(healthInfo, null, 2)" style="background:var(--code-bg, #0f172a);color:var(--code-fg, #38bdf8);border:1px solid var(--border);padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
 
-  <h3 style="margin-top:2rem">Reset <button type="button" class="help-icon" @click="showHelp('advanced.reset')" :title="helpTooltipLabel()">?</button></h3>
+  <h3 style="margin-top:2rem">Reset <HelpIcon helpKey="advanced.reset" /></h3>
   <p style="color:#94a3b8;font-size:0.85rem">Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).</p>
   <button class="btn btn-danger" @click="resetConfig()">Reset a defaults</button>
 </div>

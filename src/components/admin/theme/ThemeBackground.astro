@@ -1,10 +1,13 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
@@ -22,39 +25,31 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       {t('admin.theme.background.copyOther', 'Copiar del otro modo')}
     </button>
   </div>
-  <button type="button" class="help-icon" @click="showHelp('theme.bgEditMode')" :title="helpTooltipLabel()">?</button>
+  <HelpIcon helpKey="theme.bgEditMode" />
 </div>
 
-<div class="form-group">
-  <label>
-    <span x-text="themeBgTypeLabel()">{t('admin.theme.background.type', 'Tipo de fondo')}</span>
-    <button type="button" class="help-icon" @click="showHelp('theme.background.type')" :title="helpTooltipLabel()">?</button>
-  </label>
+<FormGroup {...kit} labelExpr="themeBgTypeLabel()" labelKey="admin.theme.background.type" labelFallback="Tipo de fondo" helpKey="theme.background.type">
   <select :value="getActiveBgProp('type')" @change="setActiveBgProp('type', $event.target.value); onBackgroundTypeChange()">
     <option value="gradient">{t('admin.theme.background.typeGradient', 'Gradiente')}</option>
     <option value="color">{t('admin.theme.background.typeColor', 'Color sólido')}</option>
     <option value="image">{t('admin.theme.background.typeImage', 'Imagen subida')}</option>
   </select>
-</div>
+</FormGroup>
 
-<div class="form-group" x-show="getActiveBgProp('type')==='image'">
-  <label>
-    <span x-text="themeBgImageLabel()">{t('admin.theme.background.image', 'Imagen de fondo')}</span>
-    <button type="button" class="help-icon" @click="showHelp('theme.background.value')" :title="helpTooltipLabel()">?</button>
-  </label>
+<FormGroup {...kit} labelExpr="themeBgImageLabel()" labelKey="admin.theme.background.image" labelFallback="Imagen de fondo" helpKey="theme.background.value" show="getActiveBgProp('type')==='image'">
   <select :value="getActiveBgProp('value')" @change="setActiveBgProp('value', $event.target.value)">
     <option value="">{t('admin.theme.background.selectImage', '— Seleccionar imagen —')}</option>
     <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp)$/i.test(a.name))" :key="a.name">
       <option :value="a.url" x-text="a.name"></option>
     </template>
   </select>
-</div>
+</FormGroup>
 
 <div x-show="getActiveBgProp('type')!=='image' && !themeUseAdvancedCss">
   <div class="theme-gradient-builder" x-show="getActiveBgProp('type')==='gradient'">
     <label style="font-size:0.82rem;color:var(--text-subtle);display:block;margin-bottom:0.5rem">
       <span x-text="themeGradientBuilderLabel()">{t('admin.theme.background.gradientBuilder', 'Constructor de gradiente')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.gradientBuilder')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="theme.gradientBuilder" />
     </label>
     <div class="theme-gradient-preview" :style="`background:${buildGradientCss()}`"></div>
     <div class="form-group" style="margin-bottom:0.5rem">
@@ -75,7 +70,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <div class="form-group" x-show="getActiveBgProp('type')==='color'">
     <label>
       <span x-text="themeBgColorLabel()">{t('admin.theme.background.color', 'Color')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.background.value')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="theme.background.value" />
     </label>
     <div class="theme-color-field">
       <input type="color" class="color-swatch" :value="getActiveBgProp('value')" @input="setActiveBgProp('value', $event.target.value)" />
@@ -88,24 +83,20 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <label style="display:flex;align-items:center;gap:0.5rem">
     <input type="checkbox" x-model="themeUseAdvancedCss" @change="onAdvancedCssToggle()" />
     <span x-text="themeAdvancedCssLabel()">{t('admin.theme.background.advancedCss', 'CSS avanzado (editar valor manualmente)')}</span>
-    <button type="button" class="help-icon" @click="showHelp('theme.advancedCss')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="theme.advancedCss" />
   </label>
 </div>
 
-<div class="form-group" x-show="themeUseAdvancedCss || getActiveBgProp('type')==='image'">
-  <label>
-    <span x-text="getActiveBgProp('type') === 'color' ? themeBgColorLabel() : themeBgCssLabel()"></span>
-    <button type="button" class="help-icon" @click="showHelp('theme.background.value')" :title="helpTooltipLabel()">?</button>
-  </label>
+<FormGroup {...kit} labelExpr="getActiveBgProp('type') === 'color' ? themeBgColorLabel() : themeBgCssLabel()" labelFallback="" helpKey="theme.background.value" show="themeUseAdvancedCss || getActiveBgProp('type')==='image'">
   <input type="text" :value="getActiveBgProp('value')" @input="setActiveBgProp('value', $event.target.value)" placeholder="linear-gradient(135deg, #0f172a, #1e3a8a)" />
-</div>
+</FormGroup>
 
 <div class="form-row">
   <div class="form-group">
     <label>
       <span x-text="themeBlurLabel()">{t('admin.theme.background.blur', 'Blur')}</span>
       (<span x-text="getActiveBgProp('blur')"></span>px)
-      <button type="button" class="help-icon" @click="showHelp('theme.background.blur')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="theme.background.blur" />
     </label>
     <input type="range" min="0" max="40" :value="getActiveBgProp('blur')" @input="setActiveBgProp('blur', +$event.target.value)" />
   </div>
@@ -113,15 +104,11 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <label>
       <span x-text="themeOverlayLabel()">{t('admin.theme.background.overlay', 'Overlay')}</span>
       (<span x-text="getActiveBgProp('overlay')"></span>)
-      <button type="button" class="help-icon" @click="showHelp('theme.background.overlay')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="theme.background.overlay" />
     </label>
     <input type="range" min="0" max="1" step="0.05" :value="getActiveBgProp('overlay')" @input="setActiveBgProp('overlay', +$event.target.value)" />
   </div>
-  <div class="form-group">
-    <label>
-      <span x-text="themeOverlayColorLabel()">{t('admin.theme.background.overlayColor', 'Color overlay')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.background.overlayColor')" :title="helpTooltipLabel()">?</button>
-    </label>
+  <FormGroup {...kit} labelExpr="themeOverlayColorLabel()" labelKey="admin.theme.background.overlayColor" labelFallback="Color overlay" helpKey="theme.background.overlayColor">
     <input type="color" class="color-swatch" :value="getActiveBgProp('overlayColor')" @input="setActiveBgProp('overlayColor', $event.target.value)" />
-  </div>
+  </FormGroup>
 </div>

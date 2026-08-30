@@ -1,4 +1,5 @@
 ---
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -11,7 +12,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 <div class="panel" :class="tab==='categories' && 'active'">
   <h2 style="margin-top:0">
     Categorías
-    <button type="button" class="help-icon" @click="showHelp('category.order')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="category.order" />
   </h2>
   <p class="muted" style="color:#94a3b8;font-size:0.85rem">Las tarjetas se agrupan por categoría. El id es la clave interna (kebab-case). Arrastrá las filas con <code>⋮⋮</code> para reordenar — el orden de las categorías en la portada sigue el orden acá.</p>
   <div class="card-list" id="categories-sortable">
@@ -23,7 +24,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             <input type="text" x-model="cat.id" placeholder="id (kebab-case)" @input="markDirty()" />
             <span style="display:flex;align-items:center;gap:0.25rem">
               <input type="text" x-model="cat.name" placeholder="Nombre" @input="markDirty()" style="flex:1" />
-              <button type="button" class="help-icon" @click="showHelp('category.name')" :title="helpTooltipLabel()">?</button>
+              <HelpIcon helpKey="category.name" />
             </span>
             <span style="display:flex;align-items:center;gap:0.25rem">
               <select x-model="cat.icon" @change="markDirty()" :title="cat.icon || 'ícono'" style="flex:1">
@@ -32,7 +33,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
                   <option :value="i" x-text="i"></option>
                 </template>
               </select>
-              <button type="button" class="help-icon" @click="showHelp('category.icon')" :title="helpTooltipLabel()">?</button>
+              <HelpIcon helpKey="category.icon" />
             </span>
           </div>
           <button class="btn btn-sm btn-ghost" @click="removeCategoryById(cat.id)" title="Eliminar categoría">×</button>
@@ -42,7 +43,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             <input type="checkbox" x-model="cat.isLocked" @change="markDirty()" style="width:auto;cursor:pointer" />
             <span>🔒 Bloquear con contraseña</span>
           </label>
-          <button type="button" class="help-icon" @click="showHelp('category.lock')" :title="helpTooltipLabel()">?</button>
+          <HelpIcon helpKey="category.lock" />
           <div x-show="cat.isLocked" style="display:flex;align-items:center;gap:0.5rem;flex:1;min-width:220px;max-width:340px">
             <input type="text" x-model="cat.password" placeholder="Contraseña de la categoría…" @input="markDirty()" style="padding:0.3rem 0.55rem;font-size:0.85rem" />
           </div>
@@ -52,7 +53,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             <input type="checkbox" x-model="cat.isSubpage" @change="markDirty()" style="width:auto;cursor:pointer" />
             <span>📄 Subpágina independiente (oculta de la portada)</span>
           </label>
-          <button type="button" class="help-icon" @click="showHelp('category.subpage')" :title="helpTooltipLabel()">?</button>
+          <HelpIcon helpKey="category.subpage" />
           <template x-if="cat.isSubpage">
             <a :href="'/' + cat.id" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:0.25rem;color:var(--accent);text-decoration:none;font-size:0.8rem;background:var(--surface);padding:0.15rem 0.5rem;border-radius:4px;border:1px solid var(--border)">
               <span>Abrir: /<span x-text="cat.id"></span></span>

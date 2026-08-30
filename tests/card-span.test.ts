@@ -180,7 +180,9 @@ describe('card span wiring', () => {
       'utf8',
     );
     assert.match(src, /x-model\.number="editingCard\.span"/);
-    assert.match(src, /showHelp\('card\.span'\)/);
+    // El "?" ahora sale del kit (`<HelpIcon helpKey="card.span" />`), pero el
+    // contrato es el mismo: el campo tiene que ofrecer esa ayuda.
+    assert.match(src, /helpKey="card\.span"|showHelp\('card\.span'\)/);
     assert.match(src, /cardSpanEffectiveHint\(\)/);
   });
 

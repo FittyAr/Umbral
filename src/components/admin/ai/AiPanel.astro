@@ -1,10 +1,14 @@
 ---
+import ToggleField from '../ui/ToggleField.astro';
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
@@ -14,12 +18,9 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     Conectá un provider OpenAI-compatible para mejorar las tarjetas (título + descripción).
     <strong>Apagado por default</strong>: la apiKey no se manda a ningún lado hasta que actives esto.
   </p>
-  <div class="form-group">
-    <label><input type="checkbox" x-model="cfg.ai.enabled" /> Habilitar asistente IA</label>
-  </div>
+  <ToggleField {...kit} model="cfg.ai.enabled" labelFallback="Habilitar asistente IA" />
   <div class="form-row" x-show="cfg.ai.enabled">
-    <div class="form-group">
-      <label>Preset <button type="button" class="help-icon" @click="showHelp('ai.preset')" :title="helpTooltipLabel()">?</button></label>
+    <FormGroup {...kit} labelFallback="Preset" helpKey="ai.preset">
       <select x-model="aiPreset" @change="applyAiPreset(aiPreset)">
         <option value="">— Custom / Otro —</option>
         <template x-for="p in aiProviders" :key="p.id">
@@ -27,7 +28,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         </template>
       </select>
       <small style="color:#94a3b8" x-text="presetDescription()"></small>
-    </div>
+    </FormGroup>
     <div class="form-group" style="flex:1">
       <label>Base URL</label>
       <input type="text" x-model="cfg.ai.baseUrl" placeholder="https://api.openai.com/v1" />
@@ -38,35 +39,29 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <div class="form-group" style="flex:1">
       <label>
         <span x-text="presetApiKeyLabel()">API Key</span>
-        <button type="button" class="help-icon" @click="showHelp('ai.apiKey')" :title="helpTooltipLabel()">?</button>
+        <HelpIcon helpKey="ai.apiKey" />
       </label>
       <input type="password" x-model="cfg.ai.apiKey" placeholder="sk-..." autocomplete="off" />
       <small style="color:#94a3b8" x-text="presetApiKeyHelp()"></small>
     </div>
-    <div class="form-group">
-      <label>Modelo <button type="button" class="help-icon" @click="showHelp('ai.model')" :title="helpTooltipLabel()">?</button></label>
+    <FormGroup {...kit} labelFallback="Modelo" helpKey="ai.model">
       <input type="text" x-model="cfg.ai.model" placeholder="gpt-4o-mini" list="ai-model-suggestions" />
       <datalist id="ai-model-suggestions">
         <template x-for="m in presetModels()" :key="m">
           <option :value="m"></option>
         </template>
       </datalist>
-    </div>
-    <div class="form-group">
-      <label>Idioma de la IA <button type="button" class="help-icon" @click="showHelp('ai.language')" :title="helpTooltipLabel()">?</button></label>
+    </FormGroup>
+    <FormGroup {...kit} labelFallback="Idioma de la IA" helpKey="ai.language">
       <select x-model="cfg.ai.language">
         <template x-for="l in aiLanguages" :key="l.code">
           <option :value="l.code" x-text="l.name"></option>
         </template>
       </select>
       <small style="color:#94a3b8">En qué idioma escribe la IA cuando mejora una tarjeta. No afecta al contenido que ya escribiste vos.</small>
-    </div>
+    </FormGroup>
   </div>
-  <div class="form-group" x-show="cfg.ai.enabled">
-    <label>
-      System prompt
-      <button type="button" class="help-icon" @click="showHelp('ai.systemPrompt')" :title="helpTooltipLabel()">?</button>
-    </label>
+  <FormGroup {...kit} labelFallback="System prompt" helpKey="ai.systemPrompt" show="cfg.ai.enabled">
     <textarea x-model="cfg.ai.systemPrompt" rows="3" placeholder="Si lo dejás vacío, uso uno default en castellano rioplatense."></textarea>
     <details style="margin-top:0.5rem">
       <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.8rem">
@@ -76,7 +71,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <pre style="margin-top:0.5rem;padding:0.75rem;background:var(--code-bg);color:var(--code-fg);border:1px solid var(--code-border);border-radius:6px;font-size:0.78rem;white-space:pre-wrap;line-height:1.5" x-text="currentDefaultSystemPrompt()"></pre>
       <button type="button" class="btn btn-sm btn-ghost" style="margin-top:0.4rem" @click="useDefaultSystemPrompt()" x-show="cfg.ai.systemPrompt !== currentDefaultSystemPrompt()">Usar este prompt</button>
     </details>
-  </div>
+  </FormGroup>
   <div class="form-group" x-show="cfg.ai.enabled">
     <button type="button" class="btn btn-ghost btn-sm" @click="testAI()" :disabled="aiBusy">
       <span x-show="!aiBusy">Probar conexión</span>
@@ -87,7 +82,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 
   <h3 style="margin-top:1.5rem">
     Búsqueda externa (auto-completar)
-    <button type="button" class="help-icon" @click="showHelp('externalSearch.intro')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="externalSearch.intro" />
   </h3>
   <p style="color:var(--text-subtle);font-size:0.82rem;margin:0 0 0.5rem">
     Cuando el botón "Auto-completar" del form de tarjeta no puede scrapear el sitio
@@ -95,20 +90,14 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     búsqueda externa. Default sin keys: <strong>Wikipedia + DuckDuckGo</strong>.
     Si cargás una key de Brave o Tavily, se usan primero (mejor calidad).
   </p>
-  <div class="form-group">
-    <label>
-      Brave Search API key <button type="button" class="help-icon" @click="showHelp('externalSearch.brave')" :title="helpTooltipLabel()">?</button>
-    </label>
+  <FormGroup {...kit} labelFallback="Brave Search API key" helpKey="externalSearch.brave">
     <input type="password" x-model="cfg.externalSearch.braveApiKey" placeholder="BSA..." autocomplete="off" />
     <small style="color:#94a3b8">2000 req/mes gratis. Conseguila en <a href="https://brave.com/search/api/" target="_blank" rel="noopener">brave.com/search/api</a>.</small>
-  </div>
-  <div class="form-group">
-    <label>
-      Tavily API key <button type="button" class="help-icon" @click="showHelp('externalSearch.tavily')" :title="helpTooltipLabel()">?</button>
-    </label>
+  </FormGroup>
+  <FormGroup {...kit} labelFallback="Tavily API key" helpKey="externalSearch.tavily">
     <input type="password" x-model="cfg.externalSearch.tavilyApiKey" placeholder="tvly-..." autocomplete="off" />
     <small style="color:#94a3b8">1000 req/mes gratis. Optimizado para AI. Conseguila en <a href="https://tavily.com" target="_blank" rel="noopener">tavily.com</a>.</small>
-  </div>
+  </FormGroup>
   <details style="margin-top:0.4rem">
     <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.78rem">SearXNG self-hosted (avanzado)</summary>
     <p style="margin-top:0.5rem;font-size:0.82rem;color:var(--text-subtle);line-height:1.5">

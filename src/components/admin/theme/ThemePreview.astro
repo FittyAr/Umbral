@@ -1,4 +1,5 @@
 ---
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -12,7 +13,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <div class="theme-preview-toolbar">
     <label>
       <span x-text="themePreviewLabel()">{t('admin.theme.preview.title', 'Vista previa')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.preview.mode')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="theme.preview.mode" />
     </label>
     <div class="theme-preview-mode-btns">
       <button type="button" :class="themePreviewMode==='dark' && 'active'" @click="themePreviewMode='dark'">Dark</button>
@@ -77,6 +78,6 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <button type="button" class="btn btn-sm btn-primary" style="width:100%" @click="openThemePreviewTab()" x-text="themeOpenPreviewTabLabel()">
       {t('admin.theme.preview.openTab', 'Abrir preview en pestaña')}
     </button>
-    <button type="button" class="help-icon" @click="showHelp('theme.preview.openTab')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="theme.preview.openTab" />
   </div>
 </div>

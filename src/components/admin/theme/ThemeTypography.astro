@@ -1,47 +1,42 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <h3 x-text="themeSectionTypography()">{t('admin.theme.section.typography', 'Tipografía')}</h3>
 
 <div class="form-row">
-  <div class="form-group">
-    <label>
-      <span x-text="themeFontLabel()">{t('admin.theme.typography.font', 'Tipografía')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.fontFamily')" :title="helpTooltipLabel()">?</button>
-    </label>
+  <FormGroup {...kit} labelExpr="themeFontLabel()" labelKey="admin.theme.typography.font" labelFallback="Tipografía" helpKey="theme.fontFamily">
     <select x-model="cfg.theme.fontFamily" @change="updateFontUrl()">
       <option>Inter</option><option>Roboto</option><option>Open Sans</option>
       <option>Lato</option><option>Poppins</option><option>Montserrat</option>
       <option>Source Sans 3</option><option>Nunito</option><option>Raleway</option>
       <option>system-ui</option>
     </select>
-  </div>
-  <div class="form-group">
-    <label>
-      <span x-text="themeFontWeightLabel()">{t('admin.theme.typography.weight', 'Peso')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.fontWeight')" :title="helpTooltipLabel()">?</button>
-    </label>
+  </FormGroup>
+  <FormGroup {...kit} labelExpr="themeFontWeightLabel()" labelKey="admin.theme.typography.weight" labelFallback="Peso" helpKey="theme.fontWeight">
     <select x-model="cfg.theme.fontWeight">
       <option value="400">400 — Regular</option>
       <option value="500">500 — Medium</option>
       <option value="600">600 — Semibold</option>
       <option value="700">700 — Bold</option>
     </select>
-  </div>
+  </FormGroup>
 </div>
 
 <div class="form-group">
   <label style="display:flex;align-items:center;gap:0.5rem">
     <input type="checkbox" x-model="cfg.theme.useGoogleFonts" @change="updateFontUrl()" />
     <span x-text="themeGoogleFontsLabel()">{t('admin.theme.typography.googleFonts', 'Cargar desde Google Fonts (requiere conexión)')}</span>
-    <button type="button" class="help-icon" @click="showHelp('theme.useGoogleFonts')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="theme.useGoogleFonts" />
   </label>
 </div>
 

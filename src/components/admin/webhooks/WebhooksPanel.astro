@@ -1,15 +1,18 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='webhooks' && 'active'">
-  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="webhooksTitle()">Webhooks</span><button type="button" class="help-icon" @click="showHelp('advanced.webhooks')" :title="helpTooltipLabel()">?</button></h2>
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="webhooksTitle()">Webhooks</span><HelpIcon helpKey="advanced.webhooks" /></h2>
   <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem" x-html="webhooksIntro()">
     Notifica a URLs externas cuando una card con health-check cambia de estado (de healthy → failing o vice versa).
   </p>
@@ -47,11 +50,10 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <label>Nombre</label>
       <input type="text" x-model="newWebhook.name" placeholder="Slack #alertas" maxlength="60" />
     </div>
-    <div class="form-group">
-      <label>URL</label>
+    <FormGroup {...kit} labelFallback="URL">
       <input type="url" x-model="newWebhook.url" placeholder="https://hooks.slack.com/..." maxlength="500" />
       <small style="color:var(--text-faint);font-size:0.72rem">http(s) only. SSRF guard bloquea loopback y private IPs.</small>
-    </div>
+    </FormGroup>
     <div class="form-row">
       <div class="form-group" style="flex:1">
         <label>Eventos</label>

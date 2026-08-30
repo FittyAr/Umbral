@@ -1,0 +1,69 @@
+---
+import FormGroup from './FormGroup.astro';
+
+/**
+ * Input numérico con su `form-group`. Estaba escrito a mano en 13 lugares,
+ * y en varios el `x-model` iba sin `.number`, así que el config terminaba
+ * con strings donde el schema espera números.
+ *
+ * `model` se bindea con `.number` salvo que pases `expr` + `change`, el caso
+ * de los campos derivados (bytes que se editan en KB).
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  /** Path Alpine, ej: `cfg.security.session.ttlHours`. */
+  model?: string;
+  /** Expresión Alpine para `x-model.number` cuando el valor es derivado. */
+  expr?: string;
+  /** Handler de `@change`, para los campos derivados. */
+  change?: string;
+  min?: number | string;
+  max?: number | string;
+  step?: number | string;
+  labelKey?: string;
+  labelFallback?: string;
+  labelExpr?: string;
+  helpKey?: string;
+  show?: string;
+  /** Texto de ayuda debajo del input. */
+  hint?: string;
+}
+
+const {
+  useI18n,
+  tr,
+  model,
+  expr,
+  change,
+  min,
+  max,
+  step,
+  labelKey,
+  labelFallback,
+  labelExpr,
+  helpKey,
+  show,
+  hint,
+} = Astro.props;
+---
+
+<FormGroup
+  useI18n={useI18n}
+  tr={tr}
+  labelKey={labelKey}
+  labelFallback={labelFallback}
+  labelExpr={labelExpr}
+  helpKey={helpKey}
+  show={show}
+>
+  <input
+    type="number"
+    min={min}
+    max={max}
+    step={step}
+    x-model.number={model ?? expr}
+    @change={change}
+  />
+  {hint && <small class="field-hint">{hint}</small>}
+</FormGroup>

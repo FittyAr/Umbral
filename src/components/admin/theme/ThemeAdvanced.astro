@@ -1,4 +1,6 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
 import { TOKEN_KEY_MAP, TOKEN_CATEGORIES } from '~/lib/theme-tokens';
 
 interface Props {
@@ -7,6 +9,7 @@ interface Props {
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 
 const tokenKeys = Object.keys(TOKEN_KEY_MAP);
@@ -16,7 +19,7 @@ const categories = TOKEN_CATEGORIES;
 <h3 x-text="themeSectionAdvanced()">{t('admin.theme.section.advanced', 'Avanzado')}</h3>
 <p class="theme-section-desc" style="display:flex;align-items:center;gap:0.35rem">
   <span x-text="themeAdvancedIntro()">{t('admin.theme.advanced.intro', 'Override de design tokens por modo claro/oscuro. Los campos vacíos usan los defaults del sistema.')}</span>
-  <button type="button" class="help-icon" @click="showHelp('theme.advanced.intro')" :title="helpTooltipLabel()">?</button>
+  <HelpIcon helpKey="theme.advanced.intro" />
 </p>
 
 <div class="theme-advanced-tabs">
@@ -29,7 +32,7 @@ const categories = TOKEN_CATEGORIES;
     <button type="button" class="btn btn-sm btn-ghost" @click="deriveThemeTokensFromAccent()" x-text="themeDeriveAccentLabel()">
       {t('admin.theme.advanced.deriveAccent', 'Derivar del acento')}
     </button>
-    <button type="button" class="help-icon" @click="showHelp('theme.advanced.derive')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="theme.advanced.derive" />
   </span>
   <button type="button" class="btn btn-sm btn-ghost" @click="resetThemeTokenCategory('surfaces')" x-text="themeResetSurfacesLabel()">
     {t('admin.theme.advanced.resetSurfaces', 'Reset superficies')}
@@ -41,7 +44,7 @@ const categories = TOKEN_CATEGORIES;
 
 <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem">
   <input type="search" class="theme-token-search" x-model="themeTokenSearch" :placeholder="themeTokenSearchPlaceholder()" style="flex:1" />
-  <button type="button" class="help-icon" @click="showHelp('theme.advanced.tokens')" :title="helpTooltipLabel()">?</button>
+  <HelpIcon helpKey="theme.advanced.tokens" />
 </div>
 
 <div class="form-row" style="margin-bottom:0.75rem">
@@ -49,18 +52,14 @@ const categories = TOKEN_CATEGORIES;
     <label><span x-text="themeRadiusLabel()">{t('admin.theme.advanced.radius', 'Radio base')}</span> (<span x-text="cfg?.theme?.tokens?.shared?.radius ?? 10"></span>px)</label>
     <input type="range" min="0" max="24" :value="cfg?.theme?.tokens?.shared?.radius ?? 10" @input="setSharedToken('radius', +$event.target.value)" />
   </div>
-  <div class="form-group">
-    <label>
-      <span x-text="themeShadowIntensityLabel()">{t('admin.theme.advanced.shadowIntensity', 'Intensidad sombras')}</span>
-      <button type="button" class="help-icon" @click="showHelp('theme.advanced.shadowIntensity')" :title="helpTooltipLabel()">?</button>
-    </label>
+  <FormGroup {...kit} labelExpr="themeShadowIntensityLabel()" labelKey="admin.theme.advanced.shadowIntensity" labelFallback="Intensidad sombras" helpKey="theme.advanced.shadowIntensity">
     <select :value="cfg.theme.tokens?.shared?.shadowIntensity ?? 'normal'" @change="setSharedToken('shadowIntensity', $event.target.value)">
       <option value="none">{t('admin.theme.advanced.shadowNone', 'Ninguna')}</option>
       <option value="subtle">{t('admin.theme.advanced.shadowSubtle', 'Sutil')}</option>
       <option value="normal">{t('admin.theme.advanced.shadowNormal', 'Normal')}</option>
       <option value="strong">{t('admin.theme.advanced.shadowStrong', 'Fuerte')}</option>
     </select>
-  </div>
+  </FormGroup>
 </div>
 
 <div class="theme-token-list">
@@ -80,7 +79,7 @@ const categories = TOKEN_CATEGORIES;
   <button type="button" class="btn btn-sm btn-ghost" @click="importThemeJson()" x-text="themeImportLabel()">
     {t('admin.theme.advanced.import', 'Importar tema (JSON)')}
   </button>
-  <button type="button" class="help-icon" @click="showHelp('theme.advanced.exportImport')" :title="helpTooltipLabel()">?</button>
+  <HelpIcon helpKey="theme.advanced.exportImport" />
 </div>
 
 <script define:vars={{ tokenKeys, categories }}>

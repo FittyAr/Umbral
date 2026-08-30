@@ -1,4 +1,5 @@
 ---
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -14,7 +15,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <div class="form-group">
     <label>
       <span x-text="layoutHealthCheckLabel()">{t('admin.layout.healthCheckInterval', 'Intervalo health check (segundos)')}</span>
-      <button type="button" class="help-icon" @click="showHelp('layout.healthCheckInterval')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="layout.healthCheckInterval" />
       <span style="color:var(--text-faint);font-size:0.8rem" x-text="'— ' + (cfg.layout.healthCheckInterval || 60) + 's'"></span>
     </label>
     <div class="layout-range-row">

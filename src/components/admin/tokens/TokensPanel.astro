@@ -1,4 +1,5 @@
 ---
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -9,7 +10,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='tokens' && 'active'">
-  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="tabTokens()">Tokens API</span><button type="button" class="help-icon" @click="showHelp('advanced.apiTokens')" :title="helpTooltipLabel()">?</button></h2>
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="tabTokens()">Tokens API</span><HelpIcon helpKey="advanced.apiTokens" /></h2>
   <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
     Tokens Bearer para el CLI companion, scripts o integraciones de CI/CD. El token plano solo se muestra una vez al generarlo.
   </p>

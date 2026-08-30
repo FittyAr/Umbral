@@ -1,22 +1,24 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='branding' && 'active'">
   <h2 style="margin-top:0">Branding</h2>
-  <div class="form-group">
-    <label>Nombre de la empresa <button type="button" class="help-icon" @click="showHelp('branding.companyName')" :title="helpTooltipLabel()">?</button></label>
+  <FormGroup {...kit} labelFallback="Nombre de la empresa" helpKey="branding.companyName">
     <input type="text" x-model="cfg.branding.companyName" maxlength="80" />
-  </div>
+  </FormGroup>
   <div class="form-row">
     <div class="form-group">
-      <label>Logo <button type="button" class="help-icon" @click="showHelp('branding.logo')" :title="helpTooltipLabel()">?</button></label>
+      <label>Logo <HelpIcon helpKey="branding.logo" /></label>
       <select x-model="cfg.branding.logo">
         <option value="">— Sin logo (usar inicial) —</option>
         <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg)$/i.test(a.name))" :key="a.name">
@@ -27,14 +29,13 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <img :src="cfg.branding.logo" style="max-height:60px;max-width:200px" />
       </div>
     </div>
-    <div class="form-group">
-      <label>Favicon <button type="button" class="help-icon" @click="showHelp('branding.favicon')" :title="helpTooltipLabel()">?</button></label>
+    <FormGroup {...kit} labelFallback="Favicon" helpKey="branding.favicon">
       <select x-model="cfg.branding.favicon">
         <option value="">— Default —</option>
         <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg|ico)$/i.test(a.name))" :key="a.name">
           <option :value="a.url" x-text="a.name"></option>
         </template>
       </select>
-    </div>
+    </FormGroup>
   </div>
 </div>

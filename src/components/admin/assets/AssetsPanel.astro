@@ -1,4 +1,5 @@
 ---
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -11,7 +12,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 <div class="panel" :class="tab==='assets' && 'active'">
   <h2 style="margin-top:0">
     Assets
-    <button type="button" class="help-icon" @click="showHelp('assets.upload')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="assets.upload" />
   </h2>
   <div class="uploader" :class="uploaderDragover && 'dragover'"
        @click="$refs.fileInput.click()"
@@ -20,13 +21,13 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
        @drop.prevent="handleFileDrop($event)">
     <div style="display:flex;align-items:center;justify-content:center;gap:0.35rem;margin-bottom:0.5rem">
       <p style="margin:0">Arrastrá archivos acá o hacé click para subir</p>
-      <button type="button" class="help-icon" @click.stop="showHelp('assets.dropzone')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="assets.dropzone" stop />
     </div>
     <small>PNG, JPEG, WebP, SVG, GIF · Logos 1MB · Iconos 512KB · Bg 5MB</small>
     <input type="file" x-ref="fileInput" accept="image/*" multiple @change="handleFileSelect($event)" hidden />
   </div>
   <div class="form-group" style="max-width:240px">
-    <label>Tipo al subir <button type="button" class="help-icon" @click="showHelp('assets.upload')" :title="helpTooltipLabel()">?</button></label>
+    <label>Tipo al subir <HelpIcon helpKey="assets.upload" /></label>
     <select x-model="uploadKind">
       <option value="icon">Icono (128px, ≤512KB)</option>
       <option value="logo">Logo (512px, ≤1MB)</option>
@@ -45,9 +46,9 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <div class="usage" x-show="a.usedBy.length" x-text="'Usado en: ' + a.usedBy.join(', ')"></div>
         <div style="display:flex;gap:0.2rem;margin-top:0.4rem;width:100%;align-items:center">
           <button class="btn btn-sm btn-ghost" style="flex:1;font-size:0.7rem;padding:0.2rem" @click="copyToClipboard(a.url)">Copiar URL</button>
-          <button type="button" class="help-icon" @click="showHelp('assets.copyUrl')" :title="helpTooltipLabel()">?</button>
+          <HelpIcon helpKey="assets.copyUrl" />
           <button class="btn btn-sm btn-ghost" style="flex:0 0 auto;font-size:0.7rem;padding:0.2rem 0.4rem" @click="deleteAsset(a.name)" :disabled="a.usedBy.length>0" :title="a.usedBy.length ? 'En uso' : 'Borrar'">🗑</button>
-          <button type="button" class="help-icon" @click="showHelp('assets.delete')" :title="helpTooltipLabel()">?</button>
+          <HelpIcon helpKey="assets.delete" />
         </div>
       </div>
     </template>

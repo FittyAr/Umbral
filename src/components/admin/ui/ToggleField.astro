@@ -16,6 +16,11 @@ interface Props {
   helpKey?: string;
   show?: string;
   class?: string;
+  /** Nota debajo del checkbox. */
+  hint?: string;
+  /** `x-cloak`, para los campos detrás de un feature flag que no deben
+   *  parpadear antes de que Alpine evalúe el `x-show`. */
+  cloak?: boolean;
 }
 
 const {
@@ -28,16 +33,19 @@ const {
   helpKey,
   show,
   class: extraClass,
+  hint,
+  cloak = false,
 } = Astro.props;
 
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 const labelText = labelKey ? t(labelKey, labelFallback) : labelFallback;
 ---
 
-<div class:list={['form-group', extraClass]} x-show={show}>
+<div class:list={['form-group', extraClass]} x-show={show} x-cloak={cloak ? true : undefined}>
   <label>
     <input type="checkbox" x-model={model} />
     <span x-text={labelExpr}>{labelText}</span>
     {helpKey && <HelpIcon helpKey={helpKey} />}
   </label>
+  {hint && <small class="field-hint">{hint}</small>}
 </div>

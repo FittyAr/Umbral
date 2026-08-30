@@ -1,4 +1,5 @@
 ---
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -9,7 +10,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='audit' && 'active'">
-  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="auditTitle()">Auditoría</span><button type="button" class="help-icon" @click="showHelp('advanced.audit')" :title="helpTooltipLabel()">?</button></h2>
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="auditTitle()">Auditoría</span><HelpIcon helpKey="advanced.audit" /></h2>
   <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem">
     Registro cronológico de eventos administrativos de <code>data/audit.log</code>. Filtros: acción, texto en el detalle, rango temporal.
   </p>
@@ -17,7 +18,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <div class="audit-toolbar" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:0.75rem">
     <div style="display:flex;align-items:center;gap:0.35rem;align-self:flex-end;padding-bottom:0.35rem">
       <span style="font-size:0.78rem;color:var(--text-subtle)">Filtros</span>
-      <button type="button" class="help-icon" @click="showHelp('audit.filters')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="audit.filters" />
     </div>
     <div class="form-group" style="margin:0;min-width:160px">
       <label style="font-size:0.78rem;margin-bottom:0.2rem">Acción</label>
@@ -43,7 +44,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <div class="form-group" style="margin:0">
       <label style="font-size:0.78rem;margin-bottom:0.2rem;display:flex;align-items:center;gap:0.35rem">
         <span>Límite</span>
-        <button type="button" class="help-icon" @click="showHelp('audit.limit')" :title="helpTooltipLabel()">?</button>
+        <HelpIcon helpKey="audit.limit" />
       </label>
       <select x-model.number="auditFilter.limit" @change="reloadAudit()">
         <option value="50">50</option>
@@ -55,7 +56,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <button type="button" class="btn btn-ghost" @click="resetAuditFilter()" x-text="auditResetLabel()">Limpiar</button>
     <span style="display:inline-flex;align-items:center;gap:0.35rem">
       <button type="button" class="btn btn-ghost" @click="downloadAuditLog()" x-text="auditDownloadLabel()">Descargar log completo</button>
-      <button type="button" class="help-icon" @click="showHelp('audit.download')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="audit.download" />
     </span>
   </div>
 

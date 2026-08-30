@@ -95,6 +95,19 @@
   margin-bottom: 0.3rem;
   font-weight: 500;
 }
+/* Nota debajo de un control. Antes iba como style="color:#94a3b8" repetido
+   en ~20 campos, es decir el token --text-subtle escrito a mano. */
+.field-hint {
+  display: block;
+  color: var(--text-subtle);
+  font-size: 0.78rem;
+  margin-top: 0.25rem;
+}
+/* Bajada de un panel: mismo rol que .field-hint pero a nivel de sección. */
+.panel-intro {
+  color: var(--text-subtle);
+  font-size: 0.85rem;
+}
 .form-row {
   display: grid;
   gap: 0.75rem;

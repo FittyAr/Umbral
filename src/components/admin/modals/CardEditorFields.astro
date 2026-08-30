@@ -1,4 +1,9 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
+import SelectField from '../ui/SelectField.astro';
+import ToggleField from '../ui/ToggleField.astro';
+
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -6,26 +11,30 @@ interface Props {
 
 const { useI18n, tr } = Astro.props;
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+const kit = { useI18n, tr };
 ---
 
   <div class="card-editor-fields">
 <div class="form-row">
-  <div class="form-group">
-    <label>Título <button type="button" class="help-icon" @click="showHelp('card.title')" :title="helpTooltipLabel()">?</button></label>
+  <FormGroup {...kit} labelFallback="Título" helpKey="card.title">
     <input type="text" x-model="editingCard.title" required maxlength="80" />
-  </div>
-  <div class="form-group">
-    <label>Tipo <button type="button" class="help-icon" @click="showHelp('card.kind')" :title="helpTooltipLabel()">?</button></label>
-    <select x-model="editingCard.kind">
-      <option value="link">Link (clickeable)</option>
-      <option value="note">Nota (informativa, sin link)</option>
-    </select>
-    <small style="color:#94a3b8">"Link" lleva a una URL. "Nota" es solo informativa (anuncios, tips, etc.).</small>
-  </div>
+  </FormGroup>
+  <SelectField
+    {...kit}
+    model="editingCard.kind"
+    labelFallback="Tipo"
+    helpKey="card.kind"
+    options={[
+      { value: 'link', label: 'Link (clickeable)' },
+      { value: 'note', label: 'Nota (informativa, sin link)' },
+    ]}
+  >
+    <small class="field-hint">"Link" lleva a una URL. "Nota" es solo informativa (anuncios, tips, etc.).</small>
+  </SelectField>
 </div>
 <div class="form-row">
   <div class="form-group" style="flex:1">
-    <label>URL <button type="button" class="help-icon" @click="showHelp('card.url')" :title="helpTooltipLabel()">?</button> <span x-show="editingCard.kind==='link'" style="color:#dc2626">*</span></label>
+    <label>URL <HelpIcon helpKey="card.url" /> <span x-show="editingCard.kind==='link'" style="color:#dc2626">*</span></label>
     <div style="display:flex;gap:0.4rem;align-items:flex-start">
       <input
         type="text"
@@ -46,9 +55,9 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <span x-show="!autofillBusy">Auto-completar</span>
         <span x-show="autofillBusy" x-cloak>Buscando…</span>
       </button>
-      <button type="button" class="help-icon" @click="showHelp('card.autofill')" :title="helpTooltipLabel()" x-show="editingCard.kind==='link'">?</button>
+      <HelpIcon helpKey="card.autofill" x-show="editingCard.kind==='link'" />
     </div>
-    <small style="color:#94a3b8">
+    <small class="field-hint">
       <template x-if="editingCard.kind==='link'">
         <span>URL externa (https://…) o path interno (/docs, /admin). Obligatoria. Auto-completar trae título/desc/imagen del sitio.</span>
       </template>
@@ -70,18 +79,18 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <span x-show="!aiBusy">Mejorar con IA</span>
     <span x-show="aiBusy" x-cloak>Pensando…</span>
   </button>
-  <button type="button" class="help-icon" @click="showHelp('card.aiEnhance')" :title="helpTooltipLabel()">?</button>
+  <HelpIcon helpKey="card.aiEnhance" />
   <span style="color:var(--text-faint);font-size:0.75rem">
     Usa la config de IA (Admin → IA). Editá el prompt system ahí si querés otro estilo.
   </span>
 </div>
 <div class="form-group">
   <label>
-    <span>Descripción <button type="button" class="help-icon" @click="showHelp('card.description')" :title="helpTooltipLabel()">?</button></span>
+    <span>Descripción <HelpIcon helpKey="card.description" /></span>
     <label x-show="markdownEnabled" style="display:inline-flex;align-items:center;gap:0.3rem;margin-left:0.5rem;font-size:0.78rem;color:var(--text-subtle);cursor:pointer" x-cloak>
       <input type="checkbox" x-model="editingCard.descriptionFormat" @change="updateDescriptionLimit()" true-value="markdown" false-value="plain" />
       <span x-text="markdownLabel()">Markdown</span>
-      <button type="button" class="help-icon" @click="showHelp('card.descriptionFormat')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="card.descriptionFormat" />
     </label>
   </label>
   <textarea
@@ -107,8 +116,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   </div>
 </div>
 <div class="form-row">
-  <div class="form-group">
-    <label>Categoría <button type="button" class="help-icon" @click="showHelp('card.category')" :title="helpTooltipLabel()">?</button></label>
+  <FormGroup {...kit} labelFallback="Categoría" helpKey="card.category">
     <select
       x-model="editingCard.category"
       x-init="$nextTick(() => $el.value = editingCard.category || '')"
@@ -119,13 +127,11 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <option :value="c.id" x-text="c.name"></option>
       </template>
     </select>
-  </div>
-  <div class="form-group">
-    <label>Color <button type="button" class="help-icon" @click="showHelp('card.color')" :title="helpTooltipLabel()">?</button></label>
+  </FormGroup>
+  <FormGroup {...kit} labelFallback="Color" helpKey="card.color">
     <input type="color" x-model="editingCard.color" />
-  </div>
-  <div class="form-group">
-    <label><span x-text="cardSpanLabel()">Ancho</span> <button type="button" class="help-icon" @click="showHelp('card.span')" :title="helpTooltipLabel()">?</button></label>
+  </FormGroup>
+  <FormGroup {...kit} labelExpr="cardSpanLabel()" labelFallback="Ancho" helpKey="card.span">
     <select
       x-model.number="editingCard.span"
       x-init="$nextTick(() => $el.value = String(editingCard.span || 1))"
@@ -134,14 +140,14 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <option :value="n" x-text="cardSpanOptionLabel(n)"></option>
       </template>
     </select>
-    <small style="color:var(--text-subtle)" x-text="cardSpanEffectiveHint()"></small>
-  </div>
+    <small class="field-hint" x-text="cardSpanEffectiveHint()"></small>
+  </FormGroup>
 </div>
 
 <div class="form-group" x-show="tagsEnabled" x-cloak>
   <label>
     <span x-text="tagsLabel()">Tags</span>
-    <button type="button" class="help-icon" @click="showHelp('card.tags')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="card.tags" />
     <span style="font-size:0.7rem;color:var(--text-faint);margin-left:0.5rem" x-text="(editingCard.tags || []).length + '/10'"></span>
   </label>
   <div class="tags-chips-wrap" @click="$refs.tagsInput && $refs.tagsInput.focus()">
@@ -179,29 +185,29 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 </div>
 
 <div class="form-row">
-  <div class="form-group" x-show="editingCard.kind==='link'">
-    <label>
-      <input type="checkbox" x-model="editingCard.openInNewTab" /> Abrir en nueva pestaña
-      <button type="button" class="help-icon" @click="showHelp('card.openInNewTab')" :title="helpTooltipLabel()">?</button>
-    </label>
-  </div>
-  <div class="form-group">
-    <label>
-      <input type="checkbox" x-model="editingCard.enabled" /> Activa
-      <button type="button" class="help-icon" @click="showHelp('card.enabled')" :title="helpTooltipLabel()">?</button>
-    </label>
-  </div>
-  <div class="form-group" x-show="pinnedEnabled" x-cloak>
-    <label>
-      <input type="checkbox" x-model="editingCard.pinned" /> <span x-text="pinnedLabel()">Fijada</span>
-      <button type="button" class="help-icon" @click="showHelp('card.pinned')" :title="helpTooltipLabel()">?</button>
-    </label>
-  </div>
-  <div class="form-group" x-show="editingCard.kind==='link'">
-    <label>
-      <input type="checkbox" x-model="editingCard.healthCheck" /> Health check (dot en vivo)
-      <button type="button" class="help-icon" @click="showHelp('card.healthCheck')" :title="helpTooltipLabel()">?</button>
-    </label>
-  </div>
+  <ToggleField
+    {...kit}
+    model="editingCard.openInNewTab"
+    labelFallback="Abrir en nueva pestaña"
+    helpKey="card.openInNewTab"
+    show="editingCard.kind==='link'"
+  />
+  <ToggleField {...kit} model="editingCard.enabled" labelFallback="Activa" helpKey="card.enabled" />
+  <ToggleField
+    {...kit}
+    model="editingCard.pinned"
+    labelExpr="pinnedLabel()"
+    labelFallback="Fijada"
+    helpKey="card.pinned"
+    show="pinnedEnabled"
+    cloak
+  />
+  <ToggleField
+    {...kit}
+    model="editingCard.healthCheck"
+    labelFallback="Health check (dot en vivo)"
+    helpKey="card.healthCheck"
+    show="editingCard.kind==='link'"
+  />
 </div>
   </div>

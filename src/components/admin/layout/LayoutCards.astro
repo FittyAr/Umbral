@@ -1,10 +1,14 @@
 ---
+import ToggleField from '../ui/ToggleField.astro';
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
@@ -12,21 +16,17 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <h3 x-text="layoutSectionCards()">{t('admin.layout.section.cards', 'Tarjetas')}</h3>
 
   <div class="form-row">
-    <div class="form-group">
-      <label>
-        <span x-text="layoutCardSizeLabel()">{t('admin.layout.cardSize', 'Tamaño de tarjeta')}</span>
-        <button type="button" class="help-icon" @click="showHelp('layout.cardSize')" :title="helpTooltipLabel()">?</button>
-      </label>
+    <FormGroup {...kit} labelExpr="layoutCardSizeLabel()" labelKey="admin.layout.cardSize" labelFallback="Tamaño de tarjeta" helpKey="layout.cardSize">
       <select x-model="cfg.layout.cardSize">
         <option value="small">{t('admin.layout.cardSize.small', 'Chico')}</option>
         <option value="medium">{t('admin.layout.cardSize.medium', 'Mediano')}</option>
         <option value="large">{t('admin.layout.cardSize.large', 'Grande')}</option>
       </select>
-    </div>
+    </FormGroup>
     <div class="form-group">
       <label>
         <span x-text="layoutCardRadiusLabel()">{t('admin.layout.cardRadius', 'Radio de esquinas')}</span>
-        <button type="button" class="help-icon" @click="showHelp('layout.cardRadius')" :title="helpTooltipLabel()">?</button>
+        <HelpIcon helpKey="layout.cardRadius" />
         (<span x-text="cfg.layout.cardRadius"></span>px)
       </label>
       <div class="layout-range-row">
@@ -36,19 +36,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     </div>
   </div>
 
-  <div class="form-group">
-    <label>
-      <input type="checkbox" x-model="cfg.layout.showDescriptions" />
-      <span x-text="layoutShowDescriptionsLabel()">{t('admin.layout.showDescriptions', 'Mostrar descripciones')}</span>
-      <button type="button" class="help-icon" @click="showHelp('layout.showDescriptions')" :title="helpTooltipLabel()">?</button>
-    </label>
-  </div>
+  <ToggleField {...kit} model="cfg.layout.showDescriptions" labelExpr="layoutShowDescriptionsLabel()" labelKey="admin.layout.showDescriptions" labelFallback="Mostrar descripciones" helpKey="layout.showDescriptions" />
 
-  <div class="form-group">
-    <label>
-      <input type="checkbox" x-model="cfg.layout.compact" />
-      <span x-text="layoutCompactLabel()">{t('admin.layout.compact', 'Modo compacto')}</span>
-      <button type="button" class="help-icon" @click="showHelp('layout.compact')" :title="helpTooltipLabel()">?</button>
-    </label>
-  </div>
+  <ToggleField {...kit} model="cfg.layout.compact" labelExpr="layoutCompactLabel()" labelKey="admin.layout.compact" labelFallback="Modo compacto" helpKey="layout.compact" />
 </section>

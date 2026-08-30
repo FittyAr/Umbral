@@ -1,46 +1,46 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='security' && 'active'">
   <h2 style="margin-top:0">Seguridad</h2>
-  <h3>Cambiar contraseña <button type="button" class="help-icon" @click="showHelp('security.password')" :title="helpTooltipLabel()">?</button></h3>
+  <h3>Cambiar contraseña <HelpIcon helpKey="security.password" /></h3>
   <form @submit.prevent="changePassword()" style="max-width:400px">
-    <div class="form-group">
-      <label>Contraseña actual</label>
+    <FormGroup {...kit} labelFallback="Contraseña actual">
       <input type="password" x-model="pwForm.current" required autocomplete="current-password" />
-    </div>
-    <div class="form-group">
-      <label>Nueva contraseña (mín 8)</label>
+    </FormGroup>
+    <FormGroup {...kit} labelFallback="Nueva contraseña (mín 8)">
       <input type="password" x-model="pwForm.next" required minlength="8" autocomplete="new-password" />
-    </div>
-    <div class="form-group">
-      <label>Confirmar</label>
+    </FormGroup>
+    <FormGroup {...kit} labelFallback="Confirmar">
       <input type="password" x-model="pwForm.confirm" required minlength="8" autocomplete="new-password" />
-    </div>
+    </FormGroup>
     <button type="submit" class="btn btn-primary">Cambiar</button>
   </form>
 
-  <h3 style="margin-top:2rem">CSRF Token <button type="button" class="help-icon" @click="showHelp('security.csrf')" :title="helpTooltipLabel()">?</button></h3>
+  <h3 style="margin-top:2rem">CSRF Token <HelpIcon helpKey="security.csrf" /></h3>
   <p style="color:#94a3b8;font-size:0.85rem">Este token se rota automáticamente al cambiar la contraseña.</p>
   <code style="display:inline-block;padding:0.4rem 0.7rem;background:#0f172a;border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '-'"></code>
 
   <!-- MULTI-USER (opt-in: features.multiUser) — sólo si la feature está activa. -->
   <template x-if="multiUserEnabled">
     <div class="multi-user-section">
-      <h3 style="margin-top:2rem">Usuarios <button type="button" class="help-icon" @click="showHelp('security.multiUser')" :title="helpTooltipLabel()">?</button></h3>
+      <h3 style="margin-top:2rem">Usuarios <HelpIcon helpKey="security.multiUser" /></h3>
       <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="multiUserIntro()">
         Crea usuarios con roles (admin/editor/viewer) y login con username. El password unico sigue siendo valido como rescue path.
       </p>
 
       <div class="form-group" style="max-width:600px">
-        <label>Modo de acceso <button type="button" class="help-icon" @click="showHelp('security.accessMode')" :title="helpTooltipLabel()">?</button></label>
+        <label>Modo de acceso <HelpIcon helpKey="security.accessMode" /></label>
         <div style="display:flex;gap:1rem;font-size:0.85rem;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
             <input type="radio" name="accessMode" value="password-only" :checked="cfg.auth.singlePasswordEnabled && (!cfg.auth.users || cfg.auth.users.length === 0)" @change="cfg.auth.singlePasswordEnabled = true; if (cfg.auth.users &amp;&amp; cfg.auth.users.length > 0) { cfg.auth.users = []; }" />

@@ -13,6 +13,9 @@ import Modal from '../src/components/admin/ui/Modal.astro';
 import EmptyState from '../src/components/admin/ui/EmptyState.astro';
 import TabBar from '../src/components/admin/ui/TabBar.astro';
 import Badge from '../src/components/admin/ui/Badge.astro';
+import NumberField from '../src/components/admin/ui/NumberField.astro';
+import TextField from '../src/components/admin/ui/TextField.astro';
+import TextareaField from '../src/components/admin/ui/TextareaField.astro';
 
 /** Marca las claves para distinguir la capa i18n del fallback del servidor. */
 const tr = (key: string) => `TR(${key})`;
@@ -38,6 +41,113 @@ describe('HelpIcon', () => {
     expect(html).toContain(':title="helpTooltipLabel()"');
     expect(html).toContain('class="help-icon"');
     expect(html).toContain('type="button"');
+  });
+});
+
+describe('HelpIcon con atributos extra', () => {
+  it('reenvia x-show al boton', async () => {
+    const html = await render(HelpIcon, {
+      props: { helpKey: 'card.autofill', 'x-show': "editingCard.kind==='link'" },
+    });
+
+    expect(html).toContain(`x-show="editingCard.kind==='link'"`);
+  });
+
+  it('con stop usa @click.stop para no disparar el contenedor clickeable', async () => {
+    const html = await render(HelpIcon, { props: { helpKey: 'assets.dropzone', stop: true } });
+
+    expect(html).toContain(`@click.stop="showHelp('assets.dropzone')"`);
+    expect(html).not.toMatch(/@click="/);
+  });
+});
+
+describe('NumberField', () => {
+  it('bindea con .number y agrega la nota cuando se pide', async () => {
+    const html = await render(NumberField, {
+      props: {
+        ...noI18n,
+        model: 'cfg.security.auth.rateLimitMax',
+        min: 1,
+        max: 10000,
+        labelFallback: 'Rate limit',
+        hint: '0 = sin minimo',
+      },
+    });
+
+    expect(html).toContain('type="number"');
+    expect(html).toContain('x-model.number="cfg.security.auth.rateLimitMax"');
+    expect(html).toContain('min="1"');
+    expect(html).toContain('max="10000"');
+    expect(html).toContain('<small class="field-hint">0 = sin minimo</small>');
+  });
+
+  it('soporta los campos derivados con expr + change', async () => {
+    const html = await render(NumberField, {
+      props: {
+        ...noI18n,
+        expr: 'Math.round(cfg.security.uploads.maxBytesLogo / 1024)',
+        change: 'cfg.security.uploads.maxBytesLogo = $event.target.value * 1024',
+        labelFallback: 'Max logo (KB)',
+      },
+    });
+
+    expect(html).toContain('x-model.number="Math.round(cfg.security.uploads.maxBytesLogo / 1024)"');
+    expect(html).toContain('@change="cfg.security.uploads.maxBytesLogo = $event.target.value * 1024"');
+  });
+});
+
+describe('TextField', () => {
+  it('usa x-model cuando hay model y :value cuando el valor es derivado', async () => {
+    const direct = await render(TextField, {
+      props: { ...noI18n, model: 'cfg.security.network.cookieDomain', labelFallback: 'Cookie domain' },
+    });
+    const derived = await render(TextField, {
+      props: {
+        ...noI18n,
+        value: "cfg.security.uploads.allowedMimeTypes.join(', ')",
+        change: 'cfg.security.uploads.allowedMimeTypes = []',
+        labelFallback: 'MIME',
+      },
+    });
+
+    expect(direct).toContain('x-model="cfg.security.network.cookieDomain"');
+    expect(direct).not.toContain(':value');
+    expect(derived).toContain(`:value="cfg.security.uploads.allowedMimeTypes.join(', ')"`);
+    expect(derived).not.toContain('x-model');
+  });
+});
+
+describe('TextareaField', () => {
+  it('usa rows 3 por defecto y respeta el override', async () => {
+    const byDefault = await render(TextareaField, {
+      props: { ...noI18n, model: 'cfg.security.headers.csp', labelFallback: 'CSP' },
+    });
+    const wide = await render(TextareaField, {
+      props: { ...noI18n, model: 'cfg.security.headers.csp', labelFallback: 'CSP', rows: 4 },
+    });
+
+    expect(byDefault).toContain('rows="3"');
+    expect(wide).toContain('rows="4"');
+    expect(byDefault).toContain('x-model="cfg.security.headers.csp"');
+  });
+});
+
+describe('ToggleField con nota', () => {
+  it('emite la nota fuera del label y respeta x-cloak', async () => {
+    const html = await render(ToggleField, {
+      props: {
+        ...noI18n,
+        model: 'cfg.security.headers.hstsPreload',
+        labelFallback: 'preload',
+        hint: 'Requiere includeSubDomains',
+        show: 'pinnedEnabled',
+        cloak: true,
+      },
+    });
+
+    expect(html).toContain('x-cloak');
+    expect(html).toContain('x-show="pinnedEnabled"');
+    expect(html.indexOf('</label>')).toBeLessThan(html.indexOf('field-hint'));
   });
 });
 

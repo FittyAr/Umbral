@@ -1,0 +1,55 @@
+---
+import FormGroup from './FormGroup.astro';
+
+/**
+ * Textarea con su `form-group`. El `rows` por defecto es 3, que es el que
+ * usaban tres de los cuatro sitios donde estaba escrito a mano.
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  model: string;
+  rows?: number;
+  placeholder?: string;
+  labelKey?: string;
+  labelFallback?: string;
+  labelExpr?: string;
+  helpKey?: string;
+  show?: string;
+  hint?: string;
+  monospace?: boolean;
+}
+
+const {
+  useI18n,
+  tr,
+  model,
+  rows = 3,
+  placeholder,
+  labelKey,
+  labelFallback,
+  labelExpr,
+  helpKey,
+  show,
+  hint,
+  monospace = false,
+} = Astro.props;
+---
+
+<FormGroup
+  useI18n={useI18n}
+  tr={tr}
+  labelKey={labelKey}
+  labelFallback={labelFallback}
+  labelExpr={labelExpr}
+  helpKey={helpKey}
+  show={show}
+>
+  <textarea
+    x-model={model}
+    rows={rows}
+    placeholder={placeholder}
+    class:list={[monospace && 'monospace']}
+  ></textarea>
+  {hint && <small class="field-hint">{hint}</small>}
+</FormGroup>

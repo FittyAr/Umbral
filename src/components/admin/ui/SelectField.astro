@@ -45,4 +45,6 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <select x-model={numeric ? undefined : model} x-model.number={numeric ? model : undefined}>
     {options.map((option) => <option value={option.value}>{optionLabel(option, t)}</option>)}
   </select>
+  <!-- Para la nota o el hint que algunos selects llevan debajo. -->
+  <slot />
 </FormGroup>

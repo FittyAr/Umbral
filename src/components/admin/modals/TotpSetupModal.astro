@@ -1,10 +1,12 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
@@ -25,10 +27,9 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       </div>
 
       <form @submit.prevent="verifyAndSaveTotp()">
-        <div class="form-group">
-          <label>Código de verificación (6 dígitos)</label>
+        <FormGroup {...kit} labelFallback="Código de verificación (6 dígitos)">
           <input type="text" x-model="totpVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autocomplete="one-time-code" x-init="$nextTick(() => $el.focus())" />
-        </div>
+        </FormGroup>
         <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
           <button type="button" class="btn btn-ghost" @click="showTotpSetupModal = false">Cancelar</button>
           <button type="submit" class="btn btn-primary" :disabled="totpSaving">

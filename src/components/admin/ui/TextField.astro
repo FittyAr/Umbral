@@ -1,0 +1,56 @@
+---
+import FormGroup from './FormGroup.astro';
+
+/**
+ * Input de texto con su `form-group`. Soporta los dos modos que ya conviven
+ * en el admin: `model` para el binding directo y `value` + `change` para los
+ * campos que se editan como texto pero se guardan transformados (una lista
+ * separada por comas, por ejemplo).
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  model?: string;
+  /** Expresión Alpine para `:value`, cuando el valor es derivado. */
+  value?: string;
+  /** Handler de `@change`, para los campos derivados. */
+  change?: string;
+  type?: 'text' | 'url' | 'email' | 'password';
+  placeholder?: string;
+  labelKey?: string;
+  labelFallback?: string;
+  labelExpr?: string;
+  helpKey?: string;
+  show?: string;
+  hint?: string;
+}
+
+const {
+  useI18n,
+  tr,
+  model,
+  value,
+  change,
+  type = 'text',
+  placeholder,
+  labelKey,
+  labelFallback,
+  labelExpr,
+  helpKey,
+  show,
+  hint,
+} = Astro.props;
+---
+
+<FormGroup
+  useI18n={useI18n}
+  tr={tr}
+  labelKey={labelKey}
+  labelFallback={labelFallback}
+  labelExpr={labelExpr}
+  helpKey={helpKey}
+  show={show}
+>
+  <input type={type} placeholder={placeholder} x-model={model} :value={value} @change={change} />
+  {hint && <small class="field-hint">{hint}</small>}
+</FormGroup>

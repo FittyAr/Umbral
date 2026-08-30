@@ -1,15 +1,18 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='maintenance' && 'active'">
-  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="maintenanceTitle()">Mantenimiento</span><button type="button" class="help-icon" @click="showHelp('advanced.maintenance')" :title="helpTooltipLabel()">?</button></h2>
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="maintenanceTitle()">Mantenimiento</span><HelpIcon helpKey="advanced.maintenance" /></h2>
   <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem" x-html="maintenanceIntro()">
     Programa ventanas donde una (o todas) las cards están en mantenimiento. Durante la ventana, las cards muestran badge ámbar y NO disparan webhooks de health_fail.
   </p>
@@ -65,10 +68,9 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <input type="datetime-local" x-model="newMaintenance.endsAt" />
       </div>
     </div>
-    <div class="form-group">
-      <label>Razón</label>
+    <FormGroup {...kit} labelFallback="Razón">
       <input type="text" x-model="newMaintenance.reason" placeholder="Deploy v2.1, migración DB, etc." maxlength="120" />
-    </div>
+    </FormGroup>
     <button type="button" class="btn btn-primary" @click="addMaintenance()" style="margin-top:0.5rem" x-text="maintenanceAddLabel()">Programar</button>
   </details>
 </div>

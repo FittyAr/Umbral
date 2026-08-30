@@ -1,4 +1,5 @@
 ---
+import HelpIcon from '../ui/HelpIcon.astro';
 import { BUILTIN_THEME_PRESETS } from '~/lib/theme-presets';
 
 interface Props {
@@ -13,7 +14,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 <h3 x-text="themeSectionPresets()">{t('admin.theme.section.presets', 'Presets')}</h3>
 <p class="theme-section-desc" style="display:flex;align-items:center;gap:0.35rem">
   <span x-text="themePresetsIntro()">{t('admin.theme.presets.intro', 'Elegí un punto de partida y ajustá los detalles después.')}</span>
-  <button type="button" class="help-icon" @click="showHelp('theme.presets')" :title="helpTooltipLabel()">?</button>
+  <HelpIcon helpKey="theme.presets" />
 </p>
 
 <div class="theme-presets-grid">
@@ -48,13 +49,13 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <button type="button" class="btn btn-sm btn-ghost" @click="saveCustomThemePreset()" x-text="themeSaveCustomPreset()">
       {t('admin.theme.preset.saveCustom', 'Guardar tema actual como preset')}
     </button>
-    <button type="button" class="help-icon" @click="showHelp('theme.savePreset')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="theme.savePreset" />
   </span>
   <span style="display:inline-flex;align-items:center;gap:0.35rem">
     <button type="button" class="btn btn-sm btn-ghost" @click="resetThemeToDefaults()" x-text="themeResetDefaults()">
       {t('admin.theme.preset.reset', 'Restaurar defaults')}
     </button>
-    <button type="button" class="help-icon" @click="showHelp('theme.resetDefaults')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="theme.resetDefaults" />
   </span>
 </div>
 

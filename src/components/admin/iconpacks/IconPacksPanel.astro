@@ -1,4 +1,5 @@
 ---
+import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
@@ -13,7 +14,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <div>
       <h2 style="margin:0 0 0.25rem;display:flex;align-items:center;gap:0.35rem">
         <span x-text="tabIconPacks()">Paquetes de Íconos (Icon Packs)</span>
-        <button type="button" class="help-icon" @click="showHelp('iconPacks.intro')" :title="helpTooltipLabel()">?</button>
+        <HelpIcon helpKey="iconPacks.intro" />
       </h2>
       <p style="color:var(--text-subtle);font-size:0.85rem;margin:0">
         Descargá e instalá colecciones completas de miles de íconos SVG desde repositorios Git de código abierto con un solo clic.
@@ -28,7 +29,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
           <span x-show="!iconPacksLoading">🔄 Actualizar</span>
           <span x-show="iconPacksLoading" x-cloak>Cargando…</span>
         </button>
-        <button type="button" class="help-icon" @click="showHelp('iconPacks.refresh')" :title="helpTooltipLabel()">?</button>
+        <HelpIcon helpKey="iconPacks.refresh" />
       </span>
     </div>
   </div>
@@ -51,8 +52,8 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <!-- Cuadrícula de Paquetes Predefinidos -->
   <div style="display:flex;align-items:center;gap:0.35rem;margin:1rem 0 0.75rem">
     <h3 style="margin:0">Paquetes Populares de Código Abierto</h3>
-    <button type="button" class="help-icon" @click="showHelp('iconPacks.install')" :title="helpTooltipLabel()">?</button>
-    <button type="button" class="help-icon" @click="showHelp('iconPacks.uninstall')" :title="helpTooltipLabel()">?</button>
+    <HelpIcon helpKey="iconPacks.install" />
+    <HelpIcon helpKey="iconPacks.uninstall" />
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:1rem;margin-bottom:2rem">
     <template x-for="pack in iconPacks" :key="pack.id">
@@ -128,7 +129,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <div style="padding:1.25rem;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
     <h3 style="margin:0 0 0.5rem;display:flex;align-items:center;gap:0.35rem">
       <span>Instalar desde Repositorio Git Personalizado</span>
-      <button type="button" class="help-icon" @click="showHelp('iconPacks.customRepo')" :title="helpTooltipLabel()">?</button>
+      <HelpIcon helpKey="iconPacks.customRepo" />
     </h3>
     <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem">
       Ingresá la URL de cualquier repositorio público de Git (GitHub, GitLab, Gitea, etc.). Umbral clonará o descargará el repositorio y extraerá automáticamente todos los archivos SVG encontrados.
@@ -142,21 +143,21 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <div>
         <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;margin-bottom:0.25rem">
           <span>Rama (opcional)</span>
-          <button type="button" class="help-icon" @click="showHelp('iconPacks.branch')" :title="helpTooltipLabel()">?</button>
+          <HelpIcon helpKey="iconPacks.branch" />
         </label>
         <input type="text" x-model="customPack.branch" placeholder="main o master" style="width:100%" />
       </div>
       <div>
         <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;margin-bottom:0.25rem">
           <span>Carpeta interna / Subpath (opcional)</span>
-          <button type="button" class="help-icon" @click="showHelp('iconPacks.subpath')" :title="helpTooltipLabel()">?</button>
+          <HelpIcon helpKey="iconPacks.subpath" />
         </label>
         <input type="text" x-model="customPack.subpath" placeholder="ej: svg/ o icons/" style="width:100%" />
       </div>
       <div>
         <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;margin-bottom:0.25rem">
           <span>Prefijo de nombres (opcional)</span>
-          <button type="button" class="help-icon" @click="showHelp('iconPacks.prefix')" :title="helpTooltipLabel()">?</button>
+          <HelpIcon helpKey="iconPacks.prefix" />
         </label>
         <input type="text" x-model="customPack.prefix" placeholder="ej: custom (para custom-nombre.svg)" style="width:100%" />
       </div>
