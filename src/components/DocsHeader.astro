@@ -1,0 +1,47 @@
+---
+import Logo from './Logo.astro';
+import ModeToggle from './ModeToggle.astro';
+import LanguageSwitcher from './LanguageSwitcher.astro';
+import type { Config } from '~/lib/schema';
+
+/**
+ * Encabezado de las páginas de documentación: volver a la portada, logo,
+ * acceso al admin, selector de idioma y toggle de modo.
+ *
+ * Era el mismo bloque de ~40 líneas escrito en `docs/index.astro` y en
+ * `docs/[...slug].astro`, SVG del engranaje incluido.
+ */
+interface Props {
+  config: Config;
+  useI18n: boolean;
+  trf: (key: string) => string;
+  locale: string;
+  logoUrl: string;
+  base: string;
+}
+
+const { config, useI18n, trf, locale, logoUrl, base } = Astro.props;
+---
+
+<header class="header">
+  <div class="subpage-header-group">
+    <a href={base} class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Portada principal'}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      <span>{useI18n ? trf('home.subpage.back') : 'Portada principal'}</span>
+    </a>
+    <span class="subpage-header-sep" aria-hidden="true">|</span>
+    <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
+    <p class="header-title">{config.branding.companyName}</p>
+  </div>
+
+  <div class="docs-header-actions">
+    {/* Las páginas de docs todavía no están traducidas: el contenido es
+        markdown en español. Este título sigue el mismo criterio. */}
+    <a href={`${base}admin`} class="subpage-back-link" title="Panel de administración">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Admin</span>
+    </a>
+    {useI18n && <LanguageSwitcher config={config} current={locale} />}
+    <ModeToggle useI18n={useI18n} tr={trf} />
+  </div>
+</header>

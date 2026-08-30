@@ -37,17 +37,21 @@ const title = useI18n ? tr('home.refreshTitle') : 'Recargar configuración';
 </button>
 
 <script>
-  // Wire up: el handler de la portada ya hace fetch + re-render. Lo único
-  // que hacemos acá es el feedback visual (clase .is-loading) durante el
-  // request, así el user sabe que está pasando algo.
+  // El comportamiento del botón vive acá y no en la página: estaba partido
+  // entre este archivo (que sólo ponía la clase .is-loading) y un handler en
+  // index.astro, copiado en [category].astro con `/api/config` absoluto — o
+  // sea roto en cualquier deploy bajo subpath.
+  import { apiUrl } from '~/scripts/public/base-url';
+
   const btn = document.querySelector('[data-action="refresh-config"]');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      btn.classList.add('is-loading');
-      // El data-action="refresh-config" lo captura el script principal de
-      // index.astro (que llama al endpoint y re-renderiza). Si por alguna
-      // razón el handler no existe, caemos al reload completo.
-      setTimeout(() => btn.classList.remove('is-loading'), 1500);
-    });
-  }
+  btn?.addEventListener('click', async () => {
+    btn.classList.add('is-loading');
+    // Calentamos el cache del config antes de recargar: así el reload —que
+    // conserva scroll, foco y el estado del buscador del browser— ve los
+    // datos nuevos sin esperar la lectura del disco.
+    try {
+      await fetch(apiUrl('api/config'), { cache: 'no-store' });
+    } catch { /* igual recargamos */ }
+    window.location.reload();
+  });
 </script>

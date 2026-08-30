@@ -1,7 +1,7 @@
 ---
-import crypto from 'node:crypto';
 import PublicLayout from '~/layouts/PublicLayout.astro';
-import Card from '~/components/Card.astro';
+import CategoryGroup from '~/components/CategoryGroup.astro';
+import ModeToggle from '~/components/ModeToggle.astro';
 import Search from '~/components/Search.astro';
 import Logo from '~/components/Logo.astro';
 import Clock from '~/components/Clock.astro';
@@ -11,7 +11,8 @@ import LanguageSwitcher from '~/components/LanguageSwitcher.astro';
 import { getConfig } from '~/lib/config';
 import { resolveIconUrl } from '~/lib/icon-url';
 import { isFeatureEnabled } from '~/lib/features';
-import { getActiveWindowsForCard } from '~/lib/maintenance';
+import { getActiveWindowsForCards } from '~/lib/maintenance';
+import { buildHealthLabels } from '~/lib/health-labels';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
 export const prerender = false;
@@ -27,7 +28,7 @@ const locale: Locale = useI18n
   : 'es';
 const trf = tr(locale);
 
-// Check if this category exists and is designated as a subpage
+// Sólo las categorías marcadas como subpágina tienen página propia.
 const cat = config.categories.find((c) => c.id === category && c.isSubpage);
 if (!cat) {
   return new Response(null, { status: 404 });
@@ -35,41 +36,45 @@ if (!cat) {
 
 const cards = config.cards
   .filter((c) => c.category === cat.id && c.enabled)
-  // Sort: pinned primero, después por order ASC. Mismo patrón que en
-  // index.astro (opt-in: features.pinned).
+  // pinned primero, después order ASC. Mismo criterio que la portada
+  // (opt-in: features.pinned; si está apagada el server fuerza pinned=false).
   .sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
     return a.order - b.order;
   });
 
-// Maintenance windows: idem index.astro. Misma resolución (id → reason)
-// que pasamos a Card.astro para mostrar el badge ámbar.
-const cardMaintenance = new Map<string, string>();
+const cardMaintenance = await getActiveWindowsForCards(cards.map((c) => c.id));
 const qrEnabled = isFeatureEnabled(config, 'qr');
-if (isFeatureEnabled(config, 'maintenanceWindows')) {
-  for (const c of cards) {
-    const ws = await getActiveWindowsForCard(c.id);
-    if (ws.length > 0) cardMaintenance.set(c.id, ws[0].reason);
-  }
-}
-
+const metricsEnabled = isFeatureEnabled(config, 'metrics');
+const markdownEnabled = isFeatureEnabled(config, 'markdown');
+const iconTint = t.iconTint ?? 'original';
 const noteBadge = trf('home.card.noteBadge');
 const logoUrl = resolveIconUrl(config.branding.logo);
-const isLocked = Boolean(cat.isLocked && cat.password);
-const catHash = isLocked ? crypto.createHash('sha256').update(cat.password).digest('hex') : '';
+const healthLabels = buildHealthLabels(useI18n, trf);
 const pageTitle = `${cat.name} — ${config.branding.companyName}`;
 const base = import.meta.env.BASE_URL || '/';
 ---
 <PublicLayout config={config} title={pageTitle}>
-  <main class="page-wrap" data-grid-align={l.gridAlign} data-compact={l.compact ? 'true' : 'false'}>
+  <main
+    class="page-wrap"
+    data-grid-align={l.gridAlign}
+    data-compact={l.compact ? 'true' : 'false'}
+    data-health-config
+    data-health-interval={String(l.healthCheckInterval)}
+    data-health-metrics={metricsEnabled ? 'true' : 'false'}
+    data-health-checking={healthLabels.checking}
+    data-health-ok={healthLabels.ok}
+    data-health-bad={healthLabels.bad}
+    data-health-fetch-error={healthLabels.fetchError}
+  >
     <header class="header">
-      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+      <div class="subpage-header-group">
         <a href={base} class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Volver a la portada principal'}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
           <span>{useI18n ? trf('home.subpage.back') : 'Portada principal'}</span>
         </a>
-        <span style="color:var(--border-strong);user-select:none">|</span>
+        <span class="subpage-header-sep" aria-hidden="true">|</span>
         <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
         <h1 class="header-title">{config.branding.companyName}</h1>
       </div>
@@ -78,16 +83,7 @@ const base = import.meta.env.BASE_URL || '/';
       <Search config={config} request={Astro.request} />
       {t.showRefresh && <RefreshButton config={config} request={Astro.request} />}
       {useI18n && <LanguageSwitcher config={config} current={locale} />}
-      <button
-        data-action="toggle-mode"
-        class="mode-toggle"
-        aria-label={useI18n ? trf('home.modeToggle') : 'Cambiar modo claro/oscuro'}
-        title={useI18n ? trf('home.modeToggleTitle') : 'Cambiar modo claro/oscuro'}
-      >
-        <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
-        </svg>
-      </button>
+      <ModeToggle useI18n={useI18n} tr={trf} />
     </header>
 
     <div class="subpage-breadcrumb">
@@ -96,315 +92,33 @@ const base = import.meta.env.BASE_URL || '/';
       <span>{cat.name}</span>
     </div>
 
-    <section
-      class="category-section"
-      data-cat-id={cat.id}
-      data-is-locked={isLocked ? 'true' : 'false'}
-      data-cat-hash={catHash}
-    >
-      <div class="category-header">
-        <h2 class="section-title" style="font-size:1.1rem;font-weight:700;color:var(--text)">
-          {cat.name}
-        </h2>
-        {isLocked && (
-          <div class="cat-lock-status">
-            <span class="cat-lock-badge badge-locked" title={useI18n ? trf('home.locked.title') : 'Categoría protegida con contraseña'}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span>{useI18n ? trf('home.locked.badge') : 'Protegida'}</span>
-            </span>
-            <button type="button" class="cat-relock-btn" style="display: none;" title={useI18n ? trf('home.locked.relockTitle') : 'Volver a bloquear categoría'}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span>{useI18n ? trf('home.locked.relock') : 'Bloquear'}</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {isLocked && (
-        <div class="category-lock-box">
-          <div class="lock-icon-wrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-          </div>
-          <p class="lock-title">{useI18n ? trf('home.locked.title') : 'Categoría bloqueada'}</p>
-          <p class="lock-subtitle">{useI18n ? trf('home.locked.subtitle') : 'Ingresá la contraseña para ver los enlaces'}</p>
-          <form class="lock-form" onsubmit="return false;">
-            <div class="lock-input-group">
-              <input
-                type="password"
-                class="lock-input"
-                placeholder={useI18n ? trf('home.locked.unlockPlaceholder') : 'Contraseña…'}
-                autocomplete="current-password"
-                required
-              />
-              <button type="submit" class="lock-submit-btn">
-                {useI18n ? trf('home.locked.unlockButton') : 'Desbloquear'}
-              </button>
-            </div>
-            <p class="lock-error" style="display: none;">{useI18n ? trf('home.locked.unlockError') : 'Contraseña incorrecta'}</p>
-          </form>
-        </div>
-      )}
-
-      <div class="category-cards-wrap" style={isLocked ? 'display: none;' : undefined}>
-        {cards.length === 0 ? (
-          <div class="empty" style="padding:2.5rem 1rem">
-            <h3>No hay tarjetas en esta subpágina</h3>
-            <p>Podés asignar tarjetas a esta categoría desde el panel de administración.</p>
-          </div>
-        ) : (
-          <div class="grid">
-            {cards.map((c) => <Card card={c} layout={l} cardStyle={t.cardStyle} maintenanceReason={cardMaintenance.get(c.id) || ''} noteBadge={noteBadge} />)}
-          </div>
-        )}
-      </div>
-    </section>
+    <CategoryGroup
+      catId={cat.id}
+      cat={cat}
+      cards={cards}
+      layout={l}
+      cardStyle={t.cardStyle}
+      cardMaintenance={cardMaintenance}
+      qrEnabled={qrEnabled}
+      noteBadge={noteBadge}
+      iconTint={iconTint}
+      markdownEnabled={markdownEnabled}
+      useI18n={useI18n}
+      trf={trf}
+      pageTitle
+    />
 
     {t.showStatusBar && <StatusBar config={config} />}
   </main>
 </PublicLayout>
 
-<script define:vars={{ healthCheckInterval: l.healthCheckInterval }}>
-  // ── Desbloqueo de categorías protegidas ──
-  (function () {
-    function sha256Sync(str) {
-      function rightRotate(value, amount) {
-        return (value >>> amount) | (value << (32 - amount));
-      }
-      var i;
-      var result = '';
-      var words = [];
-      var hash = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
-      ];
-      var k = [
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-      ];
+<script>
+  // Misma lógica que la portada, mismos módulos. Antes esto eran ~240 líneas
+  // copiadas, y la copia había divergido: textos de salud sin traducir y el
+  // refresh pegándole a `/api/config` absoluto (roto bajo subpath).
+  import { initCategoryLocks } from '~/scripts/public/category-lock';
+  import { initHealthDots } from '~/scripts/public/health-dots';
 
-      var utf8 = typeof TextEncoder !== 'undefined'
-        ? new TextEncoder().encode(str)
-        : new Uint8Array(unescape(encodeURIComponent(str)).split('').map(function (c) { return c.charCodeAt(0); }));
-      var byteLength = utf8.length;
-      for (i = 0; i < byteLength; i++) {
-        words[i >> 2] |= (utf8[i] & 0xff) << ((3 - (i % 4)) * 8);
-      }
-      words[byteLength >> 2] |= 0x80 << ((3 - (byteLength % 4)) * 8);
-      words[(((byteLength + 8) >> 6) << 4) + 15] = byteLength * 8;
-
-      for (var j = 0; j < words.length; j += 16) {
-        var w = words.slice(j, j + 16);
-        var oldHash = hash.slice(0);
-
-        for (var idx = 0; idx < 64; idx++) {
-          var w15 = w[idx - 15], w2 = w[idx - 2];
-
-          var a = hash[0], e = hash[4];
-          var temp1 = (hash[7]
-            + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
-            + ((e & hash[5]) ^ ((~e) & hash[6]))
-            + k[idx]
-            + (w[idx] = (idx < 16) ? (w[idx] || 0) : (
-              ((w[idx - 16] || 0)
-              + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
-              + (w[idx - 7] || 0)
-              + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) | 0
-            ))
-          ) | 0;
-          var temp2 = ((rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
-            + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]))) | 0;
-
-          hash = [(temp1 + temp2) | 0, a, hash[1], hash[2], (hash[3] + temp1) | 0, e, hash[5], hash[6]];
-        }
-
-        for (var h = 0; h < 8; h++) {
-          hash[h] = (hash[h] + oldHash[h]) | 0;
-        }
-      }
-
-      for (var hi = 0; hi < 8; hi++) {
-        for (var bi = 3; bi >= 0; bi--) {
-          var byteVal = (hash[hi] >> (8 * bi)) & 255;
-          result += (byteVal < 16 ? '0' : '') + byteVal.toString(16);
-        }
-      }
-      return result;
-    }
-
-    const lockedSections = document.querySelectorAll('.category-section[data-is-locked="true"]');
-    if (lockedSections.length === 0) return;
-
-    function unlockSection(section, saveSession) {
-      if (saveSession === undefined) saveSession = true;
-      const catId = section.getAttribute('data-cat-id');
-      const lockBox = section.querySelector('.category-lock-box');
-      const cardsWrap = section.querySelector('.category-cards-wrap');
-      const lockBadge = section.querySelector('.badge-locked');
-      const relockBtn = section.querySelector('.cat-relock-btn');
-
-      section.setAttribute('data-unlocked', 'true');
-      if (lockBox) lockBox.style.display = 'none';
-      if (cardsWrap) cardsWrap.style.display = 'block';
-      if (lockBadge) lockBadge.style.display = 'none';
-      if (relockBtn) relockBtn.style.display = 'inline-flex';
-
-      if (saveSession && catId) {
-        try {
-          sessionStorage.setItem('umbral_unlocked_' + catId, '1');
-        } catch (e) { /* ignore */ }
-      }
-    }
-
-    function relockSection(section) {
-      const catId = section.getAttribute('data-cat-id');
-      const lockBox = section.querySelector('.category-lock-box');
-      const cardsWrap = section.querySelector('.category-cards-wrap');
-      const lockBadge = section.querySelector('.badge-locked');
-      const relockBtn = section.querySelector('.cat-relock-btn');
-      const input = section.querySelector('.lock-input');
-      const err = section.querySelector('.lock-error');
-
-      section.removeAttribute('data-unlocked');
-      if (lockBox) lockBox.style.display = 'flex';
-      if (cardsWrap) cardsWrap.style.display = 'none';
-      if (lockBadge) lockBadge.style.display = 'inline-flex';
-      if (relockBtn) relockBtn.style.display = 'none';
-      if (input) input.value = '';
-      if (err) err.style.display = 'none';
-
-      if (catId) {
-        try {
-          sessionStorage.removeItem('umbral_unlocked_' + catId);
-        } catch (e) { /* ignore */ }
-      }
-    }
-
-    lockedSections.forEach((section) => {
-      const catId = section.getAttribute('data-cat-id');
-      const expectedHash = section.getAttribute('data-cat-hash');
-      const form = section.querySelector('.lock-form');
-      const input = section.querySelector('.lock-input');
-      const btn = section.querySelector('.lock-submit-btn');
-      const err = section.querySelector('.lock-error');
-      const relockBtn = section.querySelector('.cat-relock-btn');
-
-      // Check session storage
-      try {
-        if (sessionStorage.getItem('umbral_unlocked_' + catId) === '1') {
-          unlockSection(section, false);
-        }
-      } catch (e) { /* ignore */ }
-
-      if (relockBtn) {
-        relockBtn.addEventListener('click', () => {
-          relockSection(section);
-        });
-      }
-
-      const handleUnlock = (e) => {
-        if (e) e.preventDefault();
-        const val = input ? input.value : '';
-        if (!val) {
-          if (input) input.focus();
-          return;
-        }
-
-        try {
-          const hash = sha256Sync(val);
-          if (hash === expectedHash) {
-            if (err) err.style.display = 'none';
-            unlockSection(section, true);
-          } else {
-            if (err) err.style.display = 'block';
-            if (input) {
-              input.classList.remove('shake');
-              void input.offsetWidth; // reflow
-              input.classList.add('shake');
-              input.focus();
-              input.select();
-            }
-          }
-        } catch (error) {
-          console.error('[umbral] Error verifying category password:', error);
-        }
-      };
-
-      if (form) form.addEventListener('submit', handleUnlock);
-      if (btn) btn.addEventListener('click', handleUnlock);
-    });
-  })();
-
-  // ── Health check en vivo ──
-  (function () {
-    const cards = Array.from(document.querySelectorAll('.card[data-health-check="true"]'));
-    if (cards.length === 0) return;
-    const dots = new Map();
-    for (const c of cards) {
-      const id = c.getAttribute('data-card-id');
-      if (!id) continue;
-      const d = document.createElement('span');
-      d.className = 'health-dot pending';
-      d.title = 'Verificando…';
-      c.appendChild(d);
-      dots.set(id, d);
-    }
-    const setDot = (id, state, title) => {
-      const d = dots.get(id);
-      if (!d) return;
-      d.classList.remove('ok', 'bad', 'pending');
-      d.classList.add(state);
-      d.title = title;
-    };
-    const tick = async () => {
-      dots.forEach((d) => {
-        d.classList.remove('ok', 'bad');
-        d.classList.add('pending');
-        d.title = 'Verificando…';
-      });
-      try {
-        const base = window.__BASE_URL__ || '/';
-        const statusUrl = base.endsWith('/') ? `${base}api/status` : `${base}/api/status`;
-        const res = await fetch(statusUrl, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ ids: Array.from(dots.keys()) }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        for (const r of (data.results || [])) {
-          setDot(
-            r.id,
-            r.ok ? 'ok' : 'bad',
-            r.ok ? `Servicio OK (${r.latencyMs ?? '?'}ms)` : (r.error || `HTTP ${r.status}`),
-          );
-        }
-      } catch (err) {
-        for (const id of dots.keys()) {
-          setDot(id, 'bad', 'Error al consultar /api/status');
-        }
-      }
-    };
-    tick();
-    setInterval(tick, Math.max(10, healthCheckInterval) * 1000);
-  })();
-
-  // ── Refresh button ──
-  const refreshBtn = document.querySelector('[data-action="refresh-config"]');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', async () => {
-      try {
-        await fetch('/api/config', { cache: 'no-store' });
-      } catch {}
-      window.location.reload();
-    });
-  }
+  initCategoryLocks();
+  initHealthDots();
 </script>

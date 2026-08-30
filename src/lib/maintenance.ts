@@ -37,6 +37,32 @@ export async function getActiveWindowsForCard(cardId: string): Promise<Maintenan
   return windows.filter((w) => isWindowActive(w) && (w.cardIds.includes('*') || w.cardIds.includes(cardId)));
 }
 
+/**
+ * Igual que `getActiveWindowsForCard` pero para un lote de cards.
+ *
+ * Las páginas públicas resolvían esto con un `await` por tarjeta dentro de un
+ * loop, y cada iteración volvía a pedir el config y a filtrar las ventanas
+ * completas. Con 40 tarjetas eran 40 idas al cache y 40 filtrados idénticos.
+ * Acá el config se lee una vez y las ventanas activas se calculan una vez.
+ *
+ * Devuelve `cardId → razón de la primera ventana que aplica`, que es lo único
+ * que las páginas usan; las tarjetas sin mantenimiento no entran en el Map.
+ */
+export async function getActiveWindowsForCards(cardIds: string[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (cardIds.length === 0) return result;
+  const cfg = await getConfig();
+  if (!isFeatureEnabled(cfg, 'maintenanceWindows')) return result;
+  const active = (cfg.maintenanceWindows?.items ?? []).filter((w) => w.enabled && isWindowActive(w));
+  if (active.length === 0) return result;
+  for (const id of cardIds) {
+    // Primera que matchea: si hay solapadas, gana la más arriba en la lista.
+    const hit = active.find((w) => w.cardIds.includes('*') || w.cardIds.includes(id));
+    if (hit) result.set(id, hit.reason);
+  }
+  return result;
+}
+
 /** ¿La window está activa AHORA? Compara contra `now` (o `at` para tests). */
 export function isWindowActive(w: MaintenanceWindow, at: number = Date.now()): boolean {
   if (!w.enabled) return false;

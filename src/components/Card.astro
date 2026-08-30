@@ -17,11 +17,30 @@ interface Props {
   qrEnabled?: boolean;
   /** Label i18n del badge "Nota" (kind=note). */
   noteBadge?: string;
+  /** Tinte de íconos del tema. Si no viene, se resuelve del config. */
+  iconTint?: string;
+  /** ¿Está activa la feature markdown? Si no viene, se resuelve del config. */
+  markdownEnabled?: boolean;
 }
-const { card, layout, cardStyle = 'glass', maintenanceReason = '', qrEnabled = false, noteBadge = '' } = Astro.props;
+const {
+  card,
+  layout,
+  cardStyle = 'glass',
+  maintenanceReason = '',
+  qrEnabled = false,
+  noteBadge = '',
+  iconTint: iconTintProp,
+  markdownEnabled: markdownEnabledProp,
+} = Astro.props;
 const base = import.meta.env.BASE_URL || '/';
-const cfg = await getConfig();
-const iconTint = cfg.theme.iconTint ?? 'original';
+// El componente pedía el config dos veces por tarjeta (acá y en
+// renderDescription). Está cacheado, pero con 40 tarjetas eran 80 idas al
+// cache por render. Las páginas ya tienen el config, así que se lo pasan; el
+// fallback queda para los callers que renderizan una tarjeta sola.
+const needsConfig = iconTintProp === undefined || markdownEnabledProp === undefined;
+const cfg = needsConfig ? await getConfig() : null;
+const iconTint = iconTintProp ?? cfg!.theme.iconTint ?? 'original';
+const markdownEnabled = markdownEnabledProp ?? isFeatureEnabled(cfg!, 'markdown');
 const qrBase = base.endsWith('/') ? base : `${base}/`;
 const qrUrl = `${qrBase}api/qr/${encodeURIComponent(card.id)}.png?size=240`;
 const rawIconUrl = resolveCardIconUrl(card);
@@ -38,16 +57,13 @@ const isNote = card.kind === 'note';
 // el render es plain text (escapeado por Astro).
 //
 // DOMPurify necesita un window-like. Usamos jsdom (ya en deps) para
-// crearlo en el server. Cacheamos el window por proceso para no pagar
+// crearlo en el server. El window está cacheado por proceso para no pagar
 // el costo de JSDOM en cada render de card.
-/** Render seguro de la descripción. Devuelve HTML sanitizado para
- *  markdown, o el string plano escapado para plain. */
-async function renderDescription(desc: string, format: 'plain' | 'markdown' | undefined): Promise<string> {
+/** Render seguro de la descripción: HTML sanitizado para markdown, o el
+ *  string plano (que Astro escapa) para plain. */
+function renderDescription(desc: string, format: 'plain' | 'markdown' | undefined): string {
   if (!desc) return '';
-  const cfg = await getConfig();
-  if (format === 'markdown' && isFeatureEnabled(cfg, 'markdown')) {
-    return renderMarkdown(desc);
-  }
+  if (format === 'markdown' && markdownEnabled) return renderMarkdown(desc);
   return desc;
 }
 
@@ -61,7 +77,7 @@ const baseClass = isNote ? 'card card-note' : 'card';
 // reglas `.grid>[data-span="N"]` recortadas a las columnas configuradas.
 const spanAttr = card.span && card.span > 1 ? String(card.span) : undefined;
 
-const descriptionHtml = await renderDescription(card.description, card.descriptionFormat);
+const descriptionHtml = renderDescription(card.description, card.descriptionFormat);
 ---
 {isNote ? (
   <div
@@ -152,11 +168,15 @@ const descriptionHtml = await renderDescription(card.description, card.descripti
     {/* QR button (opt-in: features.qr). Sólo links (no notes). Se posiciona
         absolute top-right para no interferir con el ícono. El user hace
         click → abre el PNG en una nueva tab (más simple que un modal). */}
+    {/* Es un `<button>` y no un `<a>` porque está dentro del `<a>` de la
+        tarjeta, y un link anidado es HTML inválido. La URL va en un
+        data-attribute: el `onclick` inline que había antes construía JS por
+        concatenación de strings y obligaba a habilitar 'unsafe-inline'. */}
     {qrEnabled && card.kind === 'link' ? (
       <button
         type="button"
         class="card-qr-btn"
-        onclick={`event.preventDefault(); event.stopPropagation(); window.open('${qrUrl}', '_blank', 'noopener,noreferrer')`}
+        data-qr-url={qrUrl}
         title="Ver QR de esta card"
         aria-label="Ver QR"
       >
@@ -190,3 +210,15 @@ const descriptionHtml = await renderDescription(card.description, card.descripti
     )}
   </a>
 )}
+
+<script>
+  // Delegado en el documento: un listener para todas las tarjetas, en vez de
+  // un handler inline por tarjeta.
+  document.addEventListener('click', (event) => {
+    const btn = (event.target as HTMLElement)?.closest<HTMLElement>('.card-qr-btn[data-qr-url]');
+    if (!btn) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.open(btn.dataset.qrUrl!, '_blank', 'noopener,noreferrer');
+  });
+</script>

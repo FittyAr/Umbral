@@ -1,123 +1,15 @@
 ---
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import PublicLayout from '~/layouts/PublicLayout.astro';
-import Logo from '~/components/Logo.astro';
-import LanguageSwitcher from '~/components/LanguageSwitcher.astro';
+import DocsHeader from '~/components/DocsHeader.astro';
 import { getConfig } from '~/lib/config';
 import { resolveIconUrl } from '~/lib/icon-url';
 import { isFeatureEnabled } from '~/lib/features';
+import { listDocs, groupDocsBySection, SECTION_LABELS } from '~/lib/docs-catalog';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
-// docs/index.astro lee archivos del filesystem (fs.readdir de la carpeta
-// docs/), por lo que se procesa al primer GET en server mode.
+// El catálogo recorre docs/ en el filesystem, así que la página se resuelve
+// en el primer GET. El walk está memoizado por mtime en lib/docs-catalog.ts.
 export const prerender = false;
-
-// Resolve docs dir relative to project root. process.cwd() is the project
-// root in dev (npm run dev) and in the built server (node ./dist/server/entry.mjs)
-// since the entry runs from the project root thanks to the Dockerfile WORKDIR.
-const DOCS_DIR = path.join(process.cwd(), 'docs');
-
-interface DocFile {
-  /** Slug for the URL: e.g. "install/quickstart". Same as filename without .md. */
-  slug: string;
-  /** Title parsed from the first H1 in the file, or fallback. */
-  title: string;
-  /** First paragraph (used as description in the index). */
-  description: string;
-  /** Top-level section: "install" | "config" | "usage" | "dev" | "" (root). */
-  section: string;
-}
-
-async function listDocs(): Promise<DocFile[]> {
-  const out: DocFile[] = [];
-
-  async function walk(dir: string, prefix: string) {
-    let entries: import('node:fs').Dirent[];
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(full, prefix ? `${prefix}/${entry.name}` : entry.name);
-      } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name.toLowerCase() !== 'readme.md') {
-        const slug = prefix ? `${prefix}/${entry.name.replace(/\.md$/, '')}` : entry.name.replace(/\.md$/, '');
-        try {
-          let raw = await fs.readFile(full, 'utf8');
-          // Strip UTF-8 BOM if present. See [...slug].astro for the rationale.
-          if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
-          const { title, description } = parseFrontmatter(raw);
-          out.push({
-            slug,
-            title,
-            description,
-            section: prefix.split('/')[0] ?? '',
-          });
-        } catch {
-          // skip unreadable files
-        }
-      }
-    }
-  }
-
-  await walk(DOCS_DIR, '');
-  // Stable sort: by section then title.
-  out.sort((a, b) => {
-    if (a.section !== b.section) return a.section.localeCompare(b.section);
-    return a.title.localeCompare(b.title);
-  });
-  return out;
-}
-
-/** Extract title and description from the markdown. Looks for the first
- *  `# ` heading for the title and the first non-empty paragraph after it
- *  for the description. Falls back to slug-based values. */
-function parseFrontmatter(md: string): { title: string; description: string } {
-  const lines = md.split(/\r?\n/);
-  let title = '';
-  let description = '';
-  let inBlockquote = false;
-  let pastTitle = false;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!title && trimmed.startsWith('# ')) {
-      title = trimmed.replace(/^#\s+/, '').replace(/^Umbral\s*—\s*/i, '').replace(/^Documentación\s*—\s*/i, '').trim();
-      // If the title is just "Umbral" (e.g. from `## Umbral`), use the section
-      // or file name later. For now we keep what we got.
-      pastTitle = true;
-      continue;
-    }
-    if (pastTitle && !description) {
-      if (trimmed === '' || trimmed.startsWith('#')) {
-        inBlockquote = false;
-        continue;
-      }
-      if (trimmed.startsWith('>')) {
-        // A blockquote at the top is usually the TL;DR — use it as description
-        // but keep grabbing until we get a non-quote line.
-        inBlockquote = true;
-        description = trimmed.replace(/^>\s*/, '').replace(/^>\s*/, '').slice(0, 200);
-        continue;
-      }
-      if (inBlockquote) {
-        if (trimmed.startsWith('>')) {
-          description += ' ' + trimmed.replace(/^>\s*/, '').slice(0, 200);
-        } else {
-          inBlockquote = false;
-        }
-      }
-      if (!inBlockquote) {
-        description = trimmed.slice(0, 200);
-        break;
-      }
-    }
-  }
-  return { title: title || '(sin título)', description };
-}
 
 const docs = await listDocs();
 const config = await getConfig();
@@ -130,54 +22,11 @@ const locale: Locale = useI18n
   : 'es';
 const trf = tr(locale);
 
-// Group by section
-const grouped = new Map<string, typeof docs>();
-for (const d of docs) {
-  const key = d.section || 'general';
-  const arr = grouped.get(key) ?? [];
-  arr.push(d);
-  grouped.set(key, arr);
-}
-
-const sectionLabels: Record<string, string> = {
-  install: 'Instalación',
-  config: 'Configuración',
-  usage: 'Uso',
-  dev: 'Desarrollo',
-  general: 'General',
-};
+const grouped = groupDocsBySection(docs);
 ---
 <PublicLayout config={config} title="Documentación — Umbral">
   <main class="page-wrap docs-page">
-    <header class="header">
-      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
-        <a href={base} class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Portada principal'}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          <span>{useI18n ? trf('home.subpage.back') : 'Portada principal'}</span>
-        </a>
-        <span style="color:var(--border-strong);user-select:none">|</span>
-        <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
-        <h1 class="header-title">{config.branding.companyName}</h1>
-      </div>
-
-      <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem">
-        <a href={`${base}admin`} class="subpage-back-link" title="Panel de administración">
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-          <span>Admin</span>
-        </a>
-        {useI18n && <LanguageSwitcher config={config} current={locale} />}
-        <button
-          data-action="toggle-mode"
-          class="mode-toggle"
-          aria-label={useI18n ? trf('home.modeToggle') : 'Cambiar modo claro/oscuro'}
-          title={useI18n ? trf('home.modeToggleTitle') : 'Cambiar modo claro/oscuro'}
-        >
-          <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
-          </svg>
-        </button>
-      </div>
-    </header>
+    <DocsHeader config={config} useI18n={useI18n} trf={trf} locale={locale} logoUrl={logoUrl} base={base} />
 
     <div class="docs-hero" style="margin: 1.5rem 0 2rem;">
       <h1 style="font-size: 1.8rem; margin: 0 0 0.3rem; font-weight: 700;">Documentación</h1>
@@ -194,7 +43,7 @@ const sectionLabels: Record<string, string> = {
     ) : (
       Array.from(grouped.entries()).map(([section, items]) => (
         <section class="docs-section" id={section}>
-          <h2 class="section-title">{sectionLabels[section] ?? section}</h2>
+          <h2 class="section-title">{SECTION_LABELS[section] ?? section}</h2>
           <div class="grid docs-grid">
             {items.map((doc) => (
               <a class="card docs-card" data-style="medium" data-card-id={`doc-${doc.slug}`} href={`${base}docs/${doc.slug}`} style="--accent:#10b981">

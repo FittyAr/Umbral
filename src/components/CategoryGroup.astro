@@ -1,0 +1,166 @@
+---
+import crypto from 'node:crypto';
+import Card from './Card.astro';
+import type { UmbralConfig, Card as CardType, Category } from '~/lib/schema';
+
+/**
+ * Sección de una categoría en las páginas públicas: encabezado, caja de
+ * desbloqueo si está protegida, y la grilla de tarjetas.
+ *
+ * Estaba escrita tres veces: dos en `index.astro` (las ramas horizontal y
+ * vertical, que sólo se diferencian en una clase del `<section>`) y una en
+ * `[category].astro`. Las tres tenían el mismo SVG de candado repetido cuatro
+ * veces cada una, así que cualquier arreglo había que hacerlo en tres lugares
+ * o quedaba a medias.
+ *
+ * El hash del password se calcula acá una sola vez por categoría. Ojo con lo
+ * que significa: viaja al cliente en `data-cat-hash` y la verificación es
+ * enteramente del lado del navegador, así que es un candado cosmético, no una
+ * medida de seguridad — quien tenga el HTML puede atacarlo offline.
+ */
+interface Props {
+  cat: Category | undefined;
+  cards: CardType[];
+  catId: string;
+  layout: UmbralConfig['layout'];
+  cardStyle: string;
+  cardMaintenance: Map<string, string>;
+  qrEnabled?: boolean;
+  noteBadge: string;
+  /** Se resuelven una vez en la página y bajan por props para que las
+   *  tarjetas no vuelvan a pedir el config una por una. */
+  iconTint: string;
+  markdownEnabled: boolean;
+  useI18n: boolean;
+  trf: (key: string, vars?: Record<string, string | number>) => string;
+  /** Clase extra del `<section>`: la portada horizontal agrega `group-col`. */
+  extraClass?: string;
+  /** La subpágina titula más grande que los grupos de la portada. */
+  pageTitle?: boolean;
+}
+
+const {
+  cat,
+  cards,
+  catId,
+  layout,
+  cardStyle,
+  cardMaintenance,
+  qrEnabled,
+  noteBadge,
+  iconTint,
+  markdownEnabled,
+  useI18n,
+  trf,
+  extraClass,
+  pageTitle = false,
+} = Astro.props;
+
+const t = (key: string, fallback: string) => (useI18n ? trf(key) : fallback);
+
+const isGhost = Boolean(cat?.isGhost);
+const isLocked = Boolean(!isGhost && cat?.isLocked && cat?.password);
+const catHash = isLocked ? crypto.createHash('sha256').update(cat!.password!).digest('hex') : '';
+const lockedTitle = t('home.locked.title', 'Categoría protegida con contraseña');
+const showHeader = Boolean(cat) && !isGhost;
+const errorId = `lock-error-${catId}`;
+const inputId = `lock-input-${catId}`;
+---
+
+<section
+  class:list={['category-section', extraClass]}
+  data-cat-id={catId}
+  data-is-locked={isLocked ? 'true' : 'false'}
+  data-ghost={isGhost ? 'true' : undefined}
+  data-cat-hash={catHash}
+>
+  {
+    showHeader && (
+      <div class="category-header">
+        <h2 class:list={['section-title', pageTitle && 'section-title--page']}>{cat!.name}</h2>
+        {isLocked && (
+          <div class="cat-lock-status">
+            <span class="cat-lock-badge badge-locked" title={lockedTitle}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span>{t('home.locked.badge', 'Protegida')}</span>
+            </span>
+            <button
+              type="button"
+              class="cat-relock-btn"
+              style="display: none;"
+              title={t('home.locked.relockTitle', 'Volver a bloquear categoría')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span>{t('home.locked.relock', 'Bloquear')}</span>
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  {
+    isLocked && (
+      <div class="category-lock-box">
+        <div class="lock-icon-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <p class="lock-title">{t('home.locked.title', 'Categoría bloqueada')}</p>
+        <p class="lock-subtitle">{t('home.locked.subtitle', 'Ingresá la contraseña para ver los enlaces')}</p>
+        <form class="lock-form">
+          <div class="lock-input-group">
+            <label class="sr-only" for={inputId}>
+              {t('home.locked.subtitle', 'Ingresá la contraseña para ver los enlaces')}
+            </label>
+            <input
+              id={inputId}
+              type="password"
+              class="lock-input"
+              placeholder={t('home.locked.unlockPlaceholder', 'Contraseña…')}
+              autocomplete="current-password"
+              aria-describedby={errorId}
+              required
+            />
+            <button type="submit" class="lock-submit-btn">
+              {t('home.locked.unlockButton', 'Desbloquear')}
+            </button>
+          </div>
+          {/* role=alert para que el lector de pantalla anuncie el error, que
+              antes sólo se mostraba con un display:block silencioso. */}
+          <p class="lock-error" id={errorId} role="alert" style="display: none;">
+            {t('home.locked.unlockError', 'Contraseña incorrecta')}
+          </p>
+        </form>
+      </div>
+    )
+  }
+
+  <div class="category-cards-wrap" style={isLocked ? 'display: none;' : undefined}>
+    {
+      cards.length === 0 ? (
+        <div class="empty" style="padding:2.5rem 1rem">
+          <h3>{t('home.subpage.empty.title', 'No hay tarjetas en esta subpágina')}</h3>
+          <p>{t('home.subpage.empty.body', 'Podés asignar tarjetas a esta categoría desde el panel de administración.')}</p>
+        </div>
+      ) : (
+        <div class="grid">
+          {cards.map((c) => (
+            <Card
+              card={c}
+              layout={layout}
+              cardStyle={cardStyle}
+              maintenanceReason={cardMaintenance.get(c.id) || ''}
+              qrEnabled={qrEnabled}
+              noteBadge={noteBadge}
+              iconTint={iconTint}
+              markdownEnabled={markdownEnabled}
+            />
+          ))}
+        </div>
+      )
+    }
+  </div>
+</section>

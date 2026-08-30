@@ -1,75 +1,30 @@
 ---
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import { renderDocsMarkdown } from '~/lib/markdown';
 import PublicLayout from '~/layouts/PublicLayout.astro';
-import Logo from '~/components/Logo.astro';
-import LanguageSwitcher from '~/components/LanguageSwitcher.astro';
+import DocsHeader from '~/components/DocsHeader.astro';
 import { getConfig } from '~/lib/config';
 import { resolveIconUrl } from '~/lib/icon-url';
 import { isFeatureEnabled } from '~/lib/features';
+import { loadDocPage, SECTION_LABELS } from '~/lib/docs-catalog';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
-// dompurify necesita un window. En Node creamos uno con jsdom (que ya está
-// en deps) y se lo pasamos. Esto sólo se ejecuta en SSR, no llega al cliente.
 export const prerender = false;
 
-const DOCS_DIR = path.join(process.cwd(), 'docs');
 const { slug } = Astro.params;
 
-// ── 1) Resolve the file path. Reject anything that tries to escape `docs/`.
-function resolveDocFile(slugParam: string | undefined): { abs: string; rel: string } | null {
-  if (!slugParam) return null;
-  // Reject backslashes, NUL, leading slashes — normalize the path and
-  // make sure it stays under DOCS_DIR after resolution.
-  if (/[\\:\0]/.test(slugParam)) return null;
-  const safe = slugParam
-    .split('/')
-    .map((p) => p.replace(/[^a-zA-Z0-9._-]/g, ''))
-    .filter(Boolean)
-    .join('/');
-  if (!safe) return null;
-  const abs = path.resolve(DOCS_DIR, `${safe}.md`);
-  const rel = path.relative(DOCS_DIR, abs);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
-  return { abs, rel };
-}
-
-const resolved = resolveDocFile(slug);
-if (!resolved) {
+// La resolución del path (que rechaza cualquier intento de salirse de
+// `docs/`), la lectura, el render y el cache por mtime viven en
+// lib/docs-catalog.ts. Acá sólo queda decidir a dónde redirigir si no existe.
+const page = await loadDocPage(slug, renderDocsMarkdown);
+if (!page) {
   const rootSection = (slug ?? '').split('/')[0];
   if (rootSection && ['config', 'install', 'usage', 'dev'].includes(rootSection)) {
     return Astro.redirect(`/docs#${rootSection}`);
   }
   return Astro.redirect('/docs');
 }
-
-let raw: string;
-try {
-  raw = await fs.readFile(resolved.abs, 'utf8');
-} catch {
-  const rootSection = (slug ?? '').split('/')[0];
-  if (rootSection && ['config', 'install', 'usage', 'dev'].includes(rootSection)) {
-    return Astro.redirect(`/docs#${rootSection}`);
-  }
-  return Astro.redirect('/docs');
-}
-// Strip UTF-8 BOM if present. Notepad y PowerShell 5 `Set-Content -Encoding UTF8`
-// lo agregan; si no lo sacamos, el primer H1 del archivo (ej: `# Quickstart
-// Docker`) no matchea `/^#\s+/` porque la línea empieza con \uFEFF.
-if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
-
-// ── 2) Parse and sanitize the markdown.
-const titleMatch = raw.match(/^#\s+(.+?)$/m);
-const pageTitle = titleMatch?.[1]?.replace(/^Umbral\s*—\s*/i, '').replace(/^Documentación\s*—\s*/i, '').trim() ?? 'Documentación';
-
-const cleanBody = renderDocsMarkdown(raw);
-
-// Rewrite external links to open in a new tab.
-const finalBody = cleanBody.replace(
-  /<a\s+(?![^>]*\btarget=)([^>]*?)href="(https?:\/\/[^"]+)"([^>]*)>/g,
-  '<a $1href="$2" target="_blank" rel="noopener noreferrer"$3>',
-);
+const pageTitle = page.title;
+const finalBody = page.html;
 
 const config = await getConfig();
 const logoUrl = resolveIconUrl(config.branding.logo);
@@ -83,50 +38,16 @@ const trf = tr(locale);
 
 // Breadcrumb: split the slug into sections
 const crumbs = (slug ?? '').split('/').filter(Boolean);
-const sectionLabels: Record<string, string> = {
-  install: 'Instalación',
-  config: 'Configuración',
-  usage: 'Uso',
-  dev: 'Desarrollo',
-};
 ---
 <PublicLayout config={config} title={`${pageTitle} — Documentación`}>
   <main class="page-wrap docs-page">
-    <header class="header">
-      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
-        <a href={base} class="subpage-back-link" title={useI18n ? trf('home.subpage.back') : 'Portada principal'}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          <span>{useI18n ? trf('home.subpage.back') : 'Portada principal'}</span>
-        </a>
-        <span style="color:var(--border-strong);user-select:none">|</span>
-        <Logo src={logoUrl} alt={config.branding.companyName} fallbackName={config.branding.companyName} />
-        <h1 class="header-title">{config.branding.companyName}</h1>
-      </div>
-
-      <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem">
-        <a href={`${base}admin`} class="subpage-back-link" title="Panel de administración">
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-          <span>Admin</span>
-        </a>
-        {useI18n && <LanguageSwitcher config={config} current={locale} />}
-        <button
-          data-action="toggle-mode"
-          class="mode-toggle"
-          aria-label={useI18n ? trf('home.modeToggle') : 'Cambiar modo claro/oscuro'}
-          title={useI18n ? trf('home.modeToggleTitle') : 'Cambiar modo claro/oscuro'}
-        >
-          <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
-          </svg>
-        </button>
-      </div>
-    </header>
+    <DocsHeader config={config} useI18n={useI18n} trf={trf} locale={locale} logoUrl={logoUrl} base={base} />
 
     <nav class="docs-breadcrumb" aria-label="breadcrumb">
       <a href={`${base}docs`}>← Índice</a>
       {crumbs.map((c, i) => {
         const isLast = i === crumbs.length - 1;
-        const label = sectionLabels[c] ?? c;
+        const label = SECTION_LABELS[c] ?? c;
         const href = i === 0 && crumbs.length > 1 ? `${base}docs#${c}` : `${base}docs/${crumbs.slice(0, i + 1).join('/')}`;
         return (
           <>

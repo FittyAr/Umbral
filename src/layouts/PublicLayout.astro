@@ -4,7 +4,8 @@ import { resolveIconUrl } from '~/lib/icon-url';
 import ThemeScript from '~/components/ThemeScript.astro';
 import { isFeatureEnabled } from '~/lib/features';
 import { buildBootScript } from '~/lib/client-config';
-import { computeThemeCssBlocks, computeBackgroundStyle, resolveBackground } from '~/lib/theme-tokens';
+import Background from '~/components/Background.astro';
+import { computeThemeCssBlocks } from '~/lib/theme-tokens';
 import { computeCardSpanCss } from '~/lib/card-span';
 import { computeAnimationCss, computeAnimationScript } from '~/lib/animations';
 import { t as tr, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
@@ -47,14 +48,6 @@ const bootScript = buildBootScript({ base, isDemoBuild, config });
 
 // Theme variables injected as inline style
 const cssBlocks = computeThemeCssBlocks(t);
-const bgDarkStyle = computeBackgroundStyle(t.background);
-const bgLightStyle = computeBackgroundStyle(resolveBackground(t, 'light'));
-const bgLightResolved = resolveBackground(t, 'light');
-
-function overlayStyle(bg: typeof t.background): string {
-  if (bg.overlay <= 0) return 'opacity:0;display:none;pointer-events:none;';
-  return `background:${bg.overlayColor};opacity:${bg.overlay};`;
-}
 const sharedStyle = [
   cssBlocks.shared,
   t.headerOpacity < 1 ? `--header-opacity:${t.headerOpacity}` : '',
@@ -123,11 +116,10 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
   <body data-demo={isDemoBuild ? '1' : '0'}>
     <slot />
 
-    {/* Background as last child so it sits behind everything via fixed positioning */}
-    <div class="bg-layer" data-bg-mode="dark" style={bgDarkStyle}></div>
-    <div class="bg-layer" data-bg-mode="light" style={bgLightStyle}></div>
-    <div class="bg-overlay" data-bg-mode="dark" style={overlayStyle(t.background)}></div>
-    <div class="bg-overlay" data-bg-mode="light" style={overlayStyle(bgLightResolved)}></div>
+    {/* Último hijo para que quede detrás de todo con position:fixed. El
+        markup vive en Background.astro, que estaba sin usar mientras este
+        layout reimplementaba la misma lógica inline. */}
+    <Background theme={t} />
 
     {animationScript && <script is:inline set:html={animationScript}></script>}
 

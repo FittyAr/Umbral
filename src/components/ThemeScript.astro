@@ -143,12 +143,19 @@ const previewBannerText = useI18n ? trf('admin.theme.preview.banner') : 'Modo pr
 
     const toggle = document.querySelector('[data-action="toggle-mode"]');
     if (toggle) {
+      // aria-pressed = "hay modo claro activo", para que un lector de pantalla
+      // sepa en qué estado está el botón y no sólo qué hace al apretarlo.
+      var syncToggle = function (mode) {
+        toggle.setAttribute('aria-label', mode === 'dark' ? labelToLight : labelToDark);
+        toggle.setAttribute('aria-pressed', mode === 'light' ? 'true' : 'false');
+      };
+      syncToggle(document.documentElement.getAttribute('data-mode') || 'dark');
       toggle.addEventListener('click', function () {
         const current = document.documentElement.getAttribute('data-mode') || 'dark';
         const next = current === 'dark' ? 'light' : 'dark';
         localStorage.setItem('umbral-color-mode', next);
         document.documentElement.setAttribute('data-mode', next);
-        toggle.setAttribute('aria-label', next === 'dark' ? labelToLight : labelToDark);
+        syncToggle(next);
       });
     }
   });
