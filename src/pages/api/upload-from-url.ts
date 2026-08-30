@@ -1,8 +1,7 @@
 import type { APIRoute } from 'astro';
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import { json, error } from '~/lib/http';
 import { getConfig } from '~/lib/config';
+import { processAndStore, UploadError } from '~/lib/upload';
 import { isCloudMetadataHost, resolveAndCheckUrl } from '~/lib/ssrf';
 
 export const prerender = false;
@@ -136,26 +135,28 @@ export const POST: APIRoute = async ({ request }) => {
     clearTimeout(timer);
   }
 
-  // Whitelist MIME (igual que /api/upload)
-  const allowed = cfg.security.uploads.allowedMimeTypes;
-  if (!allowed.includes(contentType)) {
-    return error(`Tipo ${contentType} no permitido. Permitidos: ${allowed.join(', ')}`, 415);
+  // Guardado por el mismo camino que /api/upload.
+  //
+  // Antes esto escribía los bytes crudos a disco con su propio `writeFile`,
+  // salteándose todo lo que hace `processAndStore`: la extensión salía del
+  // content-type que elige el origen (no de los bytes), y un SVG llegaba sin
+  // pasar por DOMPurify. Con `image/svg+xml` en la whitelist por default y
+  // una CSP que permite `script-src 'self' 'unsafe-inline'`, un `<script>`
+  // dentro de ese SVG corría en nuestro propio origen al abrir
+  // /api/assets/<nombre>.
+  try {
+    const stored = await processAndStore(
+      new File([new Uint8Array(buf)], 'external', { type: contentType }),
+      kind,
+    );
+    return json({
+      url: stored.publicUrl,
+      name: stored.storedName,
+      bytes: stored.bytes,
+      mime: stored.mime,
+    });
+  } catch (err) {
+    if (err instanceof UploadError) return error(err.message, err.status);
+    return error(`No se pudo guardar el asset: ${(err as Error).message}`, 500);
   }
-
-  // Generar nombre seguro
-  const ext = (contentType.split('/')[1] || 'bin').split(';')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-  const safeName = `external-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-  // Guardar en disco (mismo path que /api/upload)
-  const uploadsDir = path.join(process.env.DATA_DIR || path.join(process.cwd(), 'data'), 'uploads');
-  await fs.mkdir(uploadsDir, { recursive: true });
-  const filePath = path.join(uploadsDir, safeName);
-  await fs.writeFile(filePath, buf);
-
-  return json({
-    url: `/api/assets/${safeName}`,
-    name: safeName,
-    bytes: buf.length,
-    mime: contentType,
-  });
 };

@@ -46,6 +46,9 @@ export function clearMetrics(cardId?: string) {
  *  Si el feature está apagado, no registra (defense in depth — evita
  *  acumular basura si alguien lo desactiva a futuro). */
 export function recordSample(cardId: string, sample: MetricSample) {
+  // La promesa se descarta a propósito (el caller no espera la muestra), pero
+  // con el `catch`: sin él, un `getConfig()` que rechaza —config corrupto,
+  // disco caído— era un unhandled rejection, y en Node eso baja el proceso.
   void (async () => {
     const cfg = await getConfig();
     if (!isFeatureEnabled(cfg, 'metrics')) return;
@@ -57,7 +60,9 @@ export function recordSample(cardId: string, sample: MetricSample) {
     }
     buf.push(sample);
     if (buf.length > limit) buf.shift();
-  })();
+  })().catch((err) => {
+    console.error('[umbral] recordSample failed:', err);
+  });
 }
 
 /** Devuelve las últimas N muestras de una card. Si no hay samples, [].

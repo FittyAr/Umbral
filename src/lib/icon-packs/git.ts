@@ -30,7 +30,10 @@ export async function extractSvgsFromGit(
   try {
     const cloneArgs = ['clone', '--depth', '1', '--filter=blob:none', '--sparse'];
     if (branch) cloneArgs.push('--branch', branch);
-    cloneArgs.push(repoUrl, tempDir);
+    // El `--` cierra la lista de opciones: sin él, una URL que empieza con
+    // `-` la parsea git como flag. La URL además ya viene validada
+    // (lib/icon-packs/validate.ts); esto es el cinturón sobre los tiradores.
+    cloneArgs.push('--', repoUrl, tempDir);
 
     try {
       await execFileAsync('git', cloneArgs, { env: gitEnv, timeout: GIT_CLONE_TIMEOUT_MS });
@@ -52,7 +55,7 @@ export async function extractSvgsFromGit(
       }
       const standardArgs = ['clone', '--depth', '1'];
       if (branch) standardArgs.push('--branch', branch);
-      standardArgs.push(repoUrl, tempDir);
+      standardArgs.push('--', repoUrl, tempDir);
       try {
         await execFileAsync('git', standardArgs, { env: gitEnv, timeout: GIT_CLONE_TIMEOUT_MS });
         lastError = null;

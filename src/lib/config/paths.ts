@@ -8,7 +8,6 @@
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { portalUploadsPath as _portalUploadsPath } from '../multi-portal';
 
 export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 
@@ -29,14 +28,13 @@ export function setActivePortalId(id: string) { activePortalId = id; }
 export function getActivePortalId() { return activePortalId; }
 
 export async function ensureDirs() {
-  // Per-portal (Ola 4.1): usa portalUploadsPath(portalId) que respeta
-  // el portal activo. Si multiPortal está apagado, devuelve data/uploads
-  // (legacy). El DATA_DIR siempre existe (necesario para que el multi-portal
-  // root pueda crearse).
-  const portalUploads = _portalUploadsPath(activePortalId);
+  // Los uploads viven en `data/uploads`, que es de donde los leen
+  // lib/upload.ts, lib/assets.ts y /api/assets. Esto creaba además
+  // `data/portals/<id>/uploads`, un directorio que ningún lector mira: el
+  // config es lo único que está por portal (ver lib/multi-portal.ts).
   await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.mkdir(path.dirname(portalUploads), { recursive: true });
-  await fs.mkdir(portalUploads, { recursive: true });
+  await fs.mkdir(UPLOADS_DIR, { recursive: true });
+  await fs.mkdir(path.join(DATA_DIR, 'portals'), { recursive: true });
 }
 
 /**

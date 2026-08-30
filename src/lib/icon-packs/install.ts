@@ -19,6 +19,7 @@ import {
 import { type ExtractedSvg, sanitizeIconFileName } from './svg.ts';
 import { extractSvgsFromZip } from './zip.ts';
 import { extractSvgsFromGit } from './git.ts';
+import { validateBranch, validatePrefix, validateRepoUrl, validateSubpath } from './validate.ts';
 
 async function collectSvgsFromRepo(
   repoUrl: string,
@@ -78,15 +79,20 @@ export async function installIconPack(options: {
     packDef = PREDEFINED_ICON_PACKS.find((p) => p.id === options.packId);
   }
 
-  const repoUrl = (packDef ? packDef.repoUrl : options.repoUrl || '').trim();
-  if (!repoUrl) {
+  const rawRepoUrl = (packDef ? packDef.repoUrl : options.repoUrl || '').trim();
+  if (!rawRepoUrl) {
     throw new Error('Se requiere un ID de paquete válido o una URL de repositorio Git.');
   }
 
+  // Los packs del catálogo son constantes del código; lo que viene del body
+  // del request se valida antes de llegar a `git` o a un `path.join`.
+  const repoUrl = packDef ? rawRepoUrl : validateRepoUrl(rawRepoUrl);
+  const branch = packDef ? packDef.branch.trim() : validateBranch(options.branch);
+  const subpath = packDef ? packDef.subpath : validateSubpath(options.subpath);
+  const prefix = packDef ? options.prefix : validatePrefix(options.prefix);
+
   const packId = packDef ? packDef.id : `custom-${Date.now().toString(36)}`;
   const packName = packDef ? packDef.name : `Repositorio (${repoUrl})`;
-  const branch = (packDef ? packDef.branch : options.branch || 'main').trim();
-  const subpath = packDef ? packDef.subpath : options.subpath;
   const license = packDef ? packDef.license : 'Ver repositorio';
 
   const packDir = path.join(getIconPacksDir(), packId);
@@ -104,7 +110,7 @@ export async function installIconPack(options: {
   const svgs = await collectSvgsFromRepo(repoUrl, branch, subpath);
 
   const installedFiles: string[] = [];
-  const namePrefix = options.prefix ? `${options.prefix}-` : '';
+  const namePrefix = prefix ? `${prefix}-` : '';
 
   const writeTasks: Array<{ destPath: string; content: string; fileName: string }> = [];
   for (const item of svgs) {

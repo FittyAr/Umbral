@@ -1,14 +1,10 @@
 import type { APIRoute } from 'astro';
-import path from 'node:path';
 import crypto from 'node:crypto';
 import { getConfig, updateAuth, audit } from '~/lib/config';
 import { verifyPassword, createSessionToken, buildSessionCookie, checkRateLimit, generateToken } from '~/lib/auth';
 import { json, error, readJson } from '~/lib/http';
 import { isFeatureEnabled } from '~/lib/features';
 import { verifyTotp, decryptTotpSecret } from '~/lib/totp';
-
-// Para guardar partials de TOTP en disco (TTL 5min).
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 
 // globalThis hack para mantener el Map de partials entre requests
 // (los módulos ES se cachean). En server restart se pierde, aceptable.
@@ -133,24 +129,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (matchedUser && matchedUser.role !== undefined) {
     if (matchedUser.totpSecret && isFeatureEnabled(cfg, 'totp2fa')) {
       const partialToken = generateToken(24);
-      const partialAuthFile = path.join(DATA_DIR, '.totp-partials.json');
-      // Guardamos el partial en disco con TTL 5min, keyed por hash
-      // del partialToken. Esto evita que el atacante fuerce bruteforce
-      // de partialTokens porque conoce el formato (32 hex chars).
-      // (Es un trade-off: el disco tiene que existir y ser writable —
-      // igual que audit.log, así que aceptable.)
-      // NOTA: en esta versión simplificada guardamos en memoria via
-      // globalThis. Volver a disco es straightforward.
-      globalThis.__totpPartials ??= new Map<string, { userId: string; expires: number }>();
-      (globalThis.__totpPartials as Map<string, { userId: string; expires: number }>).set(
+      // El partial se guarda en memoria (globalThis para sobrevivir al HMR
+      // del dev server), keyed por el sha-256 del token y con TTL de 5 min.
+      // Si el server reinicia se pierden y el user vuelve a hacer login:
+      // aceptable para una ventana de 5 minutos.
+      const partials = (globalThis.__totpPartials ??= new Map<string, { userId: string; expires: number }>());
+      // Barrido de los vencidos antes de insertar. El Map sólo se vaciaba al
+      // consumir un partial, así que cada login empezado y abandonado —salir
+      // de la pantalla del código, cerrar la pestaña— dejaba una entrada para
+      // siempre, y en un server de larga vida eso sólo crece.
+      const now = Date.now();
+      for (const [key, entry] of partials) {
+        if (entry.expires <= now) partials.delete(key);
+      }
+      partials.set(
         crypto.createHash('sha256').update(partialToken).digest('hex'),
-        { userId: matchedUser.id, expires: Date.now() + 5 * 60_000 },
+        { userId: matchedUser.id, expires: now + 5 * 60_000 },
       );
-      // (El path se declara arriba para no repetir el import; en JS
-      // lo importamos una vez al top del archivo.)
-      // NOTA: usamos globalThis como fallback de runtime. Si el
-      // server reinicia, los partials se pierden y el user tiene que
-      // re-empezar (login + TOTP). Aceptable — son 5min de TTL.
       return json({ requiresTotp: true, partialToken });
     }
   }

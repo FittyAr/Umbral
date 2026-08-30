@@ -6,7 +6,7 @@
  */
 import type { APIRoute } from 'astro';
 import bcrypt from 'bcryptjs';
-import { generateApiTokenPlaintext } from '~/lib/api-tokens';
+import { generateApiTokenPlaintext, invalidateApiTokenCache } from '~/lib/api-tokens';
 import { getConfig, saveConfig, audit } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { json, error, readJson } from '~/lib/http';
@@ -104,6 +104,9 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
       items: updatedTokens,
     },
   });
+  // Sin esto, la memo de verificación (lib/api-tokens.ts) podía seguir
+  // aceptando el token hasta un minuto después de revocarlo.
+  invalidateApiTokenCache();
 
   await audit('api_token_revoked', `name=${found.name} actor=${auth.actor}`);
   return json({ ok: true });

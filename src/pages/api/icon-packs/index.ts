@@ -28,13 +28,24 @@ export const POST: APIRoute = async ({ request }) => {
     return error('La feature iconPacks está desactivada.', 403);
   }
 
+  let body: unknown;
   try {
-    const body = await request.json();
-    const result = await installIconPack(body);
+    body = await request.json();
+  } catch {
+    return error('JSON inválido', 400);
+  }
+  if (!body || typeof body !== 'object') return error('Body inválido', 400);
+
+  try {
+    // Los campos se validan dentro de installIconPack (ver
+    // lib/icon-packs/validate.ts): de acá salían directo a `git`.
+    const result = await installIconPack(body as Parameters<typeof installIconPack>[0]);
 
     invalidateIconsCache();
 
-    await audit('update', `Icon pack installed: ${result.name} (${result.iconsInstalled} icons)`);
+    // Acción propia y no el genérico 'update', que en el visor de auditoría
+    // no dice nada y se mezcla con cualquier otro cambio de config.
+    await audit('icon_pack_installed', `pack=${result.packId} name=${result.name} icons=${result.iconsInstalled}`);
 
     return json(result);
   } catch (err: any) {

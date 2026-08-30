@@ -27,15 +27,9 @@ export function portalConfigPath(id: string): string {
   return path.join(DATA_DIR, 'portals', id, 'config.json');
 }
 
-/** Path al uploads dir de un portal. */
-export function portalUploadsPath(id: string): string {
-  return path.join(DATA_DIR, 'portals', id, 'uploads');
-}
-
-/** Path al audit log de un portal. */
-export function portalAuditPath(id: string): string {
-  return path.join(DATA_DIR, 'portals', id, 'audit.log');
-}
+// No hay `portalUploadsPath` ni `portalAuditPath`: los uploads y el audit log
+// son compartidos, en `data/`. Existían sin un solo caller y lo único que
+// hacían era invitar a mover archivos a un directorio que nadie lee.
 
 /** Resuelve qué portal matchea el request. Si multiPortal está apagado,
  *  devuelve "default" (legacy). Si está activo, matchea por Host header
@@ -104,6 +98,10 @@ export async function migrateLegacyToMultiPortal(): Promise<{ migrated: boolean;
   const legacyConfig = path.join(DATA_DIR, 'config.json');
   // Verificar que el legacy data/config.json existe. Si no, no hay nada
   // que migrar (fresh install o ya migrado).
+  // La reparación va antes del early return: el caso que hay que arreglar es
+  // justamente el de una instalación ya migrada por la versión anterior de
+  // esta función, que no tiene legacy config.json.
+  await repairPortalDataSplit();
   let legacyStat;
   try {
     legacyStat = await fs.stat(legacyConfig);
@@ -124,39 +122,78 @@ export async function migrateLegacyToMultiPortal(): Promise<{ migrated: boolean;
       // Si falla, no es crítico (puede no existir)
     }
   }
-  // Mover uploads/ si existe
-  try {
-    const uploadsStat = await fs.stat(path.join(DATA_DIR, 'uploads'));
-    if (uploadsStat.isDirectory()) {
-      await fs.rename(path.join(DATA_DIR, 'uploads'), path.join(DATA_DIR, 'portals', 'default', 'uploads'));
-    }
-  } catch {
-    // No hay uploads/, no importa
-  }
-  // Mover audit.log si existe
-  try {
-    await fs.rename(path.join(DATA_DIR, 'audit.log'), path.join(DATA_DIR, 'portals', 'default', 'audit.log'));
-  } catch {
-    // No hay audit.log
-  }
+  // Los uploads y el audit log NO se mueven, a propósito: todo el código que
+  // los lee y escribe (lib/upload.ts, lib/assets.ts, lib/audit.ts) usa
+  // `data/uploads` y `data/audit.log`. Moverlos dejaba los archivos en un
+  // directorio que nadie lee, así que después de un upgrade desde v1 todos
+  // los logos e íconos subidos devolvían 404 mientras las subidas nuevas
+  // recreaban el directorio viejo.
+  await repairPortalDataSplit();
   // Audit log del reshuffle filesystem — sin esto, el cambio de
   // features.multiPortal.enabled en el config es visible en el log pero
   // la consecuencia (data → data/portals/default/) no. En incident response
   // un admin buscando 'qué pasó con mi data' no encuentra la migración.
-  // NOTA: NO usamos `audit()` (que escribe a AUDIT_LOG_PATH legacy) sino
-  // escritura directa a la nueva ubicación de audit del portal migrado.
-  // El primer write crea el archivo. La migración es atómica: si falla
-  // el append, no hay otra fuente de verdad.
+  // NOTA: no usamos `audit()` para no importar config.ts desde acá (esto
+  // corre dentro de su propio seed). Escribimos directo al log, que es el
+  // mismo `data/audit.log` que lee el visor.
   try {
-    const newAuditPath = path.join(DATA_DIR, 'portals', 'default', 'audit.log');
-    const line = `${new Date().toISOString()}\tmulti_portal_migration\tdata/ → data/portals/default/\n`;
-    await fs.appendFile(newAuditPath, line, 'utf8');
+    const auditPath = path.join(DATA_DIR, 'audit.log');
+    const line = `${new Date().toISOString()}\tmulti_portal_migration\tconfig → data/portals/default/config.json\n`;
+    await fs.appendFile(auditPath, line, 'utf8');
   } catch {
     // Si falla (permisos, disco lleno), la migración ya se hizo en
     // filesystem. El admin puede buscar 'multi_portal_migration' o
     // 'data → data/portals' en logs externos. No es crítico.
   }
   return { migrated: true, reason: `migrated ${filesToMove.length}+ files from data/ to data/portals/default/` };
+}
+
+/**
+ * Devuelve los uploads y el audit log al lugar donde el código los busca.
+ *
+ * Una versión anterior de la migración los movía a `data/portals/default/`,
+ * donde ningún lector mira. Esto repara esas instalaciones: es idempotente y
+ * no hace nada cuando no hay nada que reparar, así que puede correr en cada
+ * boot sin costo.
+ */
+export async function repairPortalDataSplit(): Promise<void> {
+  const portalDir = path.join(DATA_DIR, 'portals', 'default');
+
+  // Uploads: mover archivo por archivo, sin pisar los que ya están en el
+  // destino (esos son más nuevos: los escribió el código actual).
+  const portalUploads = path.join(portalDir, 'uploads');
+  const legacyUploads = path.join(DATA_DIR, 'uploads');
+  try {
+    const entries = await fs.readdir(portalUploads, { withFileTypes: true });
+    await fs.mkdir(legacyUploads, { recursive: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const dest = path.join(legacyUploads, entry.name);
+      try {
+        await fs.stat(dest);
+        continue; // ya existe en el destino: dejamos el de allá
+      } catch { /* no está, lo movemos */ }
+      await fs.rename(path.join(portalUploads, entry.name), dest).catch(() => {});
+    }
+    await fs.rmdir(portalUploads).catch(() => {}); // sólo si quedó vacío
+  } catch { /* no hay uploads del portal: nada que reparar */ }
+
+  // Audit log: concatenamos y ordenamos. Las líneas arrancan con el
+  // timestamp ISO, así que el orden lexicográfico es el cronológico y el
+  // visor (que lee de atrás para adelante) no ve entradas fuera de lugar.
+  const portalAudit = path.join(portalDir, 'audit.log');
+  const legacyAudit = path.join(DATA_DIR, 'audit.log');
+  try {
+    const moved = await fs.readFile(portalAudit, 'utf8');
+    let existing = '';
+    try {
+      existing = await fs.readFile(legacyAudit, 'utf8');
+    } catch { /* no hay log previo */ }
+    const lines = (moved + existing).split('\n').filter((l) => l.trim() !== '');
+    lines.sort();
+    await fs.writeFile(legacyAudit, lines.join('\n') + '\n', 'utf8');
+    await fs.unlink(portalAudit).catch(() => {});
+  } catch { /* no hay audit log del portal: nada que reparar */ }
 }
 
 /** Helper de debugging: lista los portales en disco. */

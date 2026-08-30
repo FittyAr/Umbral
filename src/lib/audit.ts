@@ -92,24 +92,56 @@ export function parseAuditLine(line: string): AuditEntry | null {
   return { ts, date, action, detail: detail ?? '' };
 }
 
-/** Lee las últimas N líneas de un archivo sin cargar todo a memoria.
- *  Útil para audit.log que puede ser de varios MB. Implementación
- *  sencilla: lee un buffer del final, parte por \n, devuelve las últimas N.
- *  Para archivos > 10MB el comportamiento se degrada gracefully — la UI
- *  muestra warning si pasa. */
+/**
+ * Lee las últimas N líneas de un archivo leyendo sólo el final.
+ *
+ * Antes hacía `readFile` del archivo entero y después se quedaba con las
+ * últimas N: con el log en su tamaño de rotación, cada apertura del visor
+ * levantaba 10 MB a memoria para mostrar 200 líneas.
+ *
+ * Ahora lee bloques desde el final hasta juntar las líneas pedidas, con un
+ * techo de 4 MB para que un archivo de una sola línea gigante no vuelva al
+ * comportamiento anterior.
+ */
+const TAIL_CHUNK_BYTES = 64 * 1024;
+const TAIL_MAX_BYTES = 4 * 1024 * 1024;
+
 export async function tailFile(path: string, maxLines: number): Promise<string[]> {
   if (maxLines <= 0) return [];
-  let buf: Buffer;
+  let handle: import('node:fs/promises').FileHandle;
   try {
-    buf = await fs.readFile(path);
+    handle = await fs.open(path, 'r');
   } catch {
     return []; // archivo no existe todavía
   }
-  if (buf.length === 0) return [];
-  // Split por \n y descartar el último elemento si está vacío (line final sin \n).
-  const allLines = buf.toString('utf8').split('\n');
-  if (allLines[allLines.length - 1] === '') allLines.pop();
-  return allLines.slice(-maxLines);
+  try {
+    const { size } = await handle.stat();
+    if (size === 0) return [];
+
+    const chunks: Buffer[] = [];
+    let read = 0;
+    let newlines = 0;
+    while (read < size && read < TAIL_MAX_BYTES && newlines <= maxLines) {
+      const length = Math.min(TAIL_CHUNK_BYTES, size - read, TAIL_MAX_BYTES - read);
+      const buf = Buffer.alloc(length);
+      await handle.read(buf, 0, length, size - read - length);
+      chunks.unshift(buf);
+      read += length;
+      for (const byte of buf) if (byte === 0x0a) newlines++;
+    }
+
+    const text = Buffer.concat(chunks).toString('utf8');
+    const lines = text.split('\n');
+    if (lines[lines.length - 1] === '') lines.pop();
+    // Si cortamos en medio de una línea, la primera queda trunca: la
+    // descartamos salvo que hayamos leído el archivo completo.
+    if (read < size && lines.length > 0) lines.shift();
+    return lines.slice(-maxLines);
+  } catch {
+    return [];
+  } finally {
+    await handle.close().catch(() => {});
+  }
 }
 
 export interface AuditFilters {

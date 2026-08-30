@@ -19,10 +19,14 @@ import { defaultConfig } from './defaults';
 // ──────────────────────────────────────────────────────────────────────────
 let cache: { config: Config; loadedAt: number } | null = null;
 let seedPromise: Promise<Config> | null = null; // dedupes concurrent seeds
+let refreshPromise: Promise<Config> | null = null; // dedupes concurrent read-throughs
 const CACHE_TTL_MS = 5_000; // read-through TTL to balance freshness and perf
 
 export function invalidate() {
   cache = null;
+  // Una relectura en vuelo quedaría vieja respecto de lo que se acaba de
+  // escribir: la descartamos para que no popule el cache.
+  refreshPromise = null;
   // BUGFIX: también reseteamos `seedPromise` para que el próximo getConfig()
   // re-lea desde disco. Sin esto, después del primer seed el `seedPromise`
   // queda cacheado con la config del boot, y un saveConfig() + getConfig()
@@ -59,12 +63,9 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
     // primer boot. La función es idempotente: si no hay legacy data,
     // sale inmediatamente con { migrated: false }.
     //
-    // IMPORTANTE: corre ANTES de ensureDirs. Si ensureDirs crea
-    // data/portals/default/uploads primero, el fs.rename de
-    // data/uploads → data/portals/default/uploads falla en Windows
-    // porque Windows no permite rename sobre un directorio destino
-    // existente. Migrando primero, el destino está limpio y el rename
-    // funciona en cualquier OS.
+    // Corre antes de ensureDirs porque mueve archivos y no quiere encontrarse
+    // los directorios ya creados: en Windows un rename sobre un directorio
+    // existente falla.
     const mig = await migrateLegacyToMultiPortal();
     if (mig.migrated) console.log(`[umbral] multi-portal auto-migration: ${mig.reason}`);
 
@@ -238,10 +239,28 @@ export async function getConfig(): Promise<Config> {
   }
   // 2) read-through after TTL
   if (Date.now() - cache.loadedAt > CACHE_TTL_MS) {
+    // Deduplicado: al vencer el TTL, cada request que entraba disparaba su
+    // propio readFile + parse de Zod del config completo. Una página del
+    // admin llama a getConfig() muchas veces en paralelo, así que la primera
+    // ronda después de cada vencimiento pagaba el parseo N veces. Peor: dos
+    // lecturas concurrentes podían ejecutar a la vez las migraciones que
+    // `loadFresh` escribe a disco (secciones `ai`/`externalSearch` faltantes,
+    // fontUrl de Google Fonts), y ahí las escrituras se pisaban.
+    if (!refreshPromise) {
+      const mine: Promise<Config> = loadFresh()
+        .then((fresh) => {
+          // Sólo cacheamos si nadie invalidó mientras leíamos: un saveConfig()
+          // concurrente ya escribió algo más nuevo que esto.
+          if (refreshPromise === mine) cache = { config: fresh, loadedAt: Date.now() };
+          return fresh;
+        })
+        .finally(() => {
+          if (refreshPromise === mine) refreshPromise = null;
+        });
+      refreshPromise = mine;
+    }
     try {
-      const fresh = await loadFresh();
-      cache = { config: fresh, loadedAt: Date.now() };
-      return fresh;
+      return await refreshPromise;
     } catch {
       // fallback to stale cache on read error
       return cache.config;

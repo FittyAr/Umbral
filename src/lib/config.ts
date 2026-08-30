@@ -135,7 +135,14 @@ export async function resetConfig(): Promise<Config> {
 export async function importConfig(newConfig: Config): Promise<Config> {
   const result = ConfigSchema.parse(newConfig);
   await ensureDirs();
-  await writeJsonAtomic(CONFIG_PATH, result);
+  // Al path del portal activo, igual que saveConfig, resetConfig y updateAuth.
+  // Escribía a `data/config.json`, que nadie lee: la lectura siempre pasa por
+  // `_portalConfigPath`. El import devolvía 200 con el config importado, el
+  // siguiente GET mostraba el viejo, y en el próximo arranque frío la
+  // migración de multi-portal tomaba ese `data/config.json` por una
+  // instalación v1 y lo movía encima del config real, pisando todo lo hecho
+  // desde el import.
+  await writeJsonAtomic(_portalConfigPath(getActivePortalId()), result);
   invalidate();
   return result;
 }
