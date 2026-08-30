@@ -185,7 +185,7 @@ describe('card span wiring', () => {
   });
 
   test('new cards default to one column', async () => {
-    const src = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
+    const src = await readFile(new URL('../src/scripts/admin/cards.ts', import.meta.url), 'utf8');
     // addCard() and applyAppPreset() both build a card literal.
     assert.equal(src.match(/^\s*span: 1,$/gm)?.length, 2);
   });

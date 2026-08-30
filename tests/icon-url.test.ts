@@ -8,8 +8,9 @@ import {
   resolveIconUrl,
 } from '../src/lib/icon-url.ts';
 
+// El estado Alpine de cards (resolveIcon, applyAppPreset) vive en su módulo.
 const dashboardSrc = readFileSync(
-  fileURLToPath(new URL('../src/pages/admin/dashboard.astro', import.meta.url)),
+  fileURLToPath(new URL('../src/scripts/admin/cards.ts', import.meta.url)),
   'utf8',
 );
 
@@ -73,7 +74,7 @@ describe('createInstalledIconLookup', () => {
 describe('dashboard: íconos ausentes no piden SVGs', () => {
   test('resolveIcon filtra íconos de packs no instalados', () => {
     assert.match(dashboardSrc, /if \(!this\.isIconInstalled\(clean\)\) return '';/);
-    assert.match(dashboardSrc, /import \{ createInstalledIconLookup \} from '~\/lib\/icon-url';/);
+    assert.match(dashboardSrc, /import \{ createInstalledIconLookup \} from ['"]~\/lib\/icon-url['"];/);
   });
 
   test('las tarjetas de plantilla usan x-if y no x-show para la imagen', () => {

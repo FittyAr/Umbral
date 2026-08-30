@@ -347,8 +347,10 @@ describe('Card.astro kind', () => {
 
 describe('dashboard card Sortable', () => {
   test('uses card-item draggable, drop filler, frozen layout, and reconcile lifecycle', async () => {
-    const src = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
-    assert.match(src, /installSortableGuard\(Sortable\)/);
+    const dashboard = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
+    assert.match(dashboard, /installSortableGuard\(Sortable\)/);
+    // El drag&drop de cards vive en el fragmento Alpine del dominio cards.
+    const src = await readFile(new URL('../src/scripts/admin/cards.ts', import.meta.url), 'utf8');
     assert.match(src, /draggable:\s*['"]\.card-item['"]/);
     assert.doesNotMatch(src, /forceFallback|fallbackOnBody/);
     assert.match(src, /emptyInsertThreshold:\s*0/);
