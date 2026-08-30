@@ -81,6 +81,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const { url, request } = context;
   const pathname = url.pathname;
 
+  // Las rutas prerenderizadas se generan en el build y se sirven como
+  // archivos: no hay sesión que validar ni headers de request que leer
+  // (tocarlos durante el prerender emite warnings de Astro).
+  if (context.isPrerendered) return next();
+
   // Pull config once (cached) for security/network/headers settings.
   const cfg = await getConfig();
   const headersCfg = cfg.security.headers;

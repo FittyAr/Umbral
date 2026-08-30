@@ -2,13 +2,7 @@
 import AdminLayout from '~/layouts/AdminLayout.astro';
 import { getConfig } from '~/lib/config';
 import { getAvailableIconNames } from '~/lib/icon-pack-names.ts';
-import { AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, findPresetByBaseUrl } from './ai-providers';
-import { getHelpTexts } from '~/i18n/help/index.ts';
-import { renderMarkdownSync } from '~/lib/markdown.ts';
-import { AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS } from '~/lib/ai-prompts';
 import { FEATURE_META, FEATURE_NAMES, isFeatureEnabled } from '~/lib/features';
-import { APP_PRESETS } from '~/lib/presets';
-import { PREDEFINED_ICON_PACKS } from '~/lib/icon-packs';
 import { BUILTIN_THEME_PRESETS } from '~/lib/theme-presets';
 import ThemePanel from '~/components/admin/theme/ThemePanel.astro';
 import LayoutPanel from '~/components/admin/layout/LayoutPanel.astro';
@@ -46,8 +40,21 @@ if (!isAuthed) {
 }
 const csrfToken = isDemoBuild ? 'demo-csrf-token' : (Astro.locals.auth?.csrfToken ?? '');
 const config = await getConfig();
-const availableIcons = await getAvailableIconNames();
-
+// El dashboard sólo necesita `auth.users` y `auth.singlePasswordEnabled` para
+// el panel de usuarios; el hash del super-admin y el CSRF de la config no
+// tienen razón de estar en el HTML. `saveConfig` ignora ambos campos en un
+// PUT, así que sacarlos no rompe el round-trip del formulario.
+const clientConfig = {
+  ...config,
+  auth: {
+    users: config.auth?.users ?? [],
+    singlePasswordEnabled: config.auth?.singlePasswordEnabled ?? true,
+  },
+};
+// El catálogo de íconos se pide a `/api/icon-names` cuando el admin arranca.
+// El build estático del demo no tiene ese endpoint, así que ahí (y sólo ahí)
+// sigue viajando inline.
+const demoAvailableIcons = isDemoBuild ? await getAvailableIconNames() : null;
 // i18n del admin: traducimos títulos de tabs y la sección Features.
 // Si la feature i18n está apagada, defaults históricos en español.
 const useI18n = isFeatureEnabled(config, 'i18n');
@@ -55,18 +62,6 @@ const locale: Locale = useI18n
   ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
   : 'es';
 const trf = t(locale);
-
-const helpCatalog = getHelpTexts(locale);
-const HELP_TEXTS = Object.fromEntries(
-  Object.entries(helpCatalog).map(([key, val]) => [
-    key,
-    {
-      title: val.title,
-      short: val.short,
-      bodyHtml: renderMarkdownSync(val.body),
-    },
-  ]),
-);
 
 // Metadata de features para la UI del tab Avanzado. Cada item tiene label,
 // short, body, wave, experimental y deps — la sección "Features" lo lee
@@ -157,7 +152,7 @@ const THEME_PRESET_I18N = {
   </div>
 
   <!-- Alpine.js + Sortable + dashboard logic -->
-  <script is:inline define:vars={{ initialConfig: config, availableIcons, appPresets: APP_PRESETS, predefinedIconPacks: PREDEFINED_ICON_PACKS, builtinThemePresets: BUILTIN_THEME_PRESETS, themePresetI18n: THEME_PRESET_I18N, AI_PROVIDERS, DEFAULT_AI_SYSTEM_PROMPT, HELP_TEXTS, AI_LANGUAGES, DEFAULT_AI_SYSTEM_PROMPTS, FEATURE_LIST, I18N: useI18n ? { dirty: trf('admin.dashboard.dirty'), reload: trf('admin.dashboard.reload'), save: trf('admin.dashboard.save'), saving: trf('admin.dashboard.saving'), saved: trf('admin.dashboard.saved'), savedClamped: trf('admin.dashboard.savedClamped'), reloaded: trf('admin.dashboard.reloaded'), error: trf('admin.dashboard.error'), tabs: { branding: trf('admin.tab.branding'), theme: trf('admin.tab.theme'), layout: trf('admin.tab.layout'), categories: trf('admin.tab.categories'), cards: trf('admin.tab.cards'), assets: trf('admin.tab.assets'), status: trf('admin.tab.status'), hardening: trf('admin.tab.hardening'), password: trf('admin.tab.password'), ai: trf('admin.tab.ai'), webhooks: trf('admin.tab.webhooks'), maintenance: trf('admin.tab.maintenance'), audit: trf('admin.tab.audit'), metrics: trf('admin.tab.metrics'), oidc: trf('admin.tab.oidc'), tokens: trf('admin.tab.tokens'), portals: trf('admin.tab.portals'), iconPacks: trf('admin.tab.iconPacks'), advanced: trf('admin.tab.advanced'), }, featuresTitle: trf('admin.features.title'), featuresIntro: trf('admin.features.intro'), webhooks: { title: trf('admin.webhooks.title'), intro: trf('admin.webhooks.intro'), add: trf('admin.webhooks.add'), testNew: trf('admin.webhooks.testNew'), }, maintenance: { title: trf('admin.maintenance.title'), intro: trf('admin.maintenance.intro'), add: trf('admin.maintenance.add'), }, audit: { title: trf('admin.audit.title'), reset: trf('admin.audit.reset'), download: trf('admin.audit.download'), loading: trf('admin.audit.loading'), empty: trf('admin.audit.empty'), downloadError: trf('admin.audit.downloadError'), }, metrics: { title: trf('admin.metrics.title'), intro: trf('admin.metrics.intro'), reload: trf('admin.metrics.reload'), loading: trf('admin.metrics.loading'), }, users: { intro: trf('admin.users.intro'), accessModeHelp: trf('admin.users.accessModeHelp'), }, card: { markdown: trf('admin.card.markdown'), refreshPreview: trf('admin.card.refreshPreview'), previewLabel: trf('admin.card.previewLabel'), tags: trf('admin.card.tags'), tagsPlaceholder: trf('admin.card.tagsPlaceholder'), tagsHelp: trf('admin.card.tagsHelp'), tagsAdd: trf('admin.card.tagsAdd'), pinned: trf('admin.card.pinned'), span: trf('admin.card.span'), spanSingle: trf('admin.card.spanSingle'), spanMultiple: trf('admin.card.spanMultiple'), spanHint: trf('admin.card.spanHint'), }, help: { tooltip: trf('admin.help.tooltip'), }, iconPicker: { noPacks: trf('admin.iconPicker.emptyNoPacks'), featureOff: trf('admin.iconPicker.emptyFeatureOff'), goIconPacks: trf('admin.iconPicker.goIconPacks'), goFeatures: trf('admin.iconPicker.goFeatures'), }, theme: { title: trf('admin.theme.title'), sectionPresets: trf('admin.theme.section.presets'), sectionBackground: trf('admin.theme.section.background'), sectionColors: trf('admin.theme.section.colors'), sectionTypography: trf('admin.theme.section.typography'), sectionCards: trf('admin.theme.section.cards'), sectionWidgets: trf('admin.theme.section.widgets'), sectionAnimations: trf('admin.theme.section.animations'), animationsIntro: trf('admin.theme.animations.intro'), cardEntrance: trf('admin.theme.animations.cardEntrance'), cardEntranceDuration: trf('admin.theme.animations.cardEntranceDuration'), cardEntranceStagger: trf('admin.theme.animations.cardEntranceStagger'), categoryEntrance: trf('admin.theme.animations.categoryEntrance'), animGroupEntrance: trf('admin.theme.animations.groupEntrance'), animGroupHover: trf('admin.theme.animations.groupHover'), animGroupText: trf('admin.theme.animations.groupText'), animGroupA11y: trf('admin.theme.animations.groupA11y'), animBadgeOn: trf('admin.theme.animations.badgeOn'), animReplay: trf('admin.theme.animations.replay'), animReset: trf('admin.theme.animations.reset'), animScrollNote: trf('admin.theme.animations.scrollNote'), entranceEasing: trf('admin.theme.animations.entranceEasing'), entranceTrigger: trf('admin.theme.animations.entranceTrigger'), entranceDistance: trf('admin.theme.animations.entranceDistance'), cardHover: trf('admin.theme.animations.cardHover'), hoverDuration: trf('admin.theme.animations.hoverDuration'), headerEffect: trf('admin.theme.animations.headerEffect'), titleTypewriter: trf('admin.theme.animations.titleTypewriter'), counters: trf('admin.theme.animations.counters'), respectReducedMotion: trf('admin.theme.animations.respectReducedMotion'), sectionAdvanced: trf('admin.theme.section.advanced'), presetsIntro: trf('admin.theme.presets.intro'), saveCustomPreset: trf('admin.theme.preset.saveCustom'), resetDefaults: trf('admin.theme.preset.reset'), previewTitle: trf('admin.theme.preview.title'), openPreviewTab: trf('admin.theme.preview.openTab'), gradientBuilder: trf('admin.theme.background.gradientBuilder'), advancedCss: trf('admin.theme.background.advancedCss'), widgetsIntro: trf('admin.theme.widgets.intro'), advancedIntro: trf('admin.theme.advanced.intro'), deriveAccent: trf('admin.theme.advanced.deriveAccent'), exportTheme: trf('admin.theme.advanced.export'), importTheme: trf('admin.theme.advanced.import'), tokenSearchPlaceholder: trf('admin.theme.advanced.tokenSearch'), presetApplied: trf('admin.theme.preset.applied'), presetSaved: trf('admin.theme.preset.saved'), themeImported: trf('admin.theme.advanced.imported'), themeExported: trf('admin.theme.advanced.exported'), }, layout: { title: trf('admin.layout.title'), sectionGrid: trf('admin.layout.section.grid'), sectionCards: trf('admin.layout.section.cards'), sectionBehavior: trf('admin.layout.section.behavior'), breakpointDesktop: trf('admin.layout.breakpoint.desktop'), breakpointTablet: trf('admin.layout.breakpoint.tablet'), breakpointMobile: trf('admin.layout.breakpoint.mobile'), columnsDesktop: trf('admin.layout.columnsDesktop'), columnsTablet: trf('admin.layout.columnsTablet'), columnsMobile: trf('admin.layout.columnsMobile'), gap: trf('admin.layout.gap'), categoryGap: trf('admin.layout.categoryGap'), ghostCategoryGap: trf('admin.layout.ghostCategoryGap'), maxWidth: trf('admin.layout.maxWidth'), gridAlign: trf('admin.layout.gridAlign'), gridAlignCenter: trf('admin.layout.gridAlign.center'), gridAlignLeft: trf('admin.layout.gridAlign.left'), cardSize: trf('admin.layout.cardSize'), cardRadius: trf('admin.layout.cardRadius'), showDescriptions: trf('admin.layout.showDescriptions'), compact: trf('admin.layout.compact'), healthCheckInterval: trf('admin.layout.healthCheckInterval'), healthCheckHint: trf('admin.layout.healthCheckHint'), previewTitle: trf('admin.layout.preview.title'), previewMobile: trf('admin.layout.preview.mobile'), previewTablet: trf('admin.layout.preview.tablet'), previewDesktop: trf('admin.layout.preview.desktop'), }, cards: { filterPlaceholder: trf('admin.cards.filterPlaceholder'), new: trf('admin.cards.new'), fromPreset: trf('admin.cards.fromPreset'), filterDragDisabled: trf('admin.cards.filterDragDisabled'), orphanGroup: trf('admin.cards.orphanGroup'), ungroupedGroup: trf('admin.cards.ungroupedGroup'), ungroupedGap: trf('admin.cards.ungroupedGap'), noteBadge: trf('admin.cards.noteBadge'), expandGroup: trf('admin.cards.expandGroup'), collapseGroup: trf('admin.cards.collapseGroup'), addToGroup: trf('admin.cards.addToGroup'), dragHandle: trf('admin.cards.dragHandle'), untitled: trf('admin.cards.untitled'), categorySelect: trf('admin.cards.categorySelect'), enabled: trf('admin.cards.enabled'), edit: trf('admin.cards.edit'), delete: trf('admin.cards.delete'), systemBadge: trf('admin.cards.systemBadge'), systemBadgeTitle: trf('admin.cards.systemBadgeTitle'), groupEmpty: trf('admin.cards.groupEmpty'), emptyState: trf('admin.cards.emptyState'), }, } : null }}>
+  <script is:inline define:vars={{ initialConfig: clientConfig, demoAvailableIcons, themePresetI18n: THEME_PRESET_I18N, helpLocale: locale, FEATURE_LIST, I18N: useI18n ? { dirty: trf('admin.dashboard.dirty'), reload: trf('admin.dashboard.reload'), save: trf('admin.dashboard.save'), saving: trf('admin.dashboard.saving'), saved: trf('admin.dashboard.saved'), savedClamped: trf('admin.dashboard.savedClamped'), reloaded: trf('admin.dashboard.reloaded'), error: trf('admin.dashboard.error'), tabs: { branding: trf('admin.tab.branding'), theme: trf('admin.tab.theme'), layout: trf('admin.tab.layout'), categories: trf('admin.tab.categories'), cards: trf('admin.tab.cards'), assets: trf('admin.tab.assets'), status: trf('admin.tab.status'), hardening: trf('admin.tab.hardening'), password: trf('admin.tab.password'), ai: trf('admin.tab.ai'), webhooks: trf('admin.tab.webhooks'), maintenance: trf('admin.tab.maintenance'), audit: trf('admin.tab.audit'), metrics: trf('admin.tab.metrics'), oidc: trf('admin.tab.oidc'), tokens: trf('admin.tab.tokens'), portals: trf('admin.tab.portals'), iconPacks: trf('admin.tab.iconPacks'), advanced: trf('admin.tab.advanced'), }, featuresTitle: trf('admin.features.title'), featuresIntro: trf('admin.features.intro'), webhooks: { title: trf('admin.webhooks.title'), intro: trf('admin.webhooks.intro'), add: trf('admin.webhooks.add'), testNew: trf('admin.webhooks.testNew'), }, maintenance: { title: trf('admin.maintenance.title'), intro: trf('admin.maintenance.intro'), add: trf('admin.maintenance.add'), }, audit: { title: trf('admin.audit.title'), reset: trf('admin.audit.reset'), download: trf('admin.audit.download'), loading: trf('admin.audit.loading'), empty: trf('admin.audit.empty'), downloadError: trf('admin.audit.downloadError'), }, metrics: { title: trf('admin.metrics.title'), intro: trf('admin.metrics.intro'), reload: trf('admin.metrics.reload'), loading: trf('admin.metrics.loading'), }, users: { intro: trf('admin.users.intro'), accessModeHelp: trf('admin.users.accessModeHelp'), }, card: { markdown: trf('admin.card.markdown'), refreshPreview: trf('admin.card.refreshPreview'), previewLabel: trf('admin.card.previewLabel'), tags: trf('admin.card.tags'), tagsPlaceholder: trf('admin.card.tagsPlaceholder'), tagsHelp: trf('admin.card.tagsHelp'), tagsAdd: trf('admin.card.tagsAdd'), pinned: trf('admin.card.pinned'), span: trf('admin.card.span'), spanSingle: trf('admin.card.spanSingle'), spanMultiple: trf('admin.card.spanMultiple'), spanHint: trf('admin.card.spanHint'), }, help: { tooltip: trf('admin.help.tooltip'), }, iconPicker: { noPacks: trf('admin.iconPicker.emptyNoPacks'), featureOff: trf('admin.iconPicker.emptyFeatureOff'), goIconPacks: trf('admin.iconPicker.goIconPacks'), goFeatures: trf('admin.iconPicker.goFeatures'), }, theme: { title: trf('admin.theme.title'), sectionPresets: trf('admin.theme.section.presets'), sectionBackground: trf('admin.theme.section.background'), sectionColors: trf('admin.theme.section.colors'), sectionTypography: trf('admin.theme.section.typography'), sectionCards: trf('admin.theme.section.cards'), sectionWidgets: trf('admin.theme.section.widgets'), sectionAnimations: trf('admin.theme.section.animations'), animationsIntro: trf('admin.theme.animations.intro'), cardEntrance: trf('admin.theme.animations.cardEntrance'), cardEntranceDuration: trf('admin.theme.animations.cardEntranceDuration'), cardEntranceStagger: trf('admin.theme.animations.cardEntranceStagger'), categoryEntrance: trf('admin.theme.animations.categoryEntrance'), animGroupEntrance: trf('admin.theme.animations.groupEntrance'), animGroupHover: trf('admin.theme.animations.groupHover'), animGroupText: trf('admin.theme.animations.groupText'), animGroupA11y: trf('admin.theme.animations.groupA11y'), animBadgeOn: trf('admin.theme.animations.badgeOn'), animReplay: trf('admin.theme.animations.replay'), animReset: trf('admin.theme.animations.reset'), animScrollNote: trf('admin.theme.animations.scrollNote'), entranceEasing: trf('admin.theme.animations.entranceEasing'), entranceTrigger: trf('admin.theme.animations.entranceTrigger'), entranceDistance: trf('admin.theme.animations.entranceDistance'), cardHover: trf('admin.theme.animations.cardHover'), hoverDuration: trf('admin.theme.animations.hoverDuration'), headerEffect: trf('admin.theme.animations.headerEffect'), titleTypewriter: trf('admin.theme.animations.titleTypewriter'), counters: trf('admin.theme.animations.counters'), respectReducedMotion: trf('admin.theme.animations.respectReducedMotion'), sectionAdvanced: trf('admin.theme.section.advanced'), presetsIntro: trf('admin.theme.presets.intro'), saveCustomPreset: trf('admin.theme.preset.saveCustom'), resetDefaults: trf('admin.theme.preset.reset'), previewTitle: trf('admin.theme.preview.title'), openPreviewTab: trf('admin.theme.preview.openTab'), gradientBuilder: trf('admin.theme.background.gradientBuilder'), advancedCss: trf('admin.theme.background.advancedCss'), widgetsIntro: trf('admin.theme.widgets.intro'), advancedIntro: trf('admin.theme.advanced.intro'), deriveAccent: trf('admin.theme.advanced.deriveAccent'), exportTheme: trf('admin.theme.advanced.export'), importTheme: trf('admin.theme.advanced.import'), tokenSearchPlaceholder: trf('admin.theme.advanced.tokenSearch'), presetApplied: trf('admin.theme.preset.applied'), presetSaved: trf('admin.theme.preset.saved'), themeImported: trf('admin.theme.advanced.imported'), themeExported: trf('admin.theme.advanced.exported'), }, layout: { title: trf('admin.layout.title'), sectionGrid: trf('admin.layout.section.grid'), sectionCards: trf('admin.layout.section.cards'), sectionBehavior: trf('admin.layout.section.behavior'), breakpointDesktop: trf('admin.layout.breakpoint.desktop'), breakpointTablet: trf('admin.layout.breakpoint.tablet'), breakpointMobile: trf('admin.layout.breakpoint.mobile'), columnsDesktop: trf('admin.layout.columnsDesktop'), columnsTablet: trf('admin.layout.columnsTablet'), columnsMobile: trf('admin.layout.columnsMobile'), gap: trf('admin.layout.gap'), categoryGap: trf('admin.layout.categoryGap'), ghostCategoryGap: trf('admin.layout.ghostCategoryGap'), maxWidth: trf('admin.layout.maxWidth'), gridAlign: trf('admin.layout.gridAlign'), gridAlignCenter: trf('admin.layout.gridAlign.center'), gridAlignLeft: trf('admin.layout.gridAlign.left'), cardSize: trf('admin.layout.cardSize'), cardRadius: trf('admin.layout.cardRadius'), showDescriptions: trf('admin.layout.showDescriptions'), compact: trf('admin.layout.compact'), healthCheckInterval: trf('admin.layout.healthCheckInterval'), healthCheckHint: trf('admin.layout.healthCheckHint'), previewTitle: trf('admin.layout.preview.title'), previewMobile: trf('admin.layout.preview.mobile'), previewTablet: trf('admin.layout.preview.tablet'), previewDesktop: trf('admin.layout.preview.desktop'), }, cards: { filterPlaceholder: trf('admin.cards.filterPlaceholder'), new: trf('admin.cards.new'), fromPreset: trf('admin.cards.fromPreset'), filterDragDisabled: trf('admin.cards.filterDragDisabled'), orphanGroup: trf('admin.cards.orphanGroup'), ungroupedGroup: trf('admin.cards.ungroupedGroup'), ungroupedGap: trf('admin.cards.ungroupedGap'), noteBadge: trf('admin.cards.noteBadge'), expandGroup: trf('admin.cards.expandGroup'), collapseGroup: trf('admin.cards.collapseGroup'), addToGroup: trf('admin.cards.addToGroup'), dragHandle: trf('admin.cards.dragHandle'), untitled: trf('admin.cards.untitled'), categorySelect: trf('admin.cards.categorySelect'), enabled: trf('admin.cards.enabled'), edit: trf('admin.cards.edit'), delete: trf('admin.cards.delete'), systemBadge: trf('admin.cards.systemBadge'), systemBadgeTitle: trf('admin.cards.systemBadgeTitle'), groupEmpty: trf('admin.cards.groupEmpty'), emptyState: trf('admin.cards.emptyState'), }, } : null }}>
     // Mirror trustedProxies (array) into a text form so the textarea can edit it.
     initialConfig.security.network.trustedProxiesText = (initialConfig.security.network.trustedProxies || []).join('\n');
     // Si el config legacy no tiene `features`, lo inicializamos como objeto
@@ -168,16 +163,9 @@ const THEME_PRESET_I18N = {
     if (!initialConfig.portals) initialConfig.portals = { defaultPortal: 'default', items: [] };
     // expose config to adminApp data
     window.__initialConfig = initialConfig;
-    window.__availableIcons = availableIcons;
-    window.__appPresets = appPresets;
-    window.__predefinedIconPacks = predefinedIconPacks;
-    window.__aiProviders = AI_PROVIDERS;
-    window.__defaultAiSystemPrompt = DEFAULT_AI_SYSTEM_PROMPT;
-    window.__helpTexts = HELP_TEXTS;
-    window.__aiLanguages = AI_LANGUAGES;
-    window.__defaultAiSystemPrompts = DEFAULT_AI_SYSTEM_PROMPTS;
+    if (demoAvailableIcons) window.__availableIcons = demoAvailableIcons;
+    window.__helpLocale = helpLocale;
     window.__featureList = FEATURE_LIST;
-    window.__builtinThemePresets = builtinThemePresets;
     window.__themePresetI18n = themePresetI18n;
     window.__i18n = I18N;
   </script>
@@ -284,7 +272,11 @@ const THEME_PRESET_I18N = {
         checkingStatus: false,
         healthInfo: null,
         selectedAsset: null,
-        availableIcons: window.__availableIcons || [],
+        // Catálogo de nombres de íconos. Llega de GET /api/icon-names en el
+        // init (no bloquea el render) en vez de viajar inline: son 229 KB que
+        // además escalan con cada pack instalado.
+        availableIcons: [],
+        _iconNamesPromise: null,
         iconPickerSearch: '',
         iconPickerPack: 'all',
         iconPickerLimit: 120,
@@ -297,8 +289,33 @@ const THEME_PRESET_I18N = {
           this.iconPickerTab = 'icons';
         },
 
+        // Una sola request por sesión: el catálogo sólo cambia al instalar o
+        // desinstalar un pack, y esos flujos lo reemplazan a mano.
+        ensureAvailableIcons() {
+          if (this.availableIcons.length > 0) return Promise.resolve();
+          // En el demo estático no hay endpoint que responder: el catálogo
+          // viene inline con el build.
+          if (window.__availableIcons) {
+            this.availableIcons = window.__availableIcons;
+            return Promise.resolve();
+          }
+          if (!this._iconNamesPromise) {
+            this._iconNamesPromise = window.umbralAdmin
+              .api('GET', '/api/icon-names')
+              .then((res) => {
+                this.availableIcons = res.availableIcons || [];
+              })
+              .catch(() => {
+                // Sin catálogo, resolveIcon() no muestra íconos, pero el
+                // resto del admin sigue funcionando.
+                this._iconNamesPromise = null;
+              });
+          }
+          return this._iconNamesPromise;
+        },
+
         async refreshIconCatalog() {
-          if (!this.isFeatureOn('iconPacks')) return;
+          if (!this.isFeatureOn('iconPacks')) return this.ensureAvailableIcons();
           try {
             const res = await window.umbralAdmin.api('GET', '/api/icon-packs');
             if (res.availableIcons) {
@@ -520,7 +537,11 @@ const THEME_PRESET_I18N = {
         pinnedEnabled: window.__featureList?.find?.((f) => f.name === 'pinned')?.enabled === true,
         // Presets (opt-in: features.presets)
         presetsEnabled: window.__featureList?.find?.((f) => f.name === 'presets')?.enabled === true,
-        appPresets: window.__appPresets || [],
+        // 225 plantillas, 55 KB: se piden a /api/presets.json al abrir el
+        // modal, no en cada carga del dashboard.
+        appPresets: [],
+        _appPresetsPromise: null,
+        presetsLoading: false,
         showPresetsModal: false,
         presetFilter: '',
         presetCategoryFilter: '',
@@ -553,10 +574,31 @@ const THEME_PRESET_I18N = {
           }
           return list;
         },
-        openPresetsModal() {
+        ensureAppPresets() {
+          if (this.appPresets.length > 0) return Promise.resolve();
+          if (!this._appPresetsPromise) {
+            this.presetsLoading = true;
+            this._appPresetsPromise = window.umbralAdmin
+              .api('GET', '/api/presets.json')
+              .then((res) => {
+                this.appPresets = res.presets || [];
+              })
+              .catch((e) => {
+                this._appPresetsPromise = null;
+                window.umbralAdmin.toast('No se pudieron cargar las plantillas: ' + e.message, 'error');
+              })
+              .finally(() => {
+                this.presetsLoading = false;
+              });
+          }
+          return this._appPresetsPromise;
+        },
+
+        async openPresetsModal() {
           this.presetFilter = '';
           this.presetCategoryFilter = '';
           this.showPresetsModal = true;
+          await this.ensureAppPresets();
         },
         applyAppPreset(p) {
           this.showPresetsModal = false;
@@ -861,24 +903,51 @@ const THEME_PRESET_I18N = {
         // Sirven para auto-rellenar baseUrl y model cuando elegís un provider
         // popular (OpenAI, Anthropic, Gemini, etc.). No bloquean — podés editar
         // los valores después y la UI detecta automáticamente si matchean un preset.
-        aiProviders: window.__aiProviders || [],
+        // Todo esto llega de /api/ai-meta.json al abrir el tab IA: es un tab
+        // opt-in y son 12 KB que la mayoría de las sesiones no abre.
+        aiProviders: [],
         aiPreset: '',
-        // Idiomas disponibles para el system prompt default de la IA.
-        // Cargados desde src/lib/ai-prompts.ts. La lista de códigos matchea
-        // exactamente con cfg.ai.language (validado por zod en el schema).
-        aiLanguages: window.__aiLanguages || [],
+        // Idiomas disponibles para el system prompt default de la IA. La
+        // lista de códigos matchea exactamente con cfg.ai.language.
+        aiLanguages: [],
         // Map de prompts default por idioma. Se usa para mostrar el preview
         // y para "Usar este prompt" según el idioma actual.
-        defaultSystemPrompts: window.__defaultAiSystemPrompts || {},
-        defaultSystemPrompt: window.__defaultAiSystemPrompt || '',
-        // Help texts (cargados desde src/pages/admin/help-texts.ts).
-        helpTexts: window.__helpTexts || {},
-        // Modal de ayuda actualmente abierto (key del HELP_TEXTS).
+        defaultSystemPrompts: {},
+        defaultSystemPrompt: '',
+        _aiMetaPromise: null,
+
+        ensureAiMeta() {
+          if (this.aiProviders.length > 0) return Promise.resolve();
+          if (!this._aiMetaPromise) {
+            this._aiMetaPromise = window.umbralAdmin
+              .api('GET', '/api/ai-meta.json')
+              .then((res) => {
+                this.aiProviders = res.providers || [];
+                this.aiLanguages = res.languages || [];
+                this.defaultSystemPrompts = res.defaultSystemPrompts || {};
+                this.defaultSystemPrompt = res.defaultSystemPrompt || '';
+              })
+              .catch(() => {
+                this._aiMetaPromise = null;
+              });
+          }
+          return this._aiMetaPromise;
+        },
+        // Catálogo de ayuda. Llega de GET /api/help la primera vez que el
+        // usuario abre un `?`: son 88 KB que la mayoría de las sesiones no
+        // necesita, así que no viajan en el HTML del dashboard.
+        helpTexts: {},
+        helpLoading: false,
+        // Modal de ayuda actualmente abierto (key del catálogo).
         helpModalKey: null,
 
         async init() {
           this.cfg = JSON.parse(JSON.stringify(window.__initialConfig));
           this.original = JSON.parse(JSON.stringify(window.__initialConfig));
+          // Sin await: la lista de tarjetas es el tab inicial y necesita el
+          // catálogo para dibujar sus íconos, pero el resto del init no
+          // depende de él.
+          this.ensureAvailableIcons();
           // Banner de password inseguro (default). Llamamos al endpoint
           // /api/auth/check-default-password; si isDefault=true, mostramos
           // un banner rojo en la parte superior del dashboard con un link
@@ -980,6 +1049,9 @@ const THEME_PRESET_I18N = {
             if (t === 'metrics' && this.metricsRows.length === 0 && !this.metricsLoading) {
               this.loadMetrics();
             }
+            if (t === 'ai') {
+              this.ensureAiMeta();
+            }
             if (t === 'iconpacks' && this.iconPacks.length === 0 && !this.iconPacksLoading) {
               this.loadIconPacks();
             }
@@ -1055,8 +1127,26 @@ const THEME_PRESET_I18N = {
         },
 
         // ── Help modal ──────────────────────────────────────────────
-        showHelp(key) { this.helpModalKey = key; },
+        async showHelp(key) {
+          this.helpModalKey = key;
+          await this.ensureHelpTexts();
+        },
         closeHelp() { this.helpModalKey = null; },
+        // Trae el catálogo una vez por sesión. Si el fetch falla, el modal
+        // no se abre y el usuario ve un toast en vez de un modal vacío.
+        async ensureHelpTexts() {
+          if (this.helpLoading || Object.keys(this.helpTexts).length > 0) return;
+          this.helpLoading = true;
+          try {
+            const data = await window.umbralAdmin.api('GET', `/api/help/${window.__helpLocale || 'es'}.json`);
+            this.helpTexts = data.texts || {};
+          } catch (e) {
+            this.helpModalKey = null;
+            window.umbralAdmin.toast('No se pudo cargar la ayuda: ' + e.message, 'error');
+          } finally {
+            this.helpLoading = false;
+          }
+        },
         // Banner rojo si el password actual es uno de los default inseguros.
         // Inyecta un div.alert arriba del header del admin. Se cierra con
         // un click y se persiste en sessionStorage (para que no aparezca
@@ -2768,13 +2858,11 @@ const THEME_PRESET_I18N = {
           return this.themePreviewBgStyle();
         },
 
-        // Icon Packs (opt-in: features.iconPacks)
-        iconPacks: (window.__predefinedIconPacks || []).map((p) => ({
-          ...p,
-          installed: false,
-          installedAt: undefined,
-          installedCount: undefined,
-        })),
+        // Icon Packs (opt-in: features.iconPacks). El catálogo de packs
+        // conocidos llega de /api/icon-pack-catalog.json al abrir el tab.
+        iconPacks: [],
+        iconPackCatalog: [],
+        _iconPackCatalogPromise: null,
         iconPacksTotal: 0,
         iconPacksLoading: false,
         iconPacksInstalling: {},
@@ -2782,8 +2870,23 @@ const THEME_PRESET_I18N = {
         customPackInstalling: false,
         iconPackMsg: { text: '', error: false },
 
+        ensureIconPackCatalog() {
+          if (this.iconPackCatalog.length > 0) return Promise.resolve();
+          if (!this._iconPackCatalogPromise) {
+            this._iconPackCatalogPromise = window.umbralAdmin
+              .api('GET', '/api/icon-pack-catalog.json')
+              .then((res) => {
+                this.iconPackCatalog = res.packs || [];
+              })
+              .catch(() => {
+                this._iconPackCatalogPromise = null;
+              });
+          }
+          return this._iconPackCatalogPromise;
+        },
+
         seedIconPacksCatalog() {
-          const catalog = window.__predefinedIconPacks || [];
+          const catalog = this.iconPackCatalog;
           return catalog.map((p) => ({
             ...p,
             installed: false,
@@ -2815,7 +2918,7 @@ const THEME_PRESET_I18N = {
 
         mergeIconPacksFromApi(apiPacks) {
           const byId = new Map((apiPacks || []).map((p) => [p.id, p]));
-          const catalog = window.__predefinedIconPacks || [];
+          const catalog = this.iconPackCatalog;
           return catalog.map((def) => {
             const fromApi = byId.get(def.id);
             if (fromApi) return fromApi;
@@ -2838,6 +2941,7 @@ const THEME_PRESET_I18N = {
         },
 
         async loadIconPacks() {
+          await this.ensureIconPackCatalog();
           if (this.iconPacks.length === 0) {
             this.iconPacks = this.seedIconPacksCatalog();
           }

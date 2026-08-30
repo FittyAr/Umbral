@@ -562,7 +562,18 @@ export async function saveConfig(update: ConfigUpdate): Promise<Config> {
         return { ...base, users: [], singlePasswordEnabled: true };
       }
       if (!incoming) return base;
-      return { ...base, ...incoming };
+      // Sólo estos dos campos son editables desde el admin. El hash del
+      // super-admin, el CSRF y el authEpoch se manejan en sus propios flujos
+      // (POST /api/password, login), así que un PUT no puede pisarlos ni
+      // aunque el cliente los mande — que es lo que permite no serializarlos
+      // en el HTML del dashboard.
+      return {
+        ...base,
+        ...(incoming.users !== undefined ? { users: incoming.users } : {}),
+        ...(incoming.singlePasswordEnabled !== undefined
+          ? { singlePasswordEnabled: incoming.singlePasswordEnabled }
+          : {}),
+      };
     })(),
     portals: (cleanUpdate as ConfigUpdate).portals ?? current.portals ?? defaults.portals,
     oidc: (cleanUpdate as ConfigUpdate).oidc ?? current.oidc ?? defaults.oidc,

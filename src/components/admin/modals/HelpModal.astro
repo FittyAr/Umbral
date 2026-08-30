@@ -9,8 +9,10 @@ interface Props {
 const { useI18n, tr } = Astro.props;
 ---
 
-{/* El texto lo pone `showHelp(key)` en window.__helpTexts, así que el título y
-    el cuerpo vienen de Alpine y no del servidor. */}
+{/* El texto lo trae `showHelp(key)` de /api/help/<locale>.json la primera vez
+    que se abre, así que el título y el cuerpo vienen de Alpine y no del
+    servidor. Mientras el fetch está en vuelo, `currentHelp()` es null y el
+    modal todavía no se dibuja. */}
 <Modal
   useI18n={useI18n}
   tr={tr}

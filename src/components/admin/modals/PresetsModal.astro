@@ -93,7 +93,13 @@ const { useI18n, tr } = Astro.props;
       </button>
     </template>
 
-    <template x-if="filteredAppPresets().length === 0">
+    {/* El catálogo se pide al abrir el modal, así que el primer render puede
+        no tener plantillas todavía. */}
+    <template x-if="presetsLoading">
+      <EmptyState useI18n={useI18n} tr={tr} messageFallback="Cargando plantillas…" fullWidth />
+    </template>
+
+    <template x-if="!presetsLoading && filteredAppPresets().length === 0">
       <EmptyState
         useI18n={useI18n}
         tr={tr}
