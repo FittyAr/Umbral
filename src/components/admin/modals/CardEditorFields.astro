@@ -1,4 +1,5 @@
 ---
+import PendingButton from '../ui/PendingButton.astro';
 import FormGroup from '../ui/FormGroup.astro';
 import HelpIcon from '../ui/HelpIcon.astro';
 import SelectField from '../ui/SelectField.astro';
@@ -34,7 +35,7 @@ const kit = { useI18n, tr };
 </div>
 <div class="form-row">
   <div class="form-group" style="flex:1">
-    <label>URL <HelpIcon helpKey="card.url" /> <span x-show="editingCard.kind==='link'" style="color:#dc2626">*</span></label>
+    <label>URL <HelpIcon helpKey="card.url" /> <span x-show="editingCard.kind==='link'" style="color:var(--status-error)">*</span></label>
     <div style="display:flex;gap:0.4rem;align-items:flex-start">
       <input
         type="text"
@@ -44,17 +45,16 @@ const kit = { useI18n, tr };
         style="flex:1"
         @blur="maybeAutofillFromUrl()"
       />
-      <button
-        type="button"
-        class="btn btn-sm btn-ghost"
-        @click="autofillFromUrl()"
-        :disabled="autofillBusy || (!editingCard.url && !editingCard.title)"
+      <PendingButton
+        pending="autofillBusy"
+        click="autofillFromUrl()"
+        disabled="(!editingCard.url && !editingCard.title)"
+        label="Auto-completar"
+        pendingLabel="Buscando…"
+        variant="btn-sm btn-ghost"
         title="Traer título/desc/imagen del sitio (URL) o de la búsqueda externa (título)"
-        x-show="editingCard.kind==='link'"
-      >
-        <span x-show="!autofillBusy">Auto-completar</span>
-        <span x-show="autofillBusy" x-cloak>Buscando…</span>
-      </button>
+        show="editingCard.kind==='link'"
+      />
       <HelpIcon helpKey="card.autofill" x-show="editingCard.kind==='link'" />
     </div>
     <small class="field-hint">
@@ -69,16 +69,15 @@ const kit = { useI18n, tr };
 </div>
 <div class="form-group" x-show="cfg.ai?.enabled && editingCard.kind==='link'" style="display:flex;gap:0.4rem;align-items:center;padding:0.5rem 0.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
   <span style="color:var(--text-subtle);font-size:0.85rem">IA: </span>
-  <button
-    type="button"
-    class="btn btn-sm btn-ghost"
-    @click="improveWithAI()"
-    :disabled="aiBusy || !editingCard.title"
+  <PendingButton
+    pending="aiBusy"
+    click="improveWithAI()"
+    disabled="!editingCard.title"
+    label="Mejorar con IA"
+    pendingLabel="Pensando…"
+    variant="btn-sm btn-ghost"
     title="Mejorar el título y descripción con la IA configurada"
-  >
-    <span x-show="!aiBusy">Mejorar con IA</span>
-    <span x-show="aiBusy" x-cloak>Pensando…</span>
-  </button>
+  />
   <HelpIcon helpKey="card.aiEnhance" />
   <span style="color:var(--text-faint);font-size:0.75rem">
     Usa la config de IA (Admin → IA). Editá el prompt system ahí si querés otro estilo.

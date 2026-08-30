@@ -95,6 +95,23 @@
   margin-bottom: 0.3rem;
   font-weight: 500;
 }
+/* Secret TOTP en el modal de 2FA. El fondo iba hardcodeado en #0f172a, que es
+   el valor oscuro del token de superficie: en modo claro quedaba ilegible. */
+.totp-secret {
+  display: inline-block;
+  padding: 0.4rem 0.75rem;
+  background: var(--surface-hover);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  word-break: break-all;
+}
+/* Campo que muestra código o un token: la font-family monoespaciada estaba
+   repetida inline en varios inputs, con listas de fallbacks distintas. */
+.monospace {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
 /* Nota debajo de un control. Antes iba como style="color:#94a3b8" repetido
    en ~20 campos, es decir el token --text-subtle escrito a mano. */
 .field-hint {
@@ -107,6 +124,15 @@
 .panel-intro {
   color: var(--text-subtle);
   font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+/* Título de panel. El `display:flex` es para que el "?" quede alineado con la
+   línea de base del texto y no colgado arriba. */
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0;
 }
 .form-row {
   display: grid;

@@ -1,4 +1,5 @@
 ---
+import PanelHeader from '../ui/PanelHeader.astro';
 import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
@@ -6,14 +7,16 @@ interface Props {
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='metrics' && 'active'">
-  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="metricsTitle()">Métricas</span><HelpIcon helpKey="advanced.metrics" /></h2>
-  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem" x-html="metricsIntro()">
+  <PanelHeader {...kit} titleExpr="metricsTitle()" titleFallback="Métricas" helpKey="advanced.metrics" introExpr="metricsIntro()">
+    <Fragment slot="intro">
     Sparklines + resumen (avg, p95, max) por card con health-check. Datos en memoria (últimas 100 muestras = ~1.5h con check cada 60s).
-  </p>
+    </Fragment>
+  </PanelHeader>
 
   <div class="metrics-toolbar" style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.75rem">
     <div class="form-group" style="margin:0">
@@ -35,7 +38,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <button type="button" class="btn btn-ghost" @click="loadMetrics()" :disabled="metricsLoading" x-text="metricsReloadLabel()">Recargar</button>
   </div>
 
-  <div x-show="metricsLoading" style="color:#94a3b8;padding:0.5rem 0" x-cloak x-text="metricsLoadingLabel()">Cargando…</div>
+  <div x-show="metricsLoading" style="color:var(--text-subtle);padding:0.5rem 0" x-cloak x-text="metricsLoadingLabel()">Cargando…</div>
   <div x-show="metricsError" style="color:#fca5a5;padding:0.5rem 0" x-cloak x-text="metricsError"></div>
 
   <div x-show="!metricsLoading && !metricsError" x-cloak>
@@ -65,7 +68,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             </tr>
           </template>
           <tr x-show="metricsRows.length === 0">
-            <td colspan="6" style="padding:1rem;text-align:center;color:#94a3b8">Sin datos. Activá health-check en alguna card y esperá a que se ejecuten los checks.</td>
+            <td colspan="6" style="padding:1rem;text-align:center;color:var(--text-subtle)">Sin datos. Activá health-check en alguna card y esperá a que se ejecuten los checks.</td>
           </tr>
         </tbody>
       </table>

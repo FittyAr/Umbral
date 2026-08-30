@@ -16,6 +16,8 @@ import Badge from '../src/components/admin/ui/Badge.astro';
 import NumberField from '../src/components/admin/ui/NumberField.astro';
 import TextField from '../src/components/admin/ui/TextField.astro';
 import TextareaField from '../src/components/admin/ui/TextareaField.astro';
+import PanelHeader from '../src/components/admin/ui/PanelHeader.astro';
+import PendingButton from '../src/components/admin/ui/PendingButton.astro';
 
 /** Marca las claves para distinguir la capa i18n del fallback del servidor. */
 const tr = (key: string) => `TR(${key})`;
@@ -148,6 +150,71 @@ describe('ToggleField con nota', () => {
     expect(html).toContain('x-cloak');
     expect(html).toContain('x-show="pinnedEnabled"');
     expect(html.indexOf('</label>')).toBeLessThan(html.indexOf('field-hint'));
+  });
+});
+
+describe('PanelHeader', () => {
+  it('emite titulo, ayuda y bajada por x-html', async () => {
+    const html = await render(PanelHeader, {
+      props: {
+        ...noI18n,
+        titleExpr: 'webhooksTitle()',
+        titleFallback: 'Webhooks',
+        helpKey: 'advanced.webhooks',
+        introExpr: 'webhooksIntro()',
+      },
+    });
+
+    expect(html).toContain('class="panel-title"');
+    expect(html).toContain('<span x-text="webhooksTitle()">Webhooks</span>');
+    expect(html).toContain(`showHelp('advanced.webhooks')`);
+    expect(html).toContain('class="panel-intro"');
+    expect(html).toContain('x-html="webhooksIntro()"');
+  });
+
+  it('sin bajada no emite el parrafo', async () => {
+    const html = await render(PanelHeader, { props: { ...noI18n, titleFallback: 'Assets' } });
+
+    expect(html).not.toContain('panel-intro');
+  });
+});
+
+describe('PendingButton', () => {
+  it('combina el pending con el disabled extra en un solo :disabled', async () => {
+    const html = await render(PendingButton, {
+      props: {
+        pending: 'autofillBusy',
+        click: 'autofillFromUrl()',
+        disabled: '(!editingCard.url)',
+        label: 'Auto-completar',
+        pendingLabel: 'Buscando…',
+      },
+    });
+
+    expect(html).toContain(':disabled="autofillBusy || (!editingCard.url)"');
+    expect(html).toContain('x-show="!autofillBusy"');
+    expect(html).toContain('x-show="autofillBusy"');
+    expect(html).toContain('x-cloak');
+    expect(html).toContain('Auto-completar');
+    expect(html).toContain('Buscando…');
+  });
+
+  it('sin disabled extra el :disabled es solo el pending', async () => {
+    const html = await render(PendingButton, {
+      props: { pending: 'aiBusy', click: 'testAI()', label: 'Probar', pendingLabel: 'Probando…' },
+    });
+
+    expect(html).toContain(':disabled="aiBusy"');
+  });
+
+  it('soporta submit sin handler de click', async () => {
+    const html = await render(PendingButton, {
+      props: { pending: 'totpSaving', label: 'Activar', pendingLabel: '…', type: 'submit', variant: 'btn-primary' },
+    });
+
+    expect(html).toContain('type="submit"');
+    expect(html).toContain('class="btn btn-primary"');
+    expect(html).not.toContain('@click');
   });
 });
 

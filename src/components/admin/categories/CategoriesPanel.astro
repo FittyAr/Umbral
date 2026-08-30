@@ -14,7 +14,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     Categorías
     <HelpIcon helpKey="category.order" />
   </h2>
-  <p class="muted" style="color:#94a3b8;font-size:0.85rem">Las tarjetas se agrupan por categoría. El id es la clave interna (kebab-case). Arrastrá las filas con <code>⋮⋮</code> para reordenar — el orden de las categorías en la portada sigue el orden acá.</p>
+  <p class="muted" style="color:var(--text-subtle);font-size:0.85rem">Las tarjetas se agrupan por categoría. El id es la clave interna (kebab-case). Arrastrá las filas con <code>⋮⋮</code> para reordenar — el orden de las categorías en la portada sigue el orden acá.</p>
   <div class="card-list" id="categories-sortable">
     <template x-for="cat in realCategories()" :key="cat.id">
       <div class="card-item" style="flex-direction:column;align-items:stretch;gap:0.5rem">

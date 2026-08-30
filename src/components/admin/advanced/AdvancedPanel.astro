@@ -13,7 +13,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <h2 style="margin-top:0" x-text="tabAdvanced()">Avanzado</h2>
 
   <h3 style="margin-top:1.5rem;display:flex;align-items:center;gap:0.35rem"><span x-text="featuresTitle()">Features (opt-in)</span><HelpIcon helpKey="advanced.features" /></h3>
-  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem" x-html="featuresIntro()">
+  <p style="color:var(--text-subtle);font-size:0.85rem;margin-bottom:1rem" x-html="featuresIntro()">
     Cada feature nueva arranca <strong>apagada</strong> por default. Si no la activás, ni se ejecuta, ni se carga su dependencia, ni aparece en la UI. Al encender una feature, aparecerá automáticamente su pestaña correspondiente en la barra superior.
   </p>
   <div class="features-grid">
@@ -22,8 +22,8 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
           <div style="min-width:0">
             <div style="font-weight:600" x-text="f.label"></div>
-            <div style="font-size:0.8rem;color:#94a3b8" x-text="f.short"></div>
-            <div x-show="f.experimental" style="font-size:0.7rem;color:#f59e0b;margin-top:0.25rem" x-cloak>
+            <div style="font-size:0.8rem;color:var(--text-subtle)" x-text="f.short"></div>
+            <div x-show="f.experimental" style="font-size:0.7rem;color:var(--status-warn);margin-top:0.25rem" x-cloak>
               ⚠ experimental
             </div>
           </div>
@@ -38,7 +38,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
           </label>
         </div>
         <div x-show="isFeatureOn(f.name)" style="margin-top:0.5rem" x-cloak>
-          <div style="font-size:0.75rem;color:#94a3b8" x-text="f.body"></div>
+          <div style="font-size:0.75rem;color:var(--text-subtle)" x-text="f.body"></div>
         </div>
         <!-- Alerta de compatibilidad para el feature QR en modo demo.
              La generación dinámica de QRs en el server requiere el
@@ -64,7 +64,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <h3 style="margin-top:2rem">Export / Import <HelpIcon helpKey="advanced.export" /></h3>
   <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
     <button class="btn btn-ghost" @click="exportConfig()">Descargar config.json</button>
-    <span style="color:#94a3b8;font-size:0.85rem">backup / migración / versionar</span>
+    <span style="color:var(--text-subtle);font-size:0.85rem">backup / migración / versionar</span>
   </div>
   <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
     <label class="btn btn-ghost" style="cursor:pointer">
@@ -72,7 +72,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <input type="file" accept="application/json" @change="importConfig($event)" hidden />
     </label>
     <HelpIcon helpKey="advanced.import" />
-    <span style="color:#94a3b8;font-size:0.85rem">reemplaza la config actual (no es merge)</span>
+    <span style="color:var(--text-subtle);font-size:0.85rem">reemplaza la config actual (no es merge)</span>
   </div>
 
   <h3>Healthcheck <HelpIcon helpKey="advanced.healthcheck" /></h3>
@@ -80,6 +80,6 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   <pre x-show="healthInfo" x-text="JSON.stringify(healthInfo, null, 2)" style="background:var(--code-bg, #0f172a);color:var(--code-fg, #38bdf8);border:1px solid var(--border);padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
 
   <h3 style="margin-top:2rem">Reset <HelpIcon helpKey="advanced.reset" /></h3>
-  <p style="color:#94a3b8;font-size:0.85rem">Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).</p>
+  <p style="color:var(--text-subtle);font-size:0.85rem">Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).</p>
   <button class="btn btn-danger" @click="resetConfig()">Reset a defaults</button>
 </div>

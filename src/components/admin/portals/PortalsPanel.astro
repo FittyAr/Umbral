@@ -1,4 +1,5 @@
 ---
+import PanelHeader from '../ui/PanelHeader.astro';
 import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
@@ -6,14 +7,16 @@ interface Props {
 }
 
 const { useI18n, tr } = Astro.props;
+const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='portals' && 'active'">
-  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="tabPortals()">Multi-Portal</span><HelpIcon helpKey="advanced.multiPortal" /></h2>
-  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
+  <PanelHeader {...kit} titleExpr="tabPortals()" titleFallback="Multi-Portal" helpKey="advanced.multiPortal">
+    <Fragment slot="intro">
     Permite servir distintos dashboards según el dominio (Host header) o el prefijo de ruta.
-  </p>
+    </Fragment>
+  </PanelHeader>
 
   <div class="portals-list">
     <div class="form-group" style="max-width:300px;margin-bottom:0.75rem">
@@ -26,7 +29,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
           <div style="flex:1;min-width:0">
             <div style="font-weight:600" x-text="p.name || p.id"></div>
-            <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace">
+            <div style="font-size:0.78rem;color:var(--text-subtle);font-family:ui-monospace,Menlo,Consolas,monospace">
               <span x-text="`Host: ${p.host || '*'} · Prefix: ${p.pathPrefix || '/'}`"></span>
             </div>
           </div>

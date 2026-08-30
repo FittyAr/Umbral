@@ -1,4 +1,5 @@
 ---
+import PendingButton from '../ui/PendingButton.astro';
 import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
   useI18n: boolean;
@@ -25,10 +26,13 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         Íconos disponibles en Umbral: <strong style="color:var(--text)" x-text="iconPacksTotal"></strong>
       </span>
       <span style="display:inline-flex;align-items:center;gap:0.35rem">
-        <button type="button" class="btn btn-sm btn-ghost" @click="loadIconPacks()" :disabled="iconPacksLoading">
-          <span x-show="!iconPacksLoading">🔄 Actualizar</span>
-          <span x-show="iconPacksLoading" x-cloak>Cargando…</span>
-        </button>
+        <PendingButton
+          pending="iconPacksLoading"
+          click="loadIconPacks()"
+          label="🔄 Actualizar"
+          pendingLabel="Cargando…"
+          variant="btn-sm btn-ghost"
+        />
         <HelpIcon helpKey="iconPacks.refresh" />
       </span>
     </div>

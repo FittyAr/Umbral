@@ -1,4 +1,5 @@
 ---
+import PanelHeader from '../ui/PanelHeader.astro';
 import ToggleField from '../ui/ToggleField.astro';
 import FormGroup from '../ui/FormGroup.astro';
 import HelpIcon from '../ui/HelpIcon.astro';
@@ -13,10 +14,11 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='oidc' && 'active'">
-  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="tabOidc()">OIDC / SSO Providers</span><HelpIcon helpKey="advanced.oidc" /></h2>
-  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem">
+  <PanelHeader {...kit} titleExpr="tabOidc()" titleFallback="OIDC / SSO Providers" helpKey="advanced.oidc">
+    <Fragment slot="intro">
     Configurá proveedores de identidad OpenID Connect (Google, Keycloak, Authentik, etc.) para Single Sign-On.
-  </p>
+    </Fragment>
+  </PanelHeader>
 
   <div class="oidc-list">
     <template x-for="(p, idx) in (cfg?.oidc?.providers || [])" :key="p.id">
@@ -24,10 +26,10 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
           <div style="flex:1;min-width:0">
             <div style="font-weight:600" x-text="p.name"></div>
-            <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="p.issuer"></div>
+            <div style="font-size:0.78rem;color:var(--text-subtle);font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="p.issuer"></div>
             <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
               <span x-text="`ID: ${p.id} · Client: ${p.clientId} · Rol: ${p.defaultRole || 'viewer'}`"></span>
-              <span :style="`color: ${p.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${p.enabled ? 'activo' : 'inactivo'}`"></span>
+              <span :style="`color: ${p.enabled ? 'var(--status-ok)' : 'var(--text-subtle)'}`" x-text="` · ${p.enabled ? 'activo' : 'inactivo'}`"></span>
             </div>
           </div>
           <div style="display:flex;gap:0.4rem;flex-shrink:0">

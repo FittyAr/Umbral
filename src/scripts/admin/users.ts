@@ -1,5 +1,6 @@
 import type { AdminFragment } from "./types";
 import { newId } from '~/lib/ids';
+import { confirmAction } from './confirm.ts';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio users.
@@ -69,7 +70,7 @@ export function createUsersState(): AdminFragment {
       return res.hash;
     },
     removeUser(id) {
-      if (!confirm('Borrar este usuario? Sus sesiones seran invalidadas (userEpoch + 1).')) return;
+      if (!confirmAction('Borrar este usuario? Sus sesiones seran invalidadas (userEpoch + 1).')) return;
       if (!this.cfg.auth?.users) return;
       // bump userEpoch de los demas para invalidar las sesiones del borrado
       // (en realidad no es necesario — el server al verificar el token

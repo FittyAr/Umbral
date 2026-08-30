@@ -1,0 +1,55 @@
+---
+/**
+ * Botón con estado pendiente: mientras la expresión `pending` es verdadera
+ * muestra el texto de espera y queda deshabilitado. Son los botones de
+ * "probar conexión", "auto-completar", "recargar" y similares, que estaban
+ * escritos a mano en siete lugares con el mismo par de `x-show`.
+ *
+ * El `x-cloak` del span de espera importa: sin él, el texto "Probando…"
+ * aparece un frame antes de que Alpine evalúe el `x-show`.
+ */
+interface Props {
+  /** Expresión Alpine que indica que la acción está en curso. */
+  pending: string;
+  /** Handler de `@click`. Omitilo para un `type="submit"`. */
+  click?: string;
+  /** Expresión extra para `:disabled`, además de `pending`. */
+  disabled?: string;
+  label: string;
+  /** Expresión Alpine para `x-text` del texto normal. */
+  labelExpr?: string;
+  pendingLabel: string;
+  type?: 'button' | 'submit';
+  /** Clases del botón sin el `btn` base, ej: `btn-ghost btn-sm`. */
+  variant?: string;
+  title?: string;
+  show?: string;
+}
+
+const {
+  pending,
+  click,
+  disabled,
+  label,
+  labelExpr,
+  pendingLabel,
+  type = 'button',
+  variant = 'btn-ghost btn-sm',
+  title,
+  show,
+} = Astro.props;
+
+const disabledExpr = disabled ? `${pending} || ${disabled}` : pending;
+---
+
+<button
+  type={type}
+  class:list={['btn', variant]}
+  @click={click}
+  :disabled={disabledExpr}
+  title={title}
+  x-show={show}
+>
+  <span x-show={`!${pending}`} x-text={labelExpr}>{label}</span>
+  <span x-show={pending} x-cloak>{pendingLabel}</span>
+</button>

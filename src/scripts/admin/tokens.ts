@@ -1,4 +1,5 @@
 import type { AdminFragment } from "./types";
+import { confirmAction } from './confirm.ts';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio tokens.
@@ -30,7 +31,7 @@ export function createTokensState(): AdminFragment {
       }
     },
     async revokeToken(id) {
-      if (!confirm('¿Revocar este token API? Las integraciones que lo usen dejarán de funcionar.')) return;
+      if (!confirmAction('¿Revocar este token API? Las integraciones que lo usen dejarán de funcionar.')) return;
       try {
         await window.umbralAdmin.api('DELETE', '/api/tokens', { id });
         if (this.cfg.apiTokens?.items) {

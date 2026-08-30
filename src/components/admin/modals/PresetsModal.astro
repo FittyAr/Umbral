@@ -88,7 +88,7 @@ const { useI18n, tr } = Astro.props;
           <strong style="font-size:0.9rem;flex:1" x-text="p.name"></strong>
           <span class="color-dot" :style="`background:${p.color}`"></span>
         </div>
-        <div style="font-size:0.75rem;color:#94a3b8;line-height:1.3;flex:1" x-text="p.description"></div>
+        <div style="font-size:0.75rem;color:var(--text-subtle);line-height:1.3;flex:1" x-text="p.description"></div>
         <div style="margin-top:0.4rem;font-size:0.7rem;color:var(--text-faint);background:rgba(255,255,255,0.05);padding:0.1rem 0.4rem;border-radius:4px" x-text="p.defaultCategoryName || p.category"></div>
       </button>
     </template>

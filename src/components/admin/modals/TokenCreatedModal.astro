@@ -1,30 +1,42 @@
 ---
+import FormGroup from '../ui/FormGroup.astro';
+import Modal from '../ui/Modal.astro';
+
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
 }
 
 const { useI18n, tr } = Astro.props;
-const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+const kit = { useI18n, tr };
 ---
 
-<template x-if="showTokenModal && generatedTokenPlain">
-  <div class="modal-backdrop" @click.self="showTokenModal = false" @keydown.escape.window="showTokenModal = false">
-    <div class="modal" style="max-width:500px">
-      <h2 style="margin-top:0">Token API Generado</h2>
-      <div class="login-warning" style="margin-bottom:1rem">
-        ⚠ Copiá este token ahora. Por seguridad, no se guardará en texto plano y no vas a poder verlo de nuevo.
-      </div>
-      <div class="form-group">
-        <label>Token Bearer</label>
-        <div style="display:flex;gap:0.5rem">
-          <input type="text" readonly :value="generatedTokenPlain" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.85rem;flex:1" id="generated-token-input" />
-          <button type="button" class="btn btn-primary" @click="navigator.clipboard.writeText(generatedTokenPlain); window.umbralAdmin.toast('Token copiado al portapapeles', 'info')">Copiar</button>
-        </div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:1rem">
-        <button type="button" class="btn btn-ghost" @click="showTokenModal = false">Cerrar</button>
-      </div>
-    </div>
+<Modal
+  {...kit}
+  show="showTokenModal && generatedTokenPlain"
+  close="showTokenModal = false"
+  titleFallback="Token API Generado"
+  modalStyle="max-width:500px"
+>
+  <div class="login-warning" style="margin-bottom:1rem">
+    ⚠ Copiá este token ahora. Por seguridad, no se guardará en texto plano y no vas a poder verlo de nuevo.
   </div>
-</template>
+  <FormGroup {...kit} labelFallback="Token Bearer">
+    <div style="display:flex;gap:0.5rem">
+      <input
+        type="text"
+        readonly
+        :value="generatedTokenPlain"
+        class="monospace"
+        style="flex:1"
+        id="generated-token-input"
+      />
+      <button
+        type="button"
+        class="btn btn-primary"
+        @click="navigator.clipboard.writeText(generatedTokenPlain); window.umbralAdmin.toast('Token copiado al portapapeles', 'info')"
+      >Copiar</button>
+    </div>
+  </FormGroup>
+  <button slot="footer" type="button" class="btn btn-ghost" @click="showTokenModal = false">Cerrar</button>
+</Modal>

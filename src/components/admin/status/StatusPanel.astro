@@ -14,7 +14,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     Status de las tarjetas
     <HelpIcon helpKey="status.check" />
   </h2>
-  <p class="muted" style="color:#94a3b8;font-size:0.85rem">Ping HEAD a cada URL. Útil para detectar servicios caídos.</p>
+  <p class="muted" style="color:var(--text-subtle);font-size:0.85rem">Ping HEAD a cada URL. Útil para detectar servicios caídos.</p>
   <button class="btn btn-primary" @click="checkAllStatus()" :disabled="checkingStatus">
     <span x-show="!checkingStatus">Probar todas</span>
     <span x-show="checkingStatus" x-cloak>Probando…</span>

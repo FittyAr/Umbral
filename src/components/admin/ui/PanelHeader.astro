@@ -1,0 +1,43 @@
+---
+import HelpIcon from './HelpIcon.astro';
+
+/**
+ * Encabezado de panel: título (con su doble capa de i18n), botón de ayuda y
+ * bajada. Diez paneles lo tenían escrito a mano, cada uno con su propio
+ * `style` inline y su propio hex para el color del texto — que era el token
+ * `--text-subtle` transcripto.
+ *
+ * La bajada puede venir por `introExpr` (x-html, para el texto traducido con
+ * markup) o por el slot `intro` cuando el contenido es estático.
+ */
+interface Props {
+  useI18n: boolean;
+  tr: (key: string) => string;
+  titleKey?: string;
+  titleFallback?: string;
+  /** Expresión Alpine para `x-text` del título, ej: `webhooksTitle()`. */
+  titleExpr?: string;
+  helpKey?: string;
+  /** Expresión Alpine para `x-html` de la bajada, ej: `webhooksIntro()`. */
+  introExpr?: string;
+}
+
+const { useI18n, tr, titleKey, titleFallback = '', titleExpr, helpKey, introExpr } = Astro.props;
+
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+const titleText = titleKey ? t(titleKey, titleFallback) : titleFallback;
+const hasIntro = Astro.slots.has('intro');
+---
+
+<h2 class="panel-title">
+  <span x-text={titleExpr}>{titleText}</span>
+  {helpKey && <HelpIcon helpKey={helpKey} />}
+</h2>
+{
+  (hasIntro || introExpr) && (
+    <p class="panel-intro" x-html={introExpr}>
+      <slot name="intro" />
+    </p>
+  )
+}
+<slot />

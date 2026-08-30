@@ -1,4 +1,5 @@
 ---
+import PanelHeader from '../ui/PanelHeader.astro';
 import FormGroup from '../ui/FormGroup.astro';
 import HelpIcon from '../ui/HelpIcon.astro';
 interface Props {
@@ -12,10 +13,11 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='webhooks' && 'active'">
-  <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem"><span x-text="webhooksTitle()">Webhooks</span><HelpIcon helpKey="advanced.webhooks" /></h2>
-  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem" x-html="webhooksIntro()">
+  <PanelHeader {...kit} titleExpr="webhooksTitle()" titleFallback="Webhooks" helpKey="advanced.webhooks" introExpr="webhooksIntro()">
+    <Fragment slot="intro">
     Notifica a URLs externas cuando una card con health-check cambia de estado (de healthy → failing o vice versa).
-  </p>
+    </Fragment>
+  </PanelHeader>
 
   <!-- Lista de webhooks -->
   <div class="webhooks-list">
@@ -24,11 +26,11 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
           <div style="flex:1;min-width:0">
             <div style="font-weight:600" x-text="wh.name"></div>
-            <div style="font-size:0.78rem;color:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="wh.url"></div>
+            <div style="font-size:0.78rem;color:var(--text-subtle);font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="wh.url"></div>
             <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
               <span x-text="`Eventos: ${wh.events.join(', ')}`"></span>
               <span x-text="` · threshold: ${wh.minFailures} · cooldown: ${wh.cooldownMin}min`"></span>
-              <span :style="`color: ${wh.enabled ? '#4ade80' : '#94a3b8'}`" x-text="` · ${wh.enabled ? 'activo' : 'inactivo'}`"></span>
+              <span :style="`color: ${wh.enabled ? 'var(--status-ok)' : 'var(--text-subtle)'}`" x-text="` · ${wh.enabled ? 'activo' : 'inactivo'}`"></span>
             </div>
           </div>
           <div style="display:flex;gap:0.4rem;flex-shrink:0">

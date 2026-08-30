@@ -129,7 +129,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       />
       <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
     </div>
-    <small style="color:#94a3b8">
+    <small class="field-hint">
       Pegá la URL de un asset (<code>/api/assets/mi-logo.png</code>) o un id de ícono (<code>simple-icons/docker</code>).
     </small>
   </details>

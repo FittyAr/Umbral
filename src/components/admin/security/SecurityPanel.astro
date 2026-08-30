@@ -28,14 +28,14 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   </form>
 
   <h3 style="margin-top:2rem">CSRF Token <HelpIcon helpKey="security.csrf" /></h3>
-  <p style="color:#94a3b8;font-size:0.85rem">Este token se rota automáticamente al cambiar la contraseña.</p>
-  <code style="display:inline-block;padding:0.4rem 0.7rem;background:#0f172a;border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '-'"></code>
+  <p style="color:var(--text-subtle);font-size:0.85rem">Este token se rota automáticamente al cambiar la contraseña.</p>
+  <code style="display:inline-block;padding:0.4rem 0.7rem;background:var(--surface-hover);border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '-'"></code>
 
   <!-- MULTI-USER (opt-in: features.multiUser) — sólo si la feature está activa. -->
   <template x-if="multiUserEnabled">
     <div class="multi-user-section">
       <h3 style="margin-top:2rem">Usuarios <HelpIcon helpKey="security.multiUser" /></h3>
-      <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem" x-html="multiUserIntro()">
+      <p style="color:var(--text-subtle);font-size:0.85rem;margin-bottom:0.75rem" x-html="multiUserIntro()">
         Crea usuarios con roles (admin/editor/viewer) y login con username. El password unico sigue siendo valido como rescue path.
       </p>
 
@@ -63,14 +63,14 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
           <div class="user-item">
             <div style="flex:1;min-width:0">
               <div style="font-weight:600" x-text="u.username"></div>
-              <div style="font-size:0.78rem;color:#94a3b8">
+              <div style="font-size:0.78rem;color:var(--text-subtle)">
                 <span x-text="u.displayName || u.username"></span>
                 ·
                 <span class="user-role-badge" :class="'role-' + u.role" x-text="u.role"></span>
                 <template x-if="totpEnabled">
                   <span style="margin-left:0.3rem">
                     <span x-show="u.totpSecret" class="user-role-badge" style="background:#065f46;color:#34d399">2FA ON</span>
-                    <span x-show="!u.totpSecret" class="user-role-badge" style="background:#334155;color:#94a3b8">Sin 2FA</span>
+                    <span x-show="!u.totpSecret" class="user-role-badge" style="background:var(--surface-strong);color:var(--text-subtle)">Sin 2FA</span>
                   </span>
                 </template>
               </div>

@@ -1,5 +1,6 @@
 import type { AdminFragment } from "./types";
 import { newId } from '~/lib/ids';
+import { confirmAction } from './confirm.ts';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio webhooks.
@@ -53,7 +54,7 @@ export function createWebhooksState(): AdminFragment {
     },
     removeWebhook(idx) {
       if (!this.cfg.webhooks?.items?.[idx]) return;
-      if (!confirm('¿Borrar este webhook?')) return;
+      if (!confirmAction('¿Borrar este webhook?')) return;
       this.cfg.webhooks.items.splice(idx, 1);
       this.markDirty();
     },

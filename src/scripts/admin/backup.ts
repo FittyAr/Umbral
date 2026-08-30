@@ -1,4 +1,5 @@
 import type { AdminFragment } from "./types";
+import { confirmAction } from './confirm.ts';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio backup.
@@ -32,7 +33,7 @@ export function createBackupState(): AdminFragment {
         window.umbralAdmin.toast(`Archivo demasiado grande (${(file.size/1024).toFixed(0)} KB, máx ${MAX_IMPORT_BYTES/1024} KB)`, 'error');
         e.target.value = ''; return;
       }
-      if (!confirm('Importar reemplazará TODA la configuración actual. ¿Continuar?')) {
+      if (!confirmAction('Importar reemplazará TODA la configuración actual. ¿Continuar?')) {
         e.target.value = ''; return;
       }
       try {

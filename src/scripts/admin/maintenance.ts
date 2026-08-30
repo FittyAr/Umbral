@@ -1,5 +1,6 @@
 import type { AdminFragment } from "./types";
 import { newId } from '~/lib/ids';
+import { confirmAction } from './confirm.ts';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio maintenance.
@@ -73,7 +74,7 @@ export function createMaintenanceState(): AdminFragment {
     },
     removeMaintenance(idx) {
       if (!this.cfg.maintenanceWindows?.items?.[idx]) return;
-      if (!confirm('¿Borrar esta ventana de mantenimiento?')) return;
+      if (!confirmAction('¿Borrar esta ventana de mantenimiento?')) return;
       this.cfg.maintenanceWindows.items.splice(idx, 1);
       this.markDirty();
     },

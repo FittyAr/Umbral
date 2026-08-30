@@ -1,4 +1,5 @@
 ---
+import PendingButton from '../ui/PendingButton.astro';
 import ToggleField from '../ui/ToggleField.astro';
 import FormGroup from '../ui/FormGroup.astro';
 import HelpIcon from '../ui/HelpIcon.astro';
@@ -27,12 +28,12 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
           <option :value="p.id" x-text="p.name"></option>
         </template>
       </select>
-      <small style="color:#94a3b8" x-text="presetDescription()"></small>
+      <small class="field-hint" x-text="presetDescription()"></small>
     </FormGroup>
     <div class="form-group" style="flex:1">
       <label>Base URL</label>
       <input type="text" x-model="cfg.ai.baseUrl" placeholder="https://api.openai.com/v1" />
-      <small style="color:#94a3b8" x-show="presetRegion()" x-text="presetRegion()" x-cloak></small>
+      <small class="field-hint" x-show="presetRegion()" x-text="presetRegion()" x-cloak></small>
     </div>
   </div>
   <div class="form-row" x-show="cfg.ai.enabled">
@@ -42,7 +43,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <HelpIcon helpKey="ai.apiKey" />
       </label>
       <input type="password" x-model="cfg.ai.apiKey" placeholder="sk-..." autocomplete="off" />
-      <small style="color:#94a3b8" x-text="presetApiKeyHelp()"></small>
+      <small class="field-hint" x-text="presetApiKeyHelp()"></small>
     </div>
     <FormGroup {...kit} labelFallback="Modelo" helpKey="ai.model">
       <input type="text" x-model="cfg.ai.model" placeholder="gpt-4o-mini" list="ai-model-suggestions" />
@@ -58,7 +59,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
           <option :value="l.code" x-text="l.name"></option>
         </template>
       </select>
-      <small style="color:#94a3b8">En qué idioma escribe la IA cuando mejora una tarjeta. No afecta al contenido que ya escribiste vos.</small>
+      <small class="field-hint">En qué idioma escribe la IA cuando mejora una tarjeta. No afecta al contenido que ya escribiste vos.</small>
     </FormGroup>
   </div>
   <FormGroup {...kit} labelFallback="System prompt" helpKey="ai.systemPrompt" show="cfg.ai.enabled">
@@ -73,10 +74,12 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     </details>
   </FormGroup>
   <div class="form-group" x-show="cfg.ai.enabled">
-    <button type="button" class="btn btn-ghost btn-sm" @click="testAI()" :disabled="aiBusy">
-      <span x-show="!aiBusy">Probar conexión</span>
-      <span x-show="aiBusy" x-cloak>Probando…</span>
-    </button>
+    <PendingButton
+      pending="aiBusy"
+      click="testAI()"
+      label="Probar conexión"
+      pendingLabel="Probando…"
+    />
     <span x-show="aiTestResult" x-text="aiTestResult" style="margin-left:0.75rem;font-size:0.85rem" :class="aiTestOk ? 'help-ok' : 'help-err'" x-cloak></span>
   </div>
 
@@ -92,11 +95,11 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   </p>
   <FormGroup {...kit} labelFallback="Brave Search API key" helpKey="externalSearch.brave">
     <input type="password" x-model="cfg.externalSearch.braveApiKey" placeholder="BSA..." autocomplete="off" />
-    <small style="color:#94a3b8">2000 req/mes gratis. Conseguila en <a href="https://brave.com/search/api/" target="_blank" rel="noopener">brave.com/search/api</a>.</small>
+    <small class="field-hint">2000 req/mes gratis. Conseguila en <a href="https://brave.com/search/api/" target="_blank" rel="noopener">brave.com/search/api</a>.</small>
   </FormGroup>
   <FormGroup {...kit} labelFallback="Tavily API key" helpKey="externalSearch.tavily">
     <input type="password" x-model="cfg.externalSearch.tavilyApiKey" placeholder="tvly-..." autocomplete="off" />
-    <small style="color:#94a3b8">1000 req/mes gratis. Optimizado para AI. Conseguila en <a href="https://tavily.com" target="_blank" rel="noopener">tavily.com</a>.</small>
+    <small class="field-hint">1000 req/mes gratis. Optimizado para AI. Conseguila en <a href="https://tavily.com" target="_blank" rel="noopener">tavily.com</a>.</small>
   </FormGroup>
   <details style="margin-top:0.4rem">
     <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.78rem">SearXNG self-hosted (avanzado)</summary>

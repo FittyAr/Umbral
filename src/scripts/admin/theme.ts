@@ -12,6 +12,7 @@ import {
 import { getBuiltinPreset } from "~/lib/theme-presets";
 import { computeAnimationCss, PREVIEW_TARGETS } from "~/lib/animations";
 import { newId } from '~/lib/ids';
+import { confirmAction } from './confirm.ts';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio theme.
@@ -174,7 +175,7 @@ export function createThemeState(): AdminFragment {
     },
 
     resetThemeToDefaults() {
-      if (!confirm('¿Restaurar tema a defaults?')) return;
+      if (!confirmAction('¿Restaurar tema a defaults?')) return;
       const defaults = window.__initialConfig?.theme || {};
       replaceThemeInPlace(this.cfg.theme, JSON.parse(JSON.stringify(defaults)));
       this.ensureThemeDefaults();

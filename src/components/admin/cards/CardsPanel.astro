@@ -105,7 +105,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
                   </template>
                 </select>
                 <span class="color-dot" :style="`background:${card.color}`"></span>
-                <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;color:#94a3b8">
+                <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;color:var(--text-subtle)">
                   <input type="checkbox" x-model="card.enabled" @change="markDirty()" />
                   <span x-text="cardsEnabledLabel()">Activa</span>
                 </label>

@@ -1,4 +1,5 @@
 import type { AdminFragment } from "./types";
+import { confirmAction } from './confirm.ts';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio assets.
@@ -50,7 +51,7 @@ export function createAssetsState(): AdminFragment {
     },
 
     async deleteAsset(name) {
-      if (!confirm('¿Borrar ' + name + '?')) return;
+      if (!confirmAction('¿Borrar ' + name + '?')) return;
       try {
         await window.umbralAdmin.api('DELETE', '/api/assets', { name });
         window.umbralAdmin.toast('Borrado', 'success');

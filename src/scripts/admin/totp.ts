@@ -1,4 +1,5 @@
 import type { AdminFragment } from "./types";
+import { confirmAction } from './confirm.ts';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio totp.
@@ -45,7 +46,7 @@ export function createTotpState(): AdminFragment {
       }
     },
     async disableTotp(u) {
-      if (!confirm(`¿Desactivar 2FA para ${u.username}?`)) return;
+      if (!confirmAction(`¿Desactivar 2FA para ${u.username}?`)) return;
       try {
         await window.umbralAdmin.api('POST', '/api/auth/totp/disable', { userId: u.id });
         u.totpSecret = null;

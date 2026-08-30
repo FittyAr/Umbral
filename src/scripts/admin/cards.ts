@@ -5,6 +5,7 @@ import { clampCardSpan, MAX_CARD_SPAN } from "~/lib/card-span";
 import { createInstalledIconLookup } from "~/lib/icon-url";
 import Sortable from "sortablejs";
 import { newId } from '~/lib/ids';
+import { confirmAction } from './confirm.ts';
 
 /**
  * Fragmento del objeto Alpine del admin: dominio cards.
@@ -588,7 +589,7 @@ export function createCardsState(): AdminFragment {
     // porque ahí los cambios van al cfg local.
     tryCancelEdit() {
       if (this.cardFormDirty) {
-        const ok = window.confirm('Tenés cambios sin guardar en esta tarjeta. ¿Descartarlos?');
+        const ok = confirmAction('Tenés cambios sin guardar en esta tarjeta. ¿Descartarlos?');
         if (!ok) return;
       }
       this.cancelEdit();
@@ -752,7 +753,7 @@ export function createCardsState(): AdminFragment {
         return;
       }
       const id = target.id;
-      if (!confirm('¿Borrar esta tarjeta?')) return;
+      if (!confirmAction('¿Borrar esta tarjeta?')) return;
       this.cfg.cards = this.cfg.cards.filter(c => c.id !== id);
       this.markDirty();
     },
@@ -781,7 +782,7 @@ export function createCardsState(): AdminFragment {
         window.umbralAdmin.toast('No podés borrar esta categoría porque contiene la tarjeta del sistema. Desactivala si no la querés ver.', 'error');
         return;
       }
-      if (!confirm('¿Borrar esta categoría? Las tarjetas que la usen se reasignan a la primera restante.')) return;
+      if (!confirmAction('¿Borrar esta categoría? Las tarjetas que la usen se reasignan a la primera restante.')) return;
       const idx = this.cfg.categories.findIndex((c) => c.id === id);
       if (idx < 0) return;
       this.cfg.categories.splice(idx, 1);
