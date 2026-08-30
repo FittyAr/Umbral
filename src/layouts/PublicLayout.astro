@@ -3,6 +3,7 @@ import type { Config } from '~/lib/schema';
 import { resolveIconUrl } from '~/lib/icon-url';
 import ThemeScript from '~/components/ThemeScript.astro';
 import { isFeatureEnabled } from '~/lib/features';
+import { buildBootScript } from '~/lib/client-config';
 import { computeThemeCssBlocks, computeBackgroundStyle, resolveBackground } from '~/lib/theme-tokens';
 import { computeCardSpanCss } from '~/lib/card-span';
 import { computeAnimationCss, computeAnimationScript } from '~/lib/animations';
@@ -40,6 +41,8 @@ const locale: Locale = useI18n
   ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
   : 'es';
 const trf = tr(locale);
+
+const bootScript = buildBootScript({ base, isDemoBuild, config });
 
 // Theme variables injected as inline style
 const cssBlocks = computeThemeCssBlocks(t);
@@ -132,7 +135,7 @@ const ogDescription = useI18n ? trf('home.meta.ogDescription') : 'Panel de acces
 
     {/* Demo runtime: sólo en builds de GitHub Pages (UMBRAL_DEMO=true).
         Intercepta window.fetch y simula el backend con localStorage. */}
-    <script is:inline set:html={`window.__BASE_URL__ = ${JSON.stringify(base)}; window.__INITIAL_DEMO_CONFIG__ = ${JSON.stringify(config)}; window.__UMBRAL_DEMO__ = ${isDemoBuild ? 'true' : 'false'};`}></script>
+    <script is:inline set:html={bootScript}></script>
     {isDemoBuild && <script is:inline src={`${base}demo-runtime.js`}></script>}
   </body>
 </html>

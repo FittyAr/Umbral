@@ -7,6 +7,7 @@ import '~/styles/admin-cards.css';
 import ThemeScript from '~/components/ThemeScript.astro';
 import { getConfig } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
+import { buildBootScript } from '~/lib/client-config';
 import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
 interface Props {
@@ -42,6 +43,8 @@ const locale: Locale = useI18n
   ? resolveLocale(Astro.request, config, readLocaleCookie(Astro.request))
   : 'es';
 const trf = t(locale);
+
+const bootScript = buildBootScript({ base, isDemoBuild, config });
 
 const theme = {
   colorMode: 'auto' as 'light' | 'dark' | 'auto',
@@ -161,7 +164,7 @@ const theme = {
         }
       });
     </script>
-    <script is:inline set:html={`window.__BASE_URL__ = ${JSON.stringify(base)}; window.__INITIAL_DEMO_CONFIG__ = ${JSON.stringify(config)}; window.__UMBRAL_DEMO__ = ${isDemoBuild ? 'true' : 'false'};`}></script>
+    <script is:inline set:html={bootScript}></script>
     {isDemoBuild && <script is:inline src={`${base}demo-runtime.js`}></script>}
   </body>
 </html>

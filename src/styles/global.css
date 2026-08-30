@@ -389,6 +389,10 @@ html[data-mode="light"] .bg-overlay[data-bg-mode="light"] {
 .header .header-clock-right {
   order: 0;
 }
+.status-bar-wrap[data-footer-opacity] {
+  opacity: var(--footer-opacity, 1);
+}
+
 .header[data-header-opacity] {
   opacity: var(--header-opacity, 1);
 }

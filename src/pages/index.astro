@@ -291,8 +291,9 @@ const animateCount = isFeatureEnabled(config, 'animations') && useAnimatedCounte
       <div
         class="status-bar-wrap"
         data-theme-widget="statusBar"
+        data-footer-opacity={t.footerOpacity < 1 ? '1' : undefined}
         style={[
-          t.footerOpacity < 1 ? `opacity:${t.footerOpacity}` : '',
+          t.footerOpacity < 1 ? `--footer-opacity:${t.footerOpacity}` : '',
           !t.showStatusBar && isThemePreview ? 'display:none' : '',
         ].filter(Boolean).join(';') || undefined}
       >

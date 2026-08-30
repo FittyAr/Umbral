@@ -288,7 +288,13 @@ export function applyThemeDraft(themeInput: unknown, doc: Document = document): 
   const footerEl = footerWrap || statusBar;
   if (footerEl) {
     const footerOpacity = Number(theme.footerOpacity ?? 1);
-    footerEl.style.opacity = footerOpacity < 1 ? String(footerOpacity) : '';
+    if (footerOpacity < 1) {
+      footerEl.style.setProperty('--footer-opacity', String(footerOpacity));
+      footerEl.style.opacity = String(footerOpacity);
+    } else {
+      footerEl.style.removeProperty('--footer-opacity');
+      footerEl.style.opacity = '';
+    }
   }
 
   const widgetMap: [string, boolean][] = [

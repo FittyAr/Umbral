@@ -615,10 +615,5 @@
   border-width: var(--card-border-width, 1.5px);
 }
 
-.header[data-header-opacity] {
-  opacity: var(--header-opacity, 1);
-}
-
-.status-bar[data-footer-opacity] {
-  opacity: var(--footer-opacity, 1);
-}
+/* Las reglas de opacidad de header y status bar viven en global.css: las
+   consume el portal público, que no importa esta hoja. */

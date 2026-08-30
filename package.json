@@ -26,9 +26,10 @@
     "test:sortable-guard": "node --test --experimental-strip-types tests/sortable-guard.test.ts",
     "test:auth-session": "node --test --experimental-strip-types tests/auth-session.test.ts",
     "test:offline": "node --test --experimental-strip-types tests/offline.test.ts",
+    "test:client-config": "node --test --experimental-strip-types tests/client-config.test.ts",
     "test:animations": "node --test --experimental-strip-types tests/animations.test.ts",
     "test:astro": "vitest run",
-    "test": "npm run test:astro && npm run test:offline && npm run test:animations && npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:card-span && npm run test:icon-url && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
+    "test": "npm run test:astro && npm run test:client-config && npm run test:offline && npm run test:animations && npm run test:icon-packs && npm run test:theme && npm run test:layout && npm run test:cards && npm run test:card-span && npm run test:icon-url && npm run test:sortable-guard && npm run test:auth-session && npm run test:i18n && npm run test:markdown",
     "astro": "astro"
   },
   "dependencies": {
