@@ -69,7 +69,9 @@ export function defaultConfig(): Config {
         processImages: true,
       },
       network: {
-        trustForwardedFor: false,
+        trustForwardedFor:
+          typeof process !== 'undefined' &&
+          (process.env?.TRUST_FORWARDED_FOR === 'true' || process.env?.TRUST_PROXY === 'true'),
         trustedProxies: [],
         cookieDomain: null,
         allowInternalHosts: true,

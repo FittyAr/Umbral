@@ -1,0 +1,99 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Umbral — Docker Compose para 1Panel (con OpenResty como Reverse Proxy)
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# Configuración recomendada en 1Panel:
+# 1. Crear Sitio Web -> Tipo "Proxy Inverso" (Reverse Proxy).
+# 2. Destino del Proxy (Origin): http://umbral:4321
+# 3. Encabezados de proxy en OpenResty (normalmente automáticos en 1Panel):
+#      proxy_set_header Host $host;
+#      proxy_set_header X-Real-IP $remote_addr;
+#      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#      proxy_set_header X-Forwarded-Proto $scheme;
+# 4. En la configuración del sitio (OpenResty) subir el límite de subida
+#    para fondos, logos y packs de iconos:
+#      client_max_body_size 15M;
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  umbral:
+    build: .
+    image: umbral:latest
+    container_name: umbral
+    restart: unless-stopped
+
+    # No publicamos puertos directos en el host por seguridad.
+    # OpenResty (1Panel) accede a Umbral internamente por la red 1panel-network
+    # usando http://umbral:4321.
+    expose:
+      - "4321"
+
+    environment:
+      NODE_ENV: production
+      PORT: 4321
+      HOST: 0.0.0.0
+      DATA_DIR: /app/data
+
+      # Confía en encabezados X-Forwarded-For y X-Real-IP enviados por OpenResty.
+      # Permite que el rate limiting y auditoría registren la IP real del cliente.
+      TRUST_FORWARDED_FOR: "true"
+
+      # Obligatorio en producción. Conservá el mismo valor si estás migrando.
+      # Para generar uno nuevo: openssl rand -hex 32
+      SESSION_SECRET: ${SESSION_SECRET:?Defini SESSION_SECRET en .env (minimo 32 caracteres)}
+
+      # Solo se usa en el primer arranque si no existe configuración persistida.
+      # Si lo dejás vacío, la contraseña inicial será "admin".
+      INITIAL_PASSWORD: ${INITIAL_PASSWORD:-}
+
+      # URL base pública (HTTPS) para cookies seguras y cabeceras HSTS.
+      # HOMESERVER: Reemplazá el valor con tu dominio real (ej: https://home.fitty.ar o https://umbral.tu-dominio.com)
+      BASE_URL: ${BASE_URL:-https://umbral.ejemplo.internal}
+
+    volumes:
+      - umbral-data:/app/data
+
+    tmpfs:
+      - /tmp
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:4321/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    networks:
+      - 1panel-network
+
+volumes:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Volumen persistente (/app/data)
+  # ────────────────────────────────────────────────────────────────────────────
+  # CASO 1 — HOMESERVER / MIGRACIÓN (Conservar datos existentes):
+  # Si ya tenías un contenedor Umbral corriendo en 1Panel o Docker y querés
+  # reutilizar su volumen para no perder datos, definí UMBRAL_DATA_VOLUME en .env
+  # con el nombre real del volumen actual.
+  #
+  # Para obtener el nombre del volumen montado actualmente en tu contenedor:
+  # docker inspect umbral --format '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Name}}{{end}}{{end}}'
+  #
+  # CASO 2 — INSTALACIÓN NUEVA:
+  # Por defecto busca un volumen llamado 'umbral-data'. Crealo previamente con:
+  # docker volume create umbral-data
+  # ────────────────────────────────────────────────────────────────────────────
+  umbral-data:
+    external: true
+    name: ${UMBRAL_DATA_VOLUME:-umbral-data}
+
+networks:
+  # Red interna del sistema de 1Panel compartida con el contenedor de OpenResty.
+  1panel-network:
+    external: true
+    name: 1panel-network

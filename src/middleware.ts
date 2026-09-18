@@ -97,11 +97,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const headersCfg = cfg.security.headers;
   const netCfg = cfg.security.network;
   const csrfPolicy = cfg.security.auth.csrfPolicy;
-  const isHttps = detectHttps(request, netCfg.trustForwardedFor);
+  const trustForwarded =
+    netCfg.trustForwardedFor ||
+    process.env.TRUST_FORWARDED_FOR === 'true' ||
+    process.env.TRUST_PROXY === 'true';
+  const isHttps = detectHttps(request, trustForwarded);
 
   const auth = await buildAuthContext(request);
   context.locals.auth = auth;
-  context.locals.clientIp = clientIp(request, netCfg.trustForwardedFor, safeClientAddress(context));
+  context.locals.clientIp = clientIp(request, trustForwarded, safeClientAddress(context));
 
   // Body size cap para endpoints que aceptan JSON grande. Si el cliente
   // declara Content-Length mayor al cap, rechazamos sin leer el body

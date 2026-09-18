@@ -1,4 +1,4 @@
-﻿# Variables de entorno
+# Variables de entorno
 
 > Las **mínimas** que necesita la app. El resto de la configuración vive en `data/config.json` y se edita desde el panel admin.
 
@@ -13,6 +13,7 @@
 | `HOST` | `0.0.0.0` | No | Bind address. `127.0.0.1` para sólo loopback. |
 | `DATA_DIR` | `./data` | No | Carpeta persistente. Default: `data/` en el cwd. |
 | `NODE_ENV` | `production` | No | Setear `development` para logs verbose. |
+| `TRUST_FORWARDED_FOR` | `false` | No | `true` para confiar en headers `X-Forwarded-For` / `X-Real-IP` de reverse proxies (OpenResty, Nginx, Caddy). |
 | `DOMAIN` | `home.example.internal` | Sólo Caddy | Dominio que Caddy sirve. Ignorado si no usás el servicio Caddy. |
 
 ## `SESSION_SECRET`
