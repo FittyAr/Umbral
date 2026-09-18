@@ -22,11 +22,9 @@ services:
     container_name: umbral
     restart: unless-stopped
 
-    # No publicamos puertos directos en el host por seguridad.
-    # OpenResty (1Panel) accede a Umbral internamente por la red 1panel-network
-    # usando http://umbral:4321.
-    expose:
-      - "4321"
+    # OpenResty (1Panel) accede a Umbral en local
+    ports:
+      - "127.0.0.1:4321:4321"
 
     environment:
       NODE_ENV: production
