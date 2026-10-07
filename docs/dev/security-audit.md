@@ -118,11 +118,11 @@ Lo que **no** defendemos:
 
 ## Decisiones deliberadas (no son bugs)
 
-### `'unsafe-eval'` en CSP
+### `script-src` sin `'unsafe-inline'` ni `'unsafe-eval'`
 
-Alpine.js 3 usa `new Function()` para evaluar directivas. Sin `'unsafe-eval'`, Alpine tira errores en consola y parte de la UI no funciona. Decisión: **dejar el default con `'unsafe-eval'`** y documentar.
+Resuelto: el panel usa `@alpinejs/csp`, que interpreta las expresiones de los `x-*` con un parser propio en vez de `new Function()`. Ese parser no acepta arrow functions, template literals, `?.`, `??`, `new`, regex, varias sentencias ni globales (`window`, `Math`, `JSON`…): esa lógica vive en métodos del objeto Alpine (`src/scripts/admin/view-helpers.ts` y cada fragmento) y el markup sólo los llama. `x-html` está prohibido en ese build; el panel usa `x-trusted-html` (`src/scripts/admin/trusted-html.ts`), sólo con HTML que ya controla.
 
-Para endurecer realmente: usar el build CSP de Alpine (cambia el import) o nonces por request. Es trabajo no trivial — no se hizo por scope.
+No hay scripts inline: los `define:vars` pasaron a bloques `<script type="application/json">` (componente `JsonData.astro`) que leen módulos, y los scripts clásicos que tienen que correr antes del primer paint (`boot.js`, `theme-mode.js`, `scroll-reveal.js`) son archivos de `public/js/`. `astro.config.mjs` impide que Astro inlinee los `<script>` chicos al compilar. `tests/csp.test.ts` falla si vuelve a aparecer un script inline, un `define:vars` o un `x-html`.
 
 ### `'unsafe-inline'` en `style-src`
 
@@ -181,7 +181,7 @@ Tienen rate limit `/api/login` (por IP y por usuario), `/api/status` y el inicio
 
 ## Qué se puede endurecer más (no implementado)
 
-1. **HSTS nonce-based CSP.** Sacar `'unsafe-eval'` y `'unsafe-inline'` con nonces por request. Trabajo: medio día.
+1. **`style-src` sin `'unsafe-inline'`.** `script-src` ya no lo tiene; los estilos del tema siguen inline. Trabajo: medio día.
 2. **CSRF en GET.** Política `'all'`. Útil sólo si tu modelo de amenaza incluye XSS previo.
 3. **CSP report-uri.** Reportar violaciones a un endpoint para análisis. Útil en deployments grandes.
 4. **WebAuthn.** Hoy hay TOTP para los usuarios de `users[]`, pero no para el password único. Trabajo: varios días.

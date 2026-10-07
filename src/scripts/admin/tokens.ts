@@ -14,6 +14,11 @@ export function createTokensState(): AdminFragment {
     newToken: { name: '', scope: 'read', expiresInDays: 0 },
     showTokenModal: false,
     generatedTokenPlain: '',
+    /** Copia el token recién generado y avisa con `copiedMsg`. */
+    copyGeneratedToken(copiedMsg: string) {
+      navigator.clipboard.writeText(this.generatedTokenPlain);
+      window.umbralAdmin.toast(copiedMsg, 'info');
+    },
     async generateToken() {
       if (!this.newToken.name) return;
       try {

@@ -69,7 +69,7 @@ const kit = { useI18n, tr };
     </small>
   </div>
 </div>
-<div class="form-group" x-show="cfg.ai?.enabled && editingCard.kind==='link'" style="display:flex;gap:0.4rem;align-items:center;padding:0.5rem 0.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+<div class="form-group" x-show="cfg.ai && cfg.ai.enabled && editingCard.kind==='link'" style="display:flex;gap:0.4rem;align-items:center;padding:0.5rem 0.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
   <span style="color:var(--text-subtle);font-size:0.85rem">{t('admin.card.aiPrefix', 'IA:')} </span>
   <PendingButton
     pending="aiBusy"
@@ -97,14 +97,14 @@ const kit = { useI18n, tr };
   <textarea
     x-model="editingCard.description"
     :maxlength="descMaxLength()"
-    @input="cardFormDirty = true; markdownPreviewDirty = true"
+    @input="markDescriptionDirty()"
     style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.85rem;min-height:5rem"
   ></textarea>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.25rem;font-size:0.75rem;color:var(--text-subtle)">
     <span>
       <span x-text="editingCard.description ? editingCard.description.length : 0"></span> / <span x-text="descMaxLength()"></span> {t('admin.card.chars', 'chars')}
       <span x-show="editingCard.descriptionFormat === 'markdown' && markdownEnabled" x-cloak style="margin-left:0.5rem;color:var(--accent)">
-        (markdown: ~<span x-text="Math.round(((editingCard.description || '').length / 4))"></span> tokens)
+        (markdown: ~<span x-text="descriptionTokenEstimate()"></span> tokens)
       </span>
     </span>
     <span x-show="editingCard.descriptionFormat === 'markdown' && markdownPreviewDirty && markdownEnabled" x-cloak>
@@ -113,14 +113,14 @@ const kit = { useI18n, tr };
   </div>
   <div x-show="editingCard.descriptionFormat === 'markdown' && markdownEnabled && markdownPreview" x-cloak class="markdown-preview-wrap" style="margin-top:0.5rem;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);font-size:0.8rem">
     <div style="font-size:0.7rem;color:var(--text-faint);margin-bottom:0.3rem" x-text="previewLabel()">{t('admin.card.previewLabel', 'Preview')}</div>
-    <div class="card-desc-md" x-html="markdownPreview"></div>
+    <div class="card-desc-md" x-trusted-html="markdownPreview"></div>
   </div>
 </div>
 <div class="form-row">
   <FormGroup {...kit} labelKey="admin.card.category" labelFallback="Categoría" helpKey="card.category">
     <select
       x-model="editingCard.category"
-      x-init="$nextTick(() => $el.value = editingCard.category || '')"
+      x-init="setValueLater($el, editingCard.category)"
       required
     >
       <option :value="ungroupedSelectId" x-text="cardsUngroupedGroupLabel()">{t('admin.cards.ungroupedGroup', 'Sin grupo')}</option>
@@ -135,7 +135,7 @@ const kit = { useI18n, tr };
   <FormGroup {...kit} labelExpr="cardSpanLabel()" labelKey="admin.card.span" labelFallback="Ancho" helpKey="card.span">
     <select
       x-model.number="editingCard.span"
-      x-init="$nextTick(() => $el.value = String(editingCard.span || 1))"
+      x-init="setValueLater($el, editingCard.span || 1)"
     >
       <template x-for="n in cardSpanOptions()" :key="n">
         <option :value="n" x-text="cardSpanOptionLabel(n)"></option>

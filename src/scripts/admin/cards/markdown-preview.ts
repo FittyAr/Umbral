@@ -11,6 +11,16 @@ export function createCardMarkdownState(): AdminFragment {
     markdownPreview: '',
     markdownPreviewDirty: true,
 
+    /** Input de la descripción: el form queda sucio y la preview vieja. */
+    markDescriptionDirty() {
+      this.cardFormDirty = true;
+      this.markdownPreviewDirty = true;
+    },
+    /** Tokens aproximados de la descripción (~4 caracteres por token). */
+    descriptionTokenEstimate() {
+      return Math.round((this.editingCard?.description || '').length / 4);
+    },
+
     // El form tiene maxlength dinámico según descriptionFormat:
     // 200 para plain, 1000 para markdown. Cuando la feature está
     // apagada, forzamos plain en el toggle y siempre 200.

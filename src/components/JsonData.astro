@@ -1,0 +1,18 @@
+---
+/**
+ * Datos del server para los scripts del cliente, sin JS inline.
+ *
+ * Un <script type="application/json"> no se ejecuta, así que la CSP no
+ * necesita 'unsafe-inline' en script-src. Los módulos lo leen con
+ * `readJsonData(id)` (src/scripts/shared/json-data.ts). Reemplaza a los
+ * scripts con `define:vars`, que emiten un script inline por cada uso.
+ */
+import { serializeJsonForScript } from '~/lib/client-config';
+
+interface Props {
+  id: string;
+  data: unknown;
+}
+const { id, data } = Astro.props;
+---
+<script is:inline type="application/json" id={id} set:html={serializeJsonForScript(data)}></script>

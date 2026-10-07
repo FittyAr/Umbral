@@ -1,4 +1,5 @@
 ---
+import JsonData from '~/components/JsonData.astro';
 import AdminLayout from '~/layouts/AdminLayout.astro';
 import { getConfig } from '~/lib/config';
 import { sanitizeConfigForRole } from '~/lib/client-config';
@@ -105,7 +106,7 @@ const THEME_PRESET_I18N = {
         <label class="portal-switcher" style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem">
           <span>{useI18n ? trf('admin.portals.switcher') : 'Portal'}</span>
           <select
-            @change="if (!dirty || confirm(l('msgConfirmReloadDirty'))) { const u = new URL(location.href); u.searchParams.set('portal', $event.target.value); location.href = u.toString(); } else { $event.target.value = window.__UMBRAL_PORTAL__ || 'default'; }"
+            @change="switchPortal($event.target)"
           >
             {portalOptions.map((p) => <option value={p.id} selected={p.id === currentPortal}>{p.name}</option>)}
           </select>
@@ -133,7 +134,7 @@ const THEME_PRESET_I18N = {
       <button class="tab" x-show="isFeatureOn('oidc')" x-cloak :class="tab==='oidc' && 'active'" @click="tab='oidc'" x-text="tabOidc()">OIDC / SSO</button>
       <button class="tab" x-show="isFeatureOn('apiTokens')" x-cloak :class="tab==='tokens' && 'active'" @click="tab='tokens'" x-text="tabTokens()">Tokens API</button>
       <button class="tab" x-show="isFeatureOn('multiPortal')" x-cloak :class="tab==='portals' && 'active'" @click="tab='portals'" x-text="tabPortals()">Multi-Portal</button>
-      <button class="tab" x-show="isFeatureOn('iconPacks')" x-cloak :class="tab==='iconpacks' && 'active'" @click="tab='iconpacks'; loadIconPacks()" x-text="tabIconPacks()">Íconos Git</button>
+      <button class="tab" x-show="isFeatureOn('iconPacks')" x-cloak :class="tab==='iconpacks' && 'active'" @click="openTab('iconpacks')" x-text="tabIconPacks()">Íconos Git</button>
 
       <button class="tab" :class="tab==='advanced' && 'active'" @click="tab='advanced'" x-text="tabAdvanced()">Avanzado</button>
     </div>
@@ -172,39 +173,27 @@ const THEME_PRESET_I18N = {
   </div>
 
   <!-- Alpine.js + Sortable + dashboard logic -->
-  <script is:inline define:vars={{ initialConfig: clientConfig, demoAvailableIcons, themePresetI18n: THEME_PRESET_I18N, helpLocale: locale, FEATURE_LIST, labels: I18N_LABELS }}>
-    // Normaliza un config que viene del server para el panel. Se usa en el
-    // arranque y cada vez que se reemplaza `cfg` (guardar, recargar, reset,
-    // import): antes sólo corría al cargar la página, y después de un
-    // "Recargar" el `trustedProxiesText` quedaba vacío y el siguiente guardado
-    // borraba los proxies confiables.
-    window.__hydrateAdminCfg = function (cfg) {
-      if (!cfg) return cfg;
-      if (cfg.security && cfg.security.network) {
-        // Mirror trustedProxies (array) into a text form so the textarea can edit it.
-        cfg.security.network.trustedProxiesText = (cfg.security.network.trustedProxies || []).join('\n');
-      }
-      // Si el config legacy no tiene `features`, lo inicializamos como objeto
-      // vacío (cada feature tendrá default {enabled:false} al renderizar).
-      if (!cfg.features) cfg.features = {};
-      if (!cfg.oidc) cfg.oidc = { providers: [] };
-      if (!cfg.apiTokens) cfg.apiTokens = { items: [] };
-      if (!cfg.portals) cfg.portals = { defaultPortal: 'default', items: [] };
-      if (!cfg.auth) cfg.auth = { users: [], singlePasswordEnabled: true };
-      return cfg;
-    };
-    window.__hydrateAdminCfg(initialConfig);
-    window.__initialConfigVersion = (initialConfig._meta && initialConfig._meta.updatedAt) || null;
-    // expose config to adminApp data
-    window.__initialConfig = initialConfig;
-    if (demoAvailableIcons) window.__availableIcons = demoAvailableIcons;
-    window.__helpLocale = helpLocale;
-    window.__featureList = FEATURE_LIST;
-    window.__themePresetI18n = themePresetI18n;
-    window.__labels = labels;
-  </script>
+  <!-- Datos del server para el panel (JSON, no se ejecuta): los vuelca a
+       window src/scripts/admin/boot-data.ts. -->
+  <JsonData
+    id="admin-dashboard-data"
+    data={{
+      initialConfig: clientConfig,
+      demoAvailableIcons,
+      themePresetI18n: THEME_PRESET_I18N,
+      helpLocale: locale,
+      featureList: FEATURE_LIST,
+      labels: I18N_LABELS,
+    }}
+  />
   <script>
-    import Alpine from 'alpinejs';
+    // Build CSP de Alpine: interpreta las expresiones de los x-* sin
+    // `new Function`, así que la CSP no necesita 'unsafe-eval'. Va primero:
+    // al cargar toma nota de los globales de window, y los datos que
+    // boot-data.ts publica después no deben quedar en esa lista.
+    import Alpine from '@alpinejs/csp';
+    import '~/scripts/admin/client';
+    import '~/scripts/admin/boot-data';
     import { isSystemCard as checkSystemCard, restoreSystemCardProtectedFields } from '~/lib/system-card';
     // Fragmentos del objeto Alpine, uno por dominio. Ver src/scripts/admin/.
     import { createOidcState } from '~/scripts/admin/oidc';
@@ -228,6 +217,8 @@ const THEME_PRESET_I18N = {
     import { createPasswordState } from '~/scripts/admin/password';
     import { createBackupState } from '~/scripts/admin/backup';
     import { prefetchAdminClients } from '~/scripts/admin/lazy-clients';
+    import { createViewHelpersState } from '~/scripts/admin/view-helpers';
+    import { registerTrustedHtml } from '~/scripts/admin/trusted-html';
     import { errMsg, type AdminFragment } from '~/scripts/admin/types';
     // SortableJS se carga on-demand desde scripts/admin/sortable-loader.ts,
     // junto con su guard: no entra en el chunk inicial del panel.
@@ -336,18 +327,9 @@ const THEME_PRESET_I18N = {
           this.syncThemePreviewStorage();
           if (typeof this.cfg.layout.healthCheckInterval !== 'number') this.cfg.layout.healthCheckInterval = 60;
           this.iconPacks = this.seedIconPacksCatalog();
-          // Defer refreshAssets until after the page's umbralAdmin is defined.
-          // AdminLayout's inline script defines it; this module script may run
-          // before or after that depending on Vite's module loading order.
-          if (window.umbralAdmin) {
-            await this.refreshAssets();
-          } else {
-            // Retry a few times in case the inline script hasn't parsed yet.
-            for (let i = 0; i < 5 && !window.umbralAdmin; i++) {
-              await new Promise((r) => setTimeout(r, 20));
-            }
-            if (window.umbralAdmin) await this.refreshAssets();
-          }
+          // window.umbralAdmin ya existe: este módulo importa
+          // ~/scripts/admin/client antes de Alpine.start().
+          await this.refreshAssets();
           this.$nextTick(() => this.initSortable());
           // Auto-mark dirty on any cfg change. x-model alone doesn't fire markDirty,
           // so we deep-watch cfg and re-check after each mutation. Cheap because
@@ -372,7 +354,7 @@ const THEME_PRESET_I18N = {
           // matchea un preset, lo dejamos pre-seleccionado.
           this.aiPreset = this.currentPresetId();
           // Si el user cambia baseUrl a mano, sincronizamos el dropdown.
-          this.$watch('cfg.ai.baseUrl', () => {
+          this.$watch(() => this.cfg.ai?.baseUrl, () => {
             const matched = this.currentPresetId();
             if (matched !== this.aiPreset) this.aiPreset = matched;
           });
@@ -384,10 +366,12 @@ const THEME_PRESET_I18N = {
               if (mdTimer) clearTimeout(mdTimer);
               mdTimer = setTimeout(() => this.refreshMarkdownPreview(), 300);
             };
-            this.$watch('editingCard.description', () => {
+            // Getters y no strings: el parser del build CSP no tiene `?.`, y
+            // con el modal cerrado `editingCard` es null.
+            this.$watch(() => this.editingCard?.description, () => {
               if (this.editingCard?.descriptionFormat === 'markdown') schedule();
             });
-            this.$watch('editingCard.descriptionFormat', () => schedule());
+            this.$watch(() => this.editingCard?.descriptionFormat, () => schedule());
           }
           // Audit log: cargar cuando el user abre el tab Auditoría y la
           // feature está activa. Una sola carga — el user puede refrescar
@@ -527,13 +511,31 @@ const THEME_PRESET_I18N = {
           this.dirty = true;
         },
 
+        /** Idioma por defecto del portal (features.i18n.locale). */
+        defaultLocale() {
+          return this.cfg.features?.i18n?.locale || 'es';
+        },
+
+        setDefaultLocale(locale: string) {
+          if (!this.cfg.features.i18n) this.cfg.features.i18n = { enabled: true };
+          this.cfg.features.i18n.locale = locale;
+          this.dirty = true;
+        },
+
+        /** MIME permitidos para uploads, editados como texto separado por comas. */
+        setAllowedMimeTypes(text: string) {
+          this.cfg.security.uploads.allowedMimeTypes = text.split(',').map((s) => s.trim()).filter(Boolean);
+        },
+
         ...createBackupState(),
         ...createIconPacksState(),
+        ...createViewHelpersState(),
         helpTooltipLabel() {
           return this.l('helpTooltip');
         },
     }));
 
+    registerTrustedHtml(Alpine);
     Alpine.start();
   </script>
 

@@ -15,10 +15,10 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 
 <div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.75rem">
   <div class="theme-advanced-tabs" style="margin-bottom:0;flex:1">
-    <button type="button" :class="themeBgEditMode==='dark' && 'active'" @click="themeBgEditMode='dark'; parseGradientFromBackground()" x-text="themeBgModeDarkLabel()">
+    <button type="button" :class="themeBgEditMode==='dark' && 'active'" @click="setThemeBgEditMode('dark')" x-text="themeBgModeDarkLabel()">
       {t('admin.theme.background.modeDark', 'Modo oscuro')}
     </button>
-    <button type="button" :class="themeBgEditMode==='light' && 'active'" @click="themeBgEditMode='light'; parseGradientFromBackground()" x-text="themeBgModeLightLabel()">
+    <button type="button" :class="themeBgEditMode==='light' && 'active'" @click="setThemeBgEditMode('light')" x-text="themeBgModeLightLabel()">
       {t('admin.theme.background.modeLight', 'Modo claro')}
     </button>
     <button type="button" class="btn btn-sm btn-ghost" style="margin-left:auto" @click="copyBackgroundFromOtherMode()" x-text="themeBgCopyOtherLabel()">
@@ -29,7 +29,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 </div>
 
 <FormGroup {...kit} labelExpr="themeBgTypeLabel()" labelKey="admin.theme.background.type" labelFallback="Tipo de fondo" helpKey="theme.background.type">
-  <select :value="getActiveBgProp('type')" @change="setActiveBgProp('type', $event.target.value); onBackgroundTypeChange()">
+  <select :value="getActiveBgProp('type')" @change="setBackgroundType($event.target.value)">
     <option value="gradient">{t('admin.theme.background.typeGradient', 'Gradiente')}</option>
     <option value="color">{t('admin.theme.background.typeColor', 'Color sólido')}</option>
     <option value="image">{t('admin.theme.background.typeImage', 'Imagen subida')}</option>
@@ -39,7 +39,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 <FormGroup {...kit} labelExpr="themeBgImageLabel()" labelKey="admin.theme.background.image" labelFallback="Imagen de fondo" helpKey="theme.background.value" show="getActiveBgProp('type')==='image'">
   <select :value="getActiveBgProp('value')" @change="setActiveBgProp('value', $event.target.value)">
     <option value="">{t('admin.theme.background.selectImage', '— Seleccionar imagen —')}</option>
-    <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp)$/i.test(a.name))" :key="a.name">
+    <template x-for="a in assetsWithExt('png', 'jpe?g', 'webp')" :key="a.name">
       <option :value="a.url" x-text="a.name"></option>
     </template>
   </select>
@@ -51,7 +51,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <span x-text="themeGradientBuilderLabel()">{t('admin.theme.background.gradientBuilder', 'Constructor de gradiente')}</span>
       <HelpIcon helpKey="theme.gradientBuilder" />
     </label>
-    <div class="theme-gradient-preview" :style="`background:${buildGradientCss()}`"></div>
+    <div class="theme-gradient-preview" :style="{ background: buildGradientCss() }"></div>
     <div class="form-group" style="margin-bottom:0.5rem">
       <label><span x-text="themeGradientAngleLabel()">{t('admin.theme.background.angle', 'Ángulo')}</span>: <span x-text="themeGradientAngle"></span>°</label>
       <input type="range" min="0" max="360" x-model.number="themeGradientAngle" @input="syncGradientToBackground()" />
@@ -62,7 +62,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
           <input type="color" class="color-swatch" x-model="stop.color" @input="syncGradientToBackground()" />
           <input type="range" min="0" max="100" x-model.number="stop.pos" @input="syncGradientToBackground()" />
           <span x-text="stop.pos + '%'" style="font-size:0.75rem;color:var(--text-subtle)"></span>
-          <button type="button" class="btn btn-sm btn-ghost" x-show="themeGradientStops.length > 2" @click="themeGradientStops.splice(idx, 1); syncGradientToBackground()" title={t('admin.theme.background.removeStop', 'Eliminar stop')}>×</button>
+          <button type="button" class="btn btn-sm btn-ghost" x-show="themeGradientStops.length > 2" @click="removeGradientStop(idx)" title={t('admin.theme.background.removeStop', 'Eliminar stop')}>×</button>
         </div>
       </template>
     </div>

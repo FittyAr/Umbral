@@ -33,10 +33,17 @@ export default defineConfig({
     server: {
       ws: { clientPort: PORT },
     },
+    build: {
+      // Astro inlinea en el HTML los <script> chicos y sin imports. Inline,
+      // la CSP los bloquea (script-src sin 'unsafe-inline'), así que los JS
+      // siempre van como archivo. El resto de los assets sigue la regla de
+      // Vite (undefined = límite por defecto).
+      assetsInlineLimit: (filePath) => (filePath.endsWith('.js') ? false : undefined),
+    },
     ssr: {
       // Umbral tiene que arrancar sin red, así que las dependencias del cliente
       // se bundlean en dist/ en vez de resolverse desde node_modules en runtime.
-      noExternal: ['sortablejs', 'alpinejs', '@astroanimate/core'],
+      noExternal: ['sortablejs', '@alpinejs/csp', '@astroanimate/core'],
     },
   },
 });

@@ -216,6 +216,22 @@ export function createThemeState(): AdminFragment {
       if (this.getActiveBackgroundRef().type === 'gradient') this.syncGradientToBackground();
     },
 
+    /** Cambia el fondo que se edita (oscuro/claro) y relee su gradiente. */
+    setThemeBgEditMode(mode: 'dark' | 'light') {
+      this.themeBgEditMode = mode;
+      this.parseGradientFromBackground();
+    },
+
+    setBackgroundType(type: string) {
+      this.setActiveBgProp('type', type);
+      this.onBackgroundTypeChange();
+    },
+
+    removeGradientStop(idx: number) {
+      this.themeGradientStops.splice(idx, 1);
+      this.syncGradientToBackground();
+    },
+
     getActiveBackgroundRef() {
       if (this.themeBgEditMode === 'light') {
         if (!this.cfg.theme.backgroundLight) {
@@ -394,6 +410,11 @@ export function createThemeState(): AdminFragment {
       const base = window.umbralAdmin?.baseUrl || '/';
       const url = base + (base.endsWith('/') ? '' : '/') + '?themePreview=1';
       window.open(url, '_blank');
+    },
+
+    /** `cfg.theme.tokens.shared[key]`, o `fallback` si no está. */
+    sharedToken(key: string, fallback: unknown) {
+      return this.cfg?.theme?.tokens?.shared?.[key] ?? fallback;
     },
 
     setSharedToken(key: string, value: string) {

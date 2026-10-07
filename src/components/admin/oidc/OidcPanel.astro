@@ -23,7 +23,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   </PanelHeader>
 
   <div class="oidc-list">
-    <template x-for="(p, idx) in (cfg?.oidc?.providers || [])" :key="p.id">
+    <template x-for="(p, idx) in cfgList('oidc', 'providers')" :key="p.id">
       <div class="webhook-item" :class="!p.enabled && 'webhook-disabled'">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
           <div style="flex:1;min-width:0">
@@ -31,17 +31,17 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
             <div style="font-size:0.78rem;color:var(--text-subtle);font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="p.issuer"></div>
             <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
               <span x-text={`'ID: ' + p.id + ' · Client: ' + p.clientId + ' · ' + ${q(t('admin.oidc.roleLabel', 'Rol:') + ' ')} + (p.defaultRole || 'viewer')`}></span>
-              <span :style="`color: ${p.enabled ? 'var(--status-ok)' : 'var(--text-subtle)'}`" x-text={`' · ' + (p.enabled ? ${q(t('admin.oidc.statusActive', 'activo'))} : ${q(t('admin.oidc.statusInactive', 'inactivo'))})`}></span>
+              <span :style="{ color: p.enabled ? 'var(--status-ok)' : 'var(--text-subtle)' }" x-text={`' · ' + (p.enabled ? ${q(t('admin.oidc.statusActive', 'activo'))} : ${q(t('admin.oidc.statusInactive', 'inactivo'))})`}></span>
             </div>
           </div>
           <div style="display:flex;gap:0.4rem;flex-shrink:0">
-            <button type="button" class="btn btn-sm btn-ghost" @click="p.enabled = !p.enabled; markDirty()" x-text={`p.enabled ? ${q(t('admin.oidc.disable', 'Desactivar'))} : ${q(t('admin.oidc.enable', 'Activar'))}`}></button>
+            <button type="button" class="btn btn-sm btn-ghost" @click="toggleEnabled(p)" x-text={`p.enabled ? ${q(t('admin.oidc.disable', 'Desactivar'))} : ${q(t('admin.oidc.enable', 'Activar'))}`}></button>
             <button type="button" class="btn btn-sm btn-ghost" @click="removeOidcProvider(idx)">×</button>
           </div>
         </div>
       </div>
     </template>
-    <p x-show="!cfg?.oidc?.providers || cfg.oidc.providers.length === 0" class="muted" style="padding:0.5rem 0">
+    <p x-show="cfgList('oidc', 'providers').length === 0" class="muted" style="padding:0.5rem 0">
       {t('admin.oidc.empty', 'No hay providers configurados. Agregá uno abajo.')}
     </p>
   </div>

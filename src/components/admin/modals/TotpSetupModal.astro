@@ -34,7 +34,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 
       <form @submit.prevent="verifyAndSaveTotp()">
         <FormGroup {...kit} labelKey="admin.totp.code" labelFallback="Código de verificación (6 dígitos)">
-          <input type="text" x-model="totpVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autocomplete="one-time-code" x-init="$nextTick(() => $el.focus())" />
+          <input type="text" x-model="totpVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autocomplete="one-time-code" x-init="focusLater($el)" />
         </FormGroup>
         <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
           <button type="button" class="btn btn-ghost" @click="showTotpSetupModal = false">{t('common.cancel', 'Cancelar')}</button>

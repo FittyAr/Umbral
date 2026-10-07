@@ -104,7 +104,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
                     <option :value="cat.id" x-text="cat.name"></option>
                   </template>
                 </select>
-                <span class="color-dot" :style="`background:${card.color}`"></span>
+                <span class="color-dot" :style="{ background: card.color }"></span>
                 <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;color:var(--text-subtle)">
                   <input type="checkbox" x-model="card.enabled" @change="markDirty()" />
                   <span x-text="cardsEnabledLabel()">{t('admin.cards.enabled', 'Activa')}</span>

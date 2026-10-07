@@ -23,7 +23,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <template x-for="r in statusResults" :key="r.id">
       <div class="health-row">
         <span class="status-dot" :class="r.ok ? 'ok' : 'bad'"></span>
-        <span x-text="(cfg.cards.find(c=>c.id===r.id)?.title) || r.url"></span>
+        <span x-text="statusRowTitle(r)"></span>
         <span style="color:#64748b;font-size:0.75rem" x-text="r.status || r.error"></span>
         <span class="latency" x-text="r.latencyMs + 'ms'"></span>
       </div>

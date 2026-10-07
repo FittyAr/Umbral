@@ -17,6 +17,10 @@ export function createCardPresetsState(): AdminFragment {
     showPresetsModal: false,
     presetFilter: '',
     presetCategoryFilter: '',
+    clearPresetFilters() {
+      this.presetFilter = '';
+      this.presetCategoryFilter = '';
+    },
     presetCategories() {
       const map = new Map<string, { id: string; name: string; count: number }>();
       for (const p of this.appPresets as AppPreset[]) {

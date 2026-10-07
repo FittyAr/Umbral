@@ -14,6 +14,7 @@ import {
 import { ensureDirs, getActivePortalId, runWithPortal, writeJsonAtomic, ROOT_PORTAL } from './paths';
 import { laterVersion, pickPortalSections } from './portal-sections';
 import { defaultConfig } from './defaults';
+import { DEFAULT_CSP, LEGACY_DEFAULT_CSPS } from '../schema/security';
 
 // ──────────────────────────────────────────────────────────────────────────
 // In-memory cache (one process, single instance)
@@ -112,6 +113,12 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
   }
 }
 
+/** La CSP que corresponde guardar: el default actual si `csp` es uno de los
+ *  defaults viejos, y `csp` sin cambios en cualquier otro caso. */
+export function migrateLegacyCsp(csp: string | null): string | null {
+  return csp !== null && LEGACY_DEFAULT_CSPS.includes(csp.trim()) ? DEFAULT_CSP : csp;
+}
+
 /** Lee y migra el config del portal raíz (el que tiene la parte global). */
 export async function loadFresh(): Promise<Config> {
   const portalCfg = _portalConfigPath(ROOT_PORTAL);
@@ -164,6 +171,18 @@ export async function loadFresh(): Promise<Config> {
       data = { ...data, theme: { ...data.theme, fontUrl: '' } };
       await writeJsonAtomic(portalCfg, data);
       console.log('[umbral] fontUrl de Google Fonts migrado a fuente local (offline-safe).');
+    }
+    // La CSP por defecto de versiones anteriores permitía 'unsafe-inline' y
+    // 'unsafe-eval' en script-src. Si el config la tiene tal cual, se pasa a
+    // la nueva; una CSP personalizada (o null, sin header) queda como está.
+    const migratedCsp = migrateLegacyCsp(data.security.headers.csp);
+    if (migratedCsp !== data.security.headers.csp) {
+      data = {
+        ...data,
+        security: { ...data.security, headers: { ...data.security.headers, csp: migratedCsp } },
+      };
+      await writeJsonAtomic(portalCfg, data);
+      console.log('[umbral] CSP por defecto anterior migrada a la nueva (sin unsafe-inline/unsafe-eval en script-src).');
     }
     return data;
   }

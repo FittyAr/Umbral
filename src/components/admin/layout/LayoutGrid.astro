@@ -99,7 +99,7 @@ const alignOptions = [
       labelFallback="Espaciado entre tarjetas"
       labelExpr="layoutGapLabel()"
       helpKey="layout.gap"
-      valueExpr="(cfg.layout.gap ?? 1).toFixed(1)"
+      valueExpr="orDefault(cfg.layout.gap, 1).toFixed(1)"
       unit="rem"
       withNumber
     />
@@ -131,7 +131,7 @@ const alignOptions = [
       labelFallback="Espaciado entre categorías"
       labelExpr="layoutCategoryGapLabel()"
       helpKey="layout.categoryGap"
-      valueExpr="(cfg.layout.categoryGap ?? 2).toFixed(2)"
+      valueExpr="orDefault(cfg.layout.categoryGap, 2).toFixed(2)"
       unit="rem"
       withNumber
     />
@@ -146,7 +146,7 @@ const alignOptions = [
       labelFallback="Espaciado de tarjetas sueltas"
       labelExpr="layoutGhostCategoryGapLabel()"
       helpKey="layout.ghostCategoryGap"
-      valueExpr="(cfg.layout.ghostCategoryGap ?? 0.35).toFixed(2)"
+      valueExpr="orDefault(cfg.layout.ghostCategoryGap, 0.35).toFixed(2)"
       unit="rem"
       withNumber
     />

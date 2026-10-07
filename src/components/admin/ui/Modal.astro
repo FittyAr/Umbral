@@ -54,7 +54,7 @@ const titleId = `modal-title-${Math.random().toString(36).slice(2, 10)}`;
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      x-init="$nextTick(() => window.umbralAdmin.trapFocus($el))"
+      x-init="trapFocusLater($el)"
     >
       <div class="modal-header">
         <h2 id={titleId} x-text={titleExpr}>{titleText}</h2>

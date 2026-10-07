@@ -17,6 +17,9 @@ export function createAuditState(): AdminFragment {
     auditLoading: false,
     auditError: '',
     auditResult: null,
+    auditResultSizeLabel() {
+      return ` · ${this.auditResult?.sizeBytes ?? 0} bytes`;
+    },
     auditFilter: { action: '', detail: '', from: '', to: '', limit: 200 },
     // Los labels de la sección (auditTitle(), auditResetLabel(), …) salen
     // de ADMIN_LABELS (src/lib/admin-labels.ts).

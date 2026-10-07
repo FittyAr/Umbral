@@ -16,6 +16,19 @@ export function createUsersState(): AdminFragment {
     // menos un user (rechaza saveConfig si quedás sin acceso).
     multiUserEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'multiUser')?.enabled === true,
     newUser: { username: '', displayName: '', password: '', role: 'viewer' },
+    /** Modo "sólo password único": se descartan los users cargados. */
+    setAccessModePasswordOnly() {
+      this.cfg.auth.singlePasswordEnabled = true;
+      if (this.cfg.auth.users && this.cfg.auth.users.length > 0) this.cfg.auth.users = [];
+    },
+    /** Modo "sólo usuarios": exige al menos un user (si no, avisa con `needUserMsg`). */
+    setAccessModeUsersOnly(needUserMsg: string) {
+      if (!this.cfg.auth.users || this.cfg.auth.users.length === 0) {
+        alert(needUserMsg);
+        return;
+      }
+      this.cfg.auth.singlePasswordEnabled = false;
+    },
     // ── Multi-user helpers (opt-in: features.multiUser) ──────────
     // Aclaración: el server hace el hash con bcrypt (cost 12) y
     // persiste en cfg.auth.users[].passwordHash. La UI nunca toca el

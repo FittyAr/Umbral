@@ -46,10 +46,10 @@ const labels: Record<Locale, string> = LOCALE_NAMES;
   </label>
 </div>
 
-<script is:inline>
-  (function () {
-    const sel = document.getElementById('lang-select');
-    if (!sel) return;
+<script>
+  // Módulo (no inline) para que la CSP no necesite 'unsafe-inline'.
+  const sel = document.getElementById('lang-select') as HTMLSelectElement | null;
+  if (sel) {
     sel.addEventListener('change', async (e) => {
       e.preventDefault();
       const loc = sel.value;
@@ -80,5 +80,5 @@ const labels: Record<Locale, string> = LOCALE_NAMES;
       // 4. Recargar para que el server lea la cookie nueva.
       window.location.reload();
     });
-  })();
+  }
 </script>

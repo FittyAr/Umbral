@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { sanitizeConfigForClient, buildBootScript } from '../src/lib/client-config.ts';
+import { sanitizeConfigForClient, buildBootData, serializeJsonForScript } from '../src/lib/client-config.ts';
 import { ConfigSchema, type Config } from '../src/lib/schema/index.ts';
 
 function makeConfig(): Config {
@@ -70,17 +70,31 @@ test('sanitizeConfigForClient no muta el config original ni pierde datos publico
   assert.equal(sanitized.apiTokens.items[0].name, 'ci');
 });
 
-test('buildBootScript no emite el config fuera del build demo', () => {
+test('buildBootData no emite el config fuera del build demo', () => {
   const cfg = makeConfig();
-  const prod = buildBootScript({ base: '/', isDemoBuild: false, config: cfg });
-  assert.ok(!prod.includes('__INITIAL_DEMO_CONFIG__'));
-  assert.ok(prod.includes('window.__UMBRAL_DEMO__ = false'));
+  const prod = buildBootData({ base: '/', isDemoBuild: false, config: cfg });
+  assert.equal(prod.demoConfig, undefined);
+  assert.equal(prod.demo, false);
 
-  const demo = buildBootScript({ base: '/', isDemoBuild: true, config: cfg });
-  assert.ok(demo.includes('__INITIAL_DEMO_CONFIG__'));
+  const demo = serializeJsonForScript(buildBootData({ base: '/', isDemoBuild: true, config: cfg }));
+  assert.ok(demo.includes('"demoConfig"'));
   for (const secret of SECRETS) {
-    assert.ok(!demo.includes(secret), `el secreto ${secret} sale en el boot script del demo`);
+    assert.ok(!demo.includes(secret), `el secreto ${secret} sale en los datos de boot del demo`);
   }
+});
+
+test('buildBootData sólo manda el portal si no es el default', () => {
+  const cfg = makeConfig();
+  assert.equal(buildBootData({ base: '/', isDemoBuild: false, config: cfg, portalId: 'default' }).portal, undefined);
+  assert.equal(buildBootData({ base: '/', isDemoBuild: false, config: cfg, portalId: 'ventas' }).portal, 'ventas');
+});
+
+test('serializeJsonForScript no deja cerrar el <script> ni abrir comentarios', () => {
+  const out = serializeJsonForScript({ name: '</script><script>alert(1)</script><!-- & -->' });
+  assert.ok(!out.includes('<'), out);
+  assert.ok(!out.includes('>'), out);
+  assert.ok(!out.includes('&'), out);
+  assert.deepEqual(JSON.parse(out), { name: '</script><script>alert(1)</script><!-- & -->' });
 });
 
 test('los layouts no serializan el config a mano', () => {
@@ -90,6 +104,6 @@ test('los layouts no serializan el config a mano', () => {
       !/JSON\.stringify\(config\)/.test(src),
       `${file} serializa el config sin pasar por sanitizeConfigForClient`,
     );
-    assert.match(src, /buildBootScript\(/, `${file} deberia usar buildBootScript`);
+    assert.match(src, /buildBootData\(/, `${file} deberia usar buildBootData`);
   }
 });

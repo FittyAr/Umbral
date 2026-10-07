@@ -21,7 +21,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
       type="button"
       class="btn btn-ghost btn-sm"
       style="font-size:0.72rem;padding:0.15rem 0.4rem;color:var(--accent)"
-      @click="tab = 'iconpacks'; loadIconPacks()"
+      @click="openTab('iconpacks')"
       x-show="isFeatureOn('iconPacks')"
       x-cloak
     >
@@ -81,7 +81,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
       type="button"
       class="icon-picker-tile"
       :class="!editingCard.icon && 'selected'"
-      @click="editingCard.icon=''; markDirty()"
+      @click="setEditingIcon('')"
       title={t('admin.iconPicker.noIcon', 'Sin ícono')}
     >
       <span class="icon-picker-tile-none" aria-hidden="true">🚫</span>
@@ -91,7 +91,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
         type="button"
         class="icon-picker-tile"
         :class="editingCard.icon===i && 'selected'"
-        @click="editingCard.icon=i; markDirty()"
+        @click="setEditingIcon(i)"
         :title="i"
       >
         <img :src="resolveIcon(i)" :alt="i" loading="lazy" />
@@ -112,7 +112,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
         type="button"
         class="icon-picker-tile"
         :class="editingCard.icon === a.url && 'selected'"
-        @click="editingCard.icon = a.url; markDirty()"
+        @click="setEditingIcon(a.url)"
         :title="a.name"
       >
         <img :src="a.url" :alt="a.name" loading="lazy" />

@@ -23,7 +23,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 
   <!-- Lista de webhooks -->
   <div class="webhooks-list">
-    <template x-for="(wh, idx) in (cfg?.webhooks?.items || [])" :key="wh.id">
+    <template x-for="(wh, idx) in cfgList('webhooks')" :key="wh.id">
       <div class="webhook-item" :class="!wh.enabled && 'webhook-disabled'">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
           <div style="flex:1;min-width:0">
@@ -31,8 +31,8 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
             <div style="font-size:0.78rem;color:var(--text-subtle);font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="wh.url"></div>
             <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
               <span x-text={`${q(t('admin.webhooks.events', 'Eventos') + ': ')} + wh.events.join(', ')`}></span>
-              <span x-text="` · threshold: ${wh.minFailures} · cooldown: ${wh.cooldownMin}min · ${wh.preset || 'custom'}`"></span>
-              <span :style="`color: ${wh.enabled ? 'var(--status-ok)' : 'var(--text-subtle)'}`" x-text={`' · ' + (wh.enabled ? ${q(t('admin.webhooks.statusActive', 'activo'))} : ${q(t('admin.webhooks.statusInactive', 'inactivo'))})`}></span>
+              <span x-text="' · threshold: ' + wh.minFailures + ' · cooldown: ' + wh.cooldownMin + 'min · ' + (wh.preset || 'custom')"></span>
+              <span :style="{ color: wh.enabled ? 'var(--status-ok)' : 'var(--text-subtle)' }" x-text={`' · ' + (wh.enabled ? ${q(t('admin.webhooks.statusActive', 'activo'))} : ${q(t('admin.webhooks.statusInactive', 'inactivo'))})`}></span>
             </div>
           </div>
           <div style="display:flex;gap:0.4rem;flex-shrink:0">
@@ -42,7 +42,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
         </div>
       </div>
     </template>
-    <p x-show="!cfg?.webhooks?.items || cfg.webhooks.items.length === 0" class="muted" style="padding:0.5rem 0">
+    <p x-show="cfgList('webhooks').length === 0" class="muted" style="padding:0.5rem 0">
       {t('admin.webhooks.empty', 'No hay webhooks configurados. Agregá uno abajo.')}
     </p>
   </div>
