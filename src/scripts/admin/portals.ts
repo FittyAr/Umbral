@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import type { AdminFragment, FeatureListItem } from "./types";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio portals.
@@ -9,7 +9,7 @@ import type { AdminFragment } from "./types";
 export function createPortalsState(): AdminFragment {
   return {
     // Multi-Portal (opt-in: features.multiPortal)
-    multiPortalEnabled: window.__featureList?.find?.((f) => f.name === 'multiPortal')?.enabled === true,
+    multiPortalEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'multiPortal')?.enabled === true,
     newPortal: { id: '', name: '', host: '', pathPrefix: '' },
     addPortal() {
       if (!this.cfg.portals) this.cfg.portals = { defaultPortal: 'default', items: [] };
@@ -29,7 +29,7 @@ export function createPortalsState(): AdminFragment {
       this.markDirty();
       window.umbralAdmin.toast('Portal agregado', 'success');
     },
-    removePortal(idx) {
+    removePortal(idx: number) {
       if (!this.cfg.portals?.items) return;
       this.cfg.portals.items.splice(idx, 1);
       this.markDirty();

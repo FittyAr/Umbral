@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment, type CustomThemePreset, type ThemePresetListItem, type ThemeVariant } from "./types";
 import * as themeClient from "~/lib/theme-admin-client";
 import {
   applyThemePartialInPlace,
@@ -96,7 +96,7 @@ export function createThemeState(): AdminFragment {
 
     themePresetsList() {
       const builtin = window.__builtinThemePresets || [];
-      const custom = (this.cfg?.theme?.customPresets || []).map((cp) => ({
+      const custom = (this.cfg?.theme?.customPresets || []).map((cp: CustomThemePreset) => ({
         id: cp.id,
         nameKey: cp.name,
         descriptionKey: cp.name,
@@ -107,12 +107,12 @@ export function createThemeState(): AdminFragment {
       return [...builtin, ...custom];
     },
 
-    presetLabel(preset) {
+    presetLabel(preset: ThemePresetListItem) {
       if (preset.custom) return preset.nameKey;
       return window.__themePresetI18n?.names?.[preset.id] || preset.id;
     },
 
-    presetDesc(preset) {
+    presetDesc(preset: ThemePresetListItem) {
       if (preset.custom) return '';
       return window.__themePresetI18n?.descs?.[preset.id] || '';
     },
@@ -129,7 +129,7 @@ export function createThemeState(): AdminFragment {
       return window.__themePresetI18n?.applyCustom || 'Aplicar';
     },
 
-    presetThumbStyle(preset, variant = 'dark') {
+    presetThumbStyle(preset: ThemePresetListItem, variant: ThemeVariant = 'dark') {
       if (preset.custom) {
         const [a, b, c] = preset.previewColors || ['#0f172a', '#1e3a8a', '#0f172a'];
         return `background:linear-gradient(135deg, ${a}, ${b}, ${c})`;
@@ -141,9 +141,9 @@ export function createThemeState(): AdminFragment {
       return `background:linear-gradient(135deg, ${a}, ${b}, ${c})`;
     },
 
-    applyThemePresetById(id, variant = 'dark') {
+    applyThemePresetById(id: string, variant: ThemeVariant = 'dark') {
       const builtin = getBuiltinPreset(id);
-      const custom = (this.cfg.theme.customPresets || []).find((p) => p.id === id);
+      const custom = (this.cfg.theme.customPresets || []).find((p: CustomThemePreset) => p.id === id);
       if (custom) {
         applyThemePartialInPlace(this.cfg.theme, custom.theme);
       } else if (builtin) {
@@ -205,8 +205,8 @@ export function createThemeState(): AdminFragment {
       const m = val.match(/linear-gradient\((\d+)deg,\s*(.+)\)/);
       if (!m) return;
       this.themeGradientAngle = parseInt(m[1], 10);
-      const stops = m[2].split(',').map((s) => s.trim());
-      this.themeGradientStops = stops.slice(0, 4).map((s, i) => {
+      const stops = m[2].split(',').map((s: string) => s.trim());
+      this.themeGradientStops = stops.slice(0, 4).map((s: string, i: number) => {
         const parts = s.split(/\s+/);
         return { color: parts[0], pos: parseInt(parts[1], 10) || Math.round((i / Math.max(stops.length - 1, 1)) * 100) };
       });
@@ -226,11 +226,11 @@ export function createThemeState(): AdminFragment {
       return this.cfg.theme.background;
     },
 
-    getActiveBgProp(key) {
+    getActiveBgProp(key: string) {
       return this.getActiveBackgroundRef()?.[key];
     },
 
-    setActiveBgProp(key, value) {
+    setActiveBgProp(key: string, value: unknown) {
       this.getActiveBackgroundRef()[key] = value;
       this.themePreviewRev++;
       this.syncThemePreviewStorage();
@@ -250,13 +250,13 @@ export function createThemeState(): AdminFragment {
     },
 
 
-    tokenColorInputForMode(key) {
+    tokenColorInputForMode(key: string) {
       const v = this.getModeToken(key);
       if (v && v.startsWith('#')) return v;
       return '#888888';
     },
 
-    themeTokenDefaultPlaceholder(key) {
+    themeTokenDefaultPlaceholder(key: string) {
       return '(default)';
     },
 
@@ -270,7 +270,7 @@ export function createThemeState(): AdminFragment {
       return contrastRatio(text, surface) ?? 0;
     },
 
-    themeContrastLabel(key) {
+    themeContrastLabel(key: string) {
       if (key !== 'text') return '';
       const ratio = this.themeTextContrastRatio();
       if (!ratio) return '';
@@ -280,7 +280,7 @@ export function createThemeState(): AdminFragment {
       return `${ratio.toFixed(1)}:1 · ${label}`;
     },
 
-    themeContrastClass(key) {
+    themeContrastClass(key: string) {
       if (key !== 'text') return '';
       return this.themeTextContrastRatio() >= 4.5 ? 'theme-contrast-ok' : 'theme-contrast-fail';
     },
@@ -302,7 +302,7 @@ export function createThemeState(): AdminFragment {
       return `background:${bg.overlayColor};opacity:${bg.overlay}`;
     },
 
-    themePreviewCardIconStyle(card) {
+    themePreviewCardIconStyle(card: { color?: string }) {
       const tint = this.cfg.theme.iconTint ?? 'original';
       const svg = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="black" d="M12 2L2 7l10 5 10-5-10-5z"/></svg>');
       if (tint === 'original') {
@@ -396,14 +396,14 @@ export function createThemeState(): AdminFragment {
       window.open(url, '_blank');
     },
 
-    setSharedToken(key, value) {
+    setSharedToken(key: string, value: string) {
       if (!this.cfg.theme.tokens) this.cfg.theme.tokens = {};
       if (!this.cfg.theme.tokens.shared) this.cfg.theme.tokens.shared = {};
       this.cfg.theme.tokens.shared[key] = value;
       this.markDirty();
     },
 
-    ensureModeTokens(mode) {
+    ensureModeTokens(mode?: string) {
       const m = mode || this.themeAdvancedMode;
       if (!this.cfg.theme.tokens) this.cfg.theme.tokens = {};
       if (!this.cfg.theme.tokens[m]) {
@@ -411,18 +411,18 @@ export function createThemeState(): AdminFragment {
       }
     },
 
-    tokenModeForKey(key) {
+    tokenModeForKey(key: string) {
       const textKeys = ['text', 'textMuted', 'textSubtle', 'textFaint', 'icon'];
       if (textKeys.includes(key)) return this.themeTextEditMode;
       return this.themeAdvancedMode;
     },
 
-    getModeToken(key) {
+    getModeToken(key: string) {
       const mode = this.tokenModeForKey(key);
       return this.cfg.theme.tokens?.[mode]?.[key] || '';
     },
 
-    setModeToken(key, value) {
+    setModeToken(key: string, value: string) {
       const mode = this.tokenModeForKey(key);
       this.ensureModeTokens(mode);
       if (!value) {
@@ -435,7 +435,7 @@ export function createThemeState(): AdminFragment {
       this.markDirty();
     },
 
-    tokenColorInput(key) {
+    tokenColorInput(key: string) {
       const v = this.getModeToken(key);
       return v.startsWith('#') ? v : '#000000';
     },
@@ -443,7 +443,7 @@ export function createThemeState(): AdminFragment {
     themeFilteredTokenKeys() {
       const keys = window.__themeTokenKeys || Object.keys(TOKEN_KEY_MAP || {});
       const q = (this.themeTokenSearch || '').toLowerCase();
-      return keys.filter((k) => !q || k.toLowerCase().includes(q) || k.replace(/([A-Z])/g, '-$1').toLowerCase().includes(q));
+      return keys.filter((k: string) => !q || k.toLowerCase().includes(q) || k.replace(/([A-Z])/g, '-$1').toLowerCase().includes(q));
     },
 
     deriveThemeTokensFromAccent() {
@@ -454,7 +454,7 @@ export function createThemeState(): AdminFragment {
       this.markDirty();
     },
 
-    resetThemeTokenCategory(category) {
+    resetThemeTokenCategory(category: string) {
       const cats = window.__themeTokenCategories || {};
       const keys = cats[category] || [];
       this.ensureModeTokens();
@@ -489,8 +489,8 @@ export function createThemeState(): AdminFragment {
           this.syncThemePreviewStorage();
           this.markDirty();
           window.umbralAdmin.toast(this.l('themeImported'), 'success');
-        } catch (e) {
-          window.umbralAdmin.toast(e.message, 'error');
+        } catch (e: unknown) {
+          window.umbralAdmin.toast(errMsg(e), 'error');
         }
       };
       input.click();

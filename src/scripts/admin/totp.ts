@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment, type FeatureListItem, type AdminUser } from "./types";
 import { confirmAction } from './confirm.ts';
 
 /**
@@ -10,21 +10,21 @@ import { confirmAction } from './confirm.ts';
 export function createTotpState(): AdminFragment {
   return {
     // TOTP 2FA (opt-in: features.totp2fa)
-    totpEnabled: window.__featureList?.find?.((f) => f.name === 'totp2fa')?.enabled === true,
+    totpEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'totp2fa')?.enabled === true,
     showTotpSetupModal: false,
     totpSetupUser: null,
     totpSetupData: null,
     totpVerificationCode: '',
     totpSaving: false,
-    async openTotpSetup(u) {
+    async openTotpSetup(u: AdminUser) {
       try {
         const data = await window.umbralAdmin.api('POST', '/api/auth/totp/setup', { userId: u.id });
         this.totpSetupUser = u;
         this.totpSetupData = data;
         this.totpVerificationCode = '';
         this.showTotpSetupModal = true;
-      } catch (e) {
-        window.umbralAdmin.toast('Error generando 2FA: ' + e.message, 'error');
+      } catch (e: unknown) {
+        window.umbralAdmin.toast('Error generando 2FA: ' + errMsg(e), 'error');
       }
     },
     async verifyAndSaveTotp() {
@@ -39,20 +39,20 @@ export function createTotpState(): AdminFragment {
         this.totpSetupUser.totpSecret = 'active';
         this.showTotpSetupModal = false;
         window.umbralAdmin.toast('2FA activado con éxito para ' + this.totpSetupUser.username, 'success');
-      } catch (e) {
-        window.umbralAdmin.toast(e.message, 'error');
+      } catch (e: unknown) {
+        window.umbralAdmin.toast(errMsg(e), 'error');
       } finally {
         this.totpSaving = false;
       }
     },
-    async disableTotp(u) {
+    async disableTotp(u: AdminUser) {
       if (!confirmAction(`¿Desactivar 2FA para ${u.username}?`)) return;
       try {
         await window.umbralAdmin.api('POST', '/api/auth/totp/disable', { userId: u.id });
         u.totpSecret = null;
         window.umbralAdmin.toast('2FA desactivado', 'success');
-      } catch (e) {
-        window.umbralAdmin.toast(e.message, 'error');
+      } catch (e: unknown) {
+        window.umbralAdmin.toast(errMsg(e), 'error');
       }
     },
   };

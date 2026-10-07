@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import type { AdminFragment, FeatureListItem, AdminMaintenanceWindow } from "./types";
 import { newId } from '~/lib/ids';
 import { confirmAction } from './confirm.ts';
 
@@ -13,24 +13,24 @@ export function createMaintenanceState(): AdminFragment {
     // Maintenance windows (opt-in: features.maintenanceWindows).
     // El server valida + sanitiza via Zod al guardar; nosotros sólo
     // construimos el objeto y manejamos active/remaining en el cliente.
-    maintenanceWindowsEnabled: window.__featureList?.find?.((f) => f.name === 'maintenanceWindows')?.enabled === true,
+    maintenanceWindowsEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'maintenanceWindows')?.enabled === true,
     maintenanceTitle() { return this.i18n?.maintenance?.title || 'Mantenimiento'; },
     maintenanceIntro() { return this.i18n?.maintenance?.intro || 'Programa ventanas donde una (o todas) las cards están en mantenimiento.'; },
     maintenanceAddLabel() { return this.i18n?.maintenance?.add || 'Programar'; },
     newMaintenance: { cardMode: 'all', cardIds: [], startsAt: '', endsAt: '', reason: '' },
-    isMaintenanceActive(mw) {
+    isMaintenanceActive(mw: AdminMaintenanceWindow) {
       if (!mw.enabled) return false;
       const now = Date.now();
       return now >= new Date(mw.startsAt).getTime() && now <= new Date(mw.endsAt).getTime();
     },
-    formatMwTime(iso) {
+    formatMwTime(iso: string) {
       // Render ISO UTC en formato local del admin. Si el admin vive
       // en GMT-3 y la window es 2026-08-20T02:00:00Z, le muestra
       // 2026-08-19 23:00 hora local — útil para entender en qué
       // momento del día local dispara.
       try { return new Date(iso).toLocaleString(); } catch { return iso; }
     },
-    formatMwRemaining(iso) {
+    formatMwRemaining(iso: string) {
       const ms = new Date(iso).getTime() - Date.now();
       if (ms <= 0) return 'expirado';
       const m = Math.floor(ms / 60_000);
@@ -72,7 +72,7 @@ export function createMaintenanceState(): AdminFragment {
       this.newMaintenance = { cardMode: 'all', cardIds: [], startsAt: '', endsAt: '', reason: '' };
       this.markDirty();
     },
-    removeMaintenance(idx) {
+    removeMaintenance(idx: number) {
       if (!this.cfg.maintenanceWindows?.items?.[idx]) return;
       if (!confirmAction('¿Borrar esta ventana de mantenimiento?')) return;
       this.cfg.maintenanceWindows.items.splice(idx, 1);

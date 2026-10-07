@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment } from "./types";
 import { confirmAction } from './confirm.ts';
 
 /**
@@ -20,15 +20,16 @@ export function createAssetsState(): AdminFragment {
       } catch (e) { console.error(e); }
     },
 
-    async handleFileSelect(e) {
-      await this.uploadFiles(e.target.files);
-      e.target.value = '';
+    async handleFileSelect(e: Event) {
+      const input = e.target as HTMLInputElement;
+      await this.uploadFiles(input.files!);
+      input.value = '';
     },
-    async handleFileDrop(e) {
+    async handleFileDrop(e: DragEvent) {
       this.uploaderDragover = false;
-      await this.uploadFiles(e.dataTransfer.files);
+      await this.uploadFiles(e.dataTransfer!.files);
     },
-    async uploadFiles(files) {
+    async uploadFiles(files: FileList) {
       for (const file of files) {
         try {
           const fd = new FormData();
@@ -43,23 +44,23 @@ export function createAssetsState(): AdminFragment {
           const data = await res.json();
           if (!res.ok) { window.umbralAdmin.toast(file.name + ': ' + (data.error || 'Error'), 'error'); continue; }
           window.umbralAdmin.toast('Subido: ' + data.storedName + ' (' + (data.bytes/1024).toFixed(1) + ' KB)', 'success');
-        } catch (err) {
-          window.umbralAdmin.toast(file.name + ': ' + err.message, 'error');
+        } catch (err: unknown) {
+          window.umbralAdmin.toast(file.name + ': ' + errMsg(err), 'error');
         }
       }
       await this.refreshAssets();
     },
 
-    async deleteAsset(name) {
+    async deleteAsset(name: string) {
       if (!confirmAction('¿Borrar ' + name + '?')) return;
       try {
         await window.umbralAdmin.api('DELETE', '/api/assets', { name });
         window.umbralAdmin.toast('Borrado', 'success');
         await this.refreshAssets();
-      } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
+      } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
     },
 
-    copyToClipboard(text) {
+    copyToClipboard(text: string) {
       navigator.clipboard?.writeText(text).then(
         () => window.umbralAdmin.toast('URL copiada', 'success'),
         () => window.umbralAdmin.toast('No se pudo copiar', 'error')

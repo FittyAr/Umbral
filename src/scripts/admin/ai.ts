@@ -1,4 +1,5 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment } from "./types";
+import type { AIProvider } from "~/pages/admin/ai-providers";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio ai.
@@ -33,7 +34,7 @@ export function createAiState(): AdminFragment {
       if (!this._aiMetaPromise) {
         this._aiMetaPromise = window.umbralAdmin
           .api('GET', '/api/ai-meta.json')
-          .then((res) => {
+          .then((res: { providers?: AIProvider[]; languages?: unknown[]; defaultSystemPrompts?: Record<string, string>; defaultSystemPrompt?: string }) => {
             this.aiProviders = res.providers || [];
             this.aiLanguages = res.languages || [];
             this.defaultSystemPrompts = res.defaultSystemPrompts || {};
@@ -50,8 +51,8 @@ export function createAiState(): AdminFragment {
     // valores oficiales. Si después edita baseUrl a mano, el preset se
     // "deselecciona" automáticamente (presetId() devuelve '' porque ya
     // no matchea). Así el preset es sugerencia, no lock.
-    applyAiPreset(presetId) {
-      const p = this.aiProviders.find((x) => x.id === presetId);
+    applyAiPreset(presetId: string) {
+      const p = this.aiProviders.find((x: AIProvider) => x.id === presetId);
       if (!p) return;
       this.cfg.ai.baseUrl = p.baseUrl;
       this.cfg.ai.model = p.defaultModel;
@@ -61,32 +62,32 @@ export function createAiState(): AdminFragment {
     currentPresetId() {
       const bu = (this.cfg.ai?.baseUrl || '').replace(/\/+$/, '').toLowerCase();
       if (!bu) return '';
-      const p = this.aiProviders.find((x) => x.baseUrl.replace(/\/+$/, '').toLowerCase() === bu);
+      const p = this.aiProviders.find((x: AIProvider) => x.baseUrl.replace(/\/+$/, '').toLowerCase() === bu);
       return p?.id || '';
     },
     presetDescription() {
       const id = this.aiPreset || this.currentPresetId();
-      const p = this.aiProviders.find((x) => x.id === id);
+      const p = this.aiProviders.find((x: AIProvider) => x.id === id);
       return p?.description || 'Custom: cualquier endpoint /v1/chat/completions';
     },
     presetRegion() {
       const id = this.aiPreset || this.currentPresetId();
-      const p = this.aiProviders.find((x) => x.id === id);
+      const p = this.aiProviders.find((x: AIProvider) => x.id === id);
       return p?.region || '';
     },
     presetApiKeyLabel() {
       const id = this.aiPreset || this.currentPresetId();
-      const p = this.aiProviders.find((x) => x.id === id);
+      const p = this.aiProviders.find((x: AIProvider) => x.id === id);
       return p?.apiKeyLabel || 'API Key';
     },
     presetApiKeyHelp() {
       const id = this.aiPreset || this.currentPresetId();
-      const p = this.aiProviders.find((x) => x.id === id);
+      const p = this.aiProviders.find((x: AIProvider) => x.id === id);
       return p?.apiKeyHelp || 'Tu clave del provider. Se guarda en data/config.json en texto plano (ver ayuda en el ícono ?).';
     },
     presetModels() {
       const id = this.aiPreset || this.currentPresetId();
-      const p = this.aiProviders.find((x) => x.id === id);
+      const p = this.aiProviders.find((x: AIProvider) => x.id === id);
       return p?.models || [];
     },
     useDefaultSystemPrompt() {
@@ -143,8 +144,8 @@ export function createAiState(): AdminFragment {
           const err = await res.json().catch(() => ({}));
           this.aiTestResult = `✗ ${res.status}: ${err.error || res.statusText}`;
         }
-      } catch (err) {
-        this.aiTestResult = `✗ ${err.message}`;
+      } catch (err: unknown) {
+        this.aiTestResult = `✗ ${errMsg(err)}`;
       } finally {
         this.aiBusy = false;
       }
@@ -172,8 +173,8 @@ export function createAiState(): AdminFragment {
         if (data.title) this.editingCard.title = data.title;
         if (data.description !== undefined) this.editingCard.description = data.description;
         window.umbralAdmin.toast('Mejorado con IA. Revisá antes de guardar.', 'success');
-      } catch (err) {
-        window.umbralAdmin.toast(`Error: ${err.message}`, 'error');
+      } catch (err: unknown) {
+        window.umbralAdmin.toast(`Error: ${errMsg(err)}`, 'error');
       } finally {
         this.aiBusy = false;
       }

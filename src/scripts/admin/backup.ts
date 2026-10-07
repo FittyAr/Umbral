@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment } from "./types";
 import { confirmAction } from './confirm.ts';
 
 /**
@@ -20,21 +20,22 @@ export function createBackupState(): AdminFragment {
         a.click();
         URL.revokeObjectURL(url);
         window.umbralAdmin.toast('Exportado', 'success');
-      } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
+      } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
     },
 
-    async importConfig(e) {
-      const file = e.target.files?.[0];
+    async importConfig(e: Event) {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
       if (!file) return;
       // Cap defensivo. El server también valida (1MB en middleware), pero
       // un archivo de 100MB en el browser congela la UI y se lleva la RAM.
       const MAX_IMPORT_BYTES = 1024 * 1024;
       if (file.size > MAX_IMPORT_BYTES) {
         window.umbralAdmin.toast(`Archivo demasiado grande (${(file.size/1024).toFixed(0)} KB, máx ${MAX_IMPORT_BYTES/1024} KB)`, 'error');
-        e.target.value = ''; return;
+        target.value = ''; return;
       }
       if (!confirmAction('Importar reemplazará TODA la configuración actual. ¿Continuar?')) {
-        e.target.value = ''; return;
+        target.value = ''; return;
       }
       try {
         const text = await file.text();
@@ -42,9 +43,9 @@ export function createBackupState(): AdminFragment {
         await window.umbralAdmin.api('PUT', '/api/import', data);
         window.umbralAdmin.toast('Importado. Recargando…', 'success');
         setTimeout(() => location.reload(), 800);
-      } catch (err) {
-        window.umbralAdmin.toast('Error: ' + err.message, 'error');
-      } finally { e.target.value = ''; }
+      } catch (err: unknown) {
+        window.umbralAdmin.toast('Error: ' + errMsg(err), 'error');
+      } finally { target.value = ''; }
     },
 
     async resetConfig() {
@@ -57,7 +58,7 @@ export function createBackupState(): AdminFragment {
         this.dirty = false;
         window.umbralAdmin.toast('Reseteado', 'success');
         await this.refreshAssets();
-      } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
+      } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
     },
 
   };

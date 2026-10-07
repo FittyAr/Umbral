@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment, type FeatureListItem, type AdminApiToken } from "./types";
 import { confirmAction } from './confirm.ts';
 
 /**
@@ -10,7 +10,7 @@ import { confirmAction } from './confirm.ts';
 export function createTokensState(): AdminFragment {
   return {
     // API Tokens (opt-in: features.apiTokens)
-    apiTokensEnabled: window.__featureList?.find?.((f) => f.name === 'apiTokens')?.enabled === true,
+    apiTokensEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'apiTokens')?.enabled === true,
     newToken: { name: '', scope: 'read', expiresInDays: 0 },
     showTokenModal: false,
     generatedTokenPlain: '',
@@ -26,20 +26,20 @@ export function createTokensState(): AdminFragment {
           this.newToken = { name: '', scope: 'read', expiresInDays: 0 };
           window.umbralAdmin.toast('Token generado con éxito', 'success');
         }
-      } catch (e) {
-        window.umbralAdmin.toast(e.message, 'error');
+      } catch (e: unknown) {
+        window.umbralAdmin.toast(errMsg(e), 'error');
       }
     },
-    async revokeToken(id) {
+    async revokeToken(id: string) {
       if (!confirmAction('¿Revocar este token API? Las integraciones que lo usen dejarán de funcionar.')) return;
       try {
         await window.umbralAdmin.api('DELETE', '/api/tokens', { id });
         if (this.cfg.apiTokens?.items) {
-          this.cfg.apiTokens.items = this.cfg.apiTokens.items.filter((t) => t.id !== id);
+          this.cfg.apiTokens.items = this.cfg.apiTokens.items.filter((t: AdminApiToken) => t.id !== id);
         }
         window.umbralAdmin.toast('Token revocado', 'success');
-      } catch (e) {
-        window.umbralAdmin.toast(e.message, 'error');
+      } catch (e: unknown) {
+        window.umbralAdmin.toast(errMsg(e), 'error');
       }
     },
   };

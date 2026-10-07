@@ -1,4 +1,5 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment, type FeatureListItem, type AdminMetricsRow } from "./types";
+import type { Card } from "~/lib/schema";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio metrics.
@@ -10,7 +11,7 @@ export function createMetricsState(): AdminFragment {
   return {
     // Métricas (opt-in: features.metrics). El server registra samples
     // en /api/status. La UI carga el summary + sparkline via /api/metrics.
-    metricsEnabled: window.__featureList?.find?.((f) => f.name === 'metrics')?.enabled === true,
+    metricsEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'metrics')?.enabled === true,
     metricsTitle() { return this.i18n?.metrics?.title || 'Métricas'; },
     metricsIntro() { return this.i18n?.metrics?.intro || 'Sparklines + resumen (avg, p95, max) por card.'; },
     metricsReloadLabel() { return this.i18n?.metrics?.reload || 'Recargar'; },
@@ -32,7 +33,7 @@ export function createMetricsState(): AdminFragment {
         // Por cada card, fetchear el SVG del sparkline por separado.
         // Es N+1 queries pero N es chico (decenas de cards max en
         // deployments típicos) y los SVG son chicos.
-        this.metricsRows = await Promise.all(cards.map(async (row) => {
+        this.metricsRows = await Promise.all(cards.map(async (row: AdminMetricsRow) => {
           let svg = '';
           try {
             const svgRes = await fetch(`/api/metrics?id=${encodeURIComponent(row.cardId)}&svg=1&range=${this.metricsRange}&limit=${this.metricsLimit}`, { credentials: 'same-origin' });
@@ -40,18 +41,18 @@ export function createMetricsState(): AdminFragment {
           } catch (e) { /* silent */ }
           return { ...row, sparkline: svg };
         }));
-      } catch (e) {
-        this.metricsError = e.message || String(e);
+      } catch (e: unknown) {
+        this.metricsError = errMsg(e);
         this.metricsRows = [];
       } finally {
         this.metricsLoading = false;
       }
     },
-    cardTitleForId(id) {
-      const c = this.cfg.cards.find((c) => c.id === id);
+    cardTitleForId(id: string) {
+      const c = this.cfg.cards.find((c: Card) => c.id === id);
       return c?.title || id;
     },
-    formatRelativeTime(iso) {
+    formatRelativeTime(iso: string | null | undefined) {
       if (!iso) return '—';
       const ms = Date.now() - new Date(iso).getTime();
       if (ms < 0) return 'ahora';

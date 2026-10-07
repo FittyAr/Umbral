@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import type { AdminFragment, FeatureListItem } from "./types";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio oidc.
@@ -9,7 +9,7 @@ import type { AdminFragment } from "./types";
 export function createOidcState(): AdminFragment {
   return {
     // OIDC (opt-in: features.oidc)
-    oidcEnabled: window.__featureList?.find?.((f) => f.name === 'oidc')?.enabled === true,
+    oidcEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'oidc')?.enabled === true,
     newOidc: { id: '', name: '', issuer: '', clientId: '', clientSecret: '', scopes: 'openid profile email', defaultRole: 'viewer', autoProvision: false },
     addOidcProvider() {
       if (!this.cfg.oidc) this.cfg.oidc = { providers: [] };
@@ -35,7 +35,7 @@ export function createOidcState(): AdminFragment {
       this.markDirty();
       window.umbralAdmin.toast('Provider OIDC agregado', 'success');
     },
-    removeOidcProvider(idx) {
+    removeOidcProvider(idx: number) {
       if (!this.cfg.oidc?.providers) return;
       this.cfg.oidc.providers.splice(idx, 1);
       this.markDirty();

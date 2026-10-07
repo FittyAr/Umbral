@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment, type FeatureListItem, type AdminAuditEntry } from "./types";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio audit.
@@ -11,7 +11,7 @@ export function createAuditState(): AdminFragment {
     // Audit log viewer (opt-in). El server sólo renderiza esta sección
     // si features.auditLogViewer.enabled — acá decidimos si mostrar
     // filtros, cargar entries, etc.
-    auditLogEnabled: window.__featureList?.find?.((f) => f.name === 'auditLogViewer')?.enabled === true,
+    auditLogEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'auditLogViewer')?.enabled === true,
     auditEntries: [],
     auditActions: [],
     auditLoading: false,
@@ -67,8 +67,8 @@ export function createAuditState(): AdminFragment {
         const r = await window.umbralAdmin.api('GET', url);
         this.auditEntries = r?.entries || [];
         this.auditResult = r;
-      } catch (e) {
-        this.auditError = e.message || String(e);
+      } catch (e: unknown) {
+        this.auditError = errMsg(e);
         this.auditEntries = [];
       } finally {
         this.auditLoading = false;
@@ -88,7 +88,7 @@ export function createAuditState(): AdminFragment {
       // archivo desde la UI via `auditResult.path` (mensaje en pantalla).
       try {
         const r = await window.umbralAdmin.api('GET', '/api/audit?limit=1000');
-        const lines = (r.entries || []).map((e) => `${e.ts}\t${e.action}\t${e.detail}`).reverse().join('\n');
+        const lines = (r.entries || []).map((e: AdminAuditEntry) => `${e.ts}\t${e.action}\t${e.detail}`).reverse().join('\n');
         const blob = new Blob([lines + '\n'], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -98,14 +98,14 @@ export function createAuditState(): AdminFragment {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      } catch (e) {
-        window.umbralAdmin.toast(this.i18n?.audit?.downloadError || ('Error: ' + (e?.message || e)), 'error');
+      } catch (e: unknown) {
+        window.umbralAdmin.toast(this.i18n?.audit?.downloadError || ('Error: ' + errMsg(e)), 'error');
       }
     },
 
     // Formato local-friendly para el timestamp ISO. Usa el locale del
     // navegador del admin (no el del portal).
-    formatAuditTs(iso) {
+    formatAuditTs(iso: string) {
       try {
         return new Date(iso).toLocaleString();
       } catch {

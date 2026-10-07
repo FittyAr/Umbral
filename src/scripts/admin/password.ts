@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment } from "./types";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio password.
@@ -26,7 +26,7 @@ export function createPasswordState(): AdminFragment {
         }
         this.pwForm = { current: '', next: '', confirm: '' };
         window.umbralAdmin.toast('Contraseña cambiada', 'success');
-      } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
+      } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
     },
 
     // Banner rojo si el password actual es uno de los default inseguros.

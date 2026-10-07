@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment, type FeatureListItem, type AdminWebhook } from "./types";
 import { newId } from '~/lib/ids';
 import { confirmAction } from './confirm.ts';
 
@@ -12,7 +12,7 @@ export function createWebhooksState(): AdminFragment {
   return {
     // Webhooks (opt-in: features.webhooks). Engine se ejecuta en
     // server; acá solo manejamos la UI de la lista + form de alta.
-    webhooksEnabled: window.__featureList?.find?.((f) => f.name === 'webhooks')?.enabled === true,
+    webhooksEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'webhooks')?.enabled === true,
     webhooksTitle() { return this.i18n?.webhooks?.title || 'Webhooks'; },
     webhooksIntro() { return this.i18n?.webhooks?.intro || 'Notifica a URLs externas cuando una card con health-check cambia de estado.'; },
     webhooksAddLabel() { return this.i18n?.webhooks?.add || 'Agregar'; },
@@ -52,13 +52,13 @@ export function createWebhooksState(): AdminFragment {
       this.newWebhook = { name: '', url: '', eventFail: true, eventRecover: false, minFailures: 3, cooldownMin: 30 };
       this.markDirty();
     },
-    removeWebhook(idx) {
+    removeWebhook(idx: number) {
       if (!this.cfg.webhooks?.items?.[idx]) return;
       if (!confirmAction('¿Borrar este webhook?')) return;
       this.cfg.webhooks.items.splice(idx, 1);
       this.markDirty();
     },
-    async testWebhook(wh) {
+    async testWebhook(wh: AdminWebhook) {
       this.webhookTesting = wh.id;
       try {
         const r = await window.umbralAdmin.api('POST', '/api/webhooks/test', { url: wh.url });
@@ -66,8 +66,8 @@ export function createWebhooksState(): AdminFragment {
           r.ok ? `Test OK (HTTP ${r.status})` : `Test falló: ${r.error || r.status || '?'}`,
           r.ok ? 'success' : 'error',
         );
-      } catch (e) {
-        window.umbralAdmin.toast(`Error: ${e.message}`, 'error');
+      } catch (e: unknown) {
+        window.umbralAdmin.toast(`Error: ${errMsg(e)}`, 'error');
       } finally {
         this.webhookTesting = null;
       }
@@ -80,13 +80,13 @@ export function createWebhooksState(): AdminFragment {
           r.ok ? `Test OK (HTTP ${r.status})` : `Test falló: ${r.error || r.status || '?'}`,
           r.ok ? 'success' : 'error',
         );
-      } catch (e) {
-        window.umbralAdmin.toast(`Error: ${e.message}`, 'error');
+      } catch (e: unknown) {
+        window.umbralAdmin.toast(`Error: ${errMsg(e)}`, 'error');
       } finally {
         this.webhookTesting = null;
       }
     },
-    webhookTestLabel(id) {
+    webhookTestLabel(id: string) {
       return this.webhookTesting === id ? 'Probando…' : 'Probar';
     },
 

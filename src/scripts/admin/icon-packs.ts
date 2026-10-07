@@ -1,4 +1,5 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment } from "./types";
+import type { IconPackDefinition, IconPackStatus } from "~/lib/icon-packs/catalog";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio icon-packs.
@@ -25,7 +26,7 @@ export function createIconPacksState(): AdminFragment {
       if (!this._iconPackCatalogPromise) {
         this._iconPackCatalogPromise = window.umbralAdmin
           .api('GET', '/api/icon-pack-catalog.json')
-          .then((res) => {
+          .then((res: { packs?: IconPackDefinition[] }) => {
             this.iconPackCatalog = res.packs || [];
           })
           .catch(() => {
@@ -37,7 +38,7 @@ export function createIconPacksState(): AdminFragment {
 
     seedIconPacksCatalog() {
       const catalog = this.iconPackCatalog;
-      return catalog.map((p) => ({
+      return catalog.map((p: IconPackDefinition) => ({
         ...p,
         installed: false,
         installedAt: undefined,
@@ -58,18 +59,18 @@ export function createIconPacksState(): AdminFragment {
     // Alpine coerce un resultado `undefined` a '' cuando la expresion de
     // x-bind contiene un punto, y '' activa los atributos booleanos. Por
     // eso todo binding de :disabled tiene que devolver un booleano real.
-    isPackBusy(packId) {
+    isPackBusy(packId: string) {
       return this.iconPacksInstalling[packId] === true;
     },
 
-    isPackActionBlocked(packId) {
+    isPackActionBlocked(packId: string) {
       return !this.iconPacksPersisted() || this.isPackBusy(packId);
     },
 
-    mergeIconPacksFromApi(apiPacks) {
-      const byId = new Map((apiPacks || []).map((p) => [p.id, p]));
+    mergeIconPacksFromApi(apiPacks: IconPackStatus[] | null | undefined) {
+      const byId = new Map((apiPacks || []).map((p): [string, IconPackStatus] => [p.id, p]));
       const catalog = this.iconPackCatalog;
-      return catalog.map((def) => {
+      return catalog.map((def: IconPackDefinition) => {
         const fromApi = byId.get(def.id);
         if (fromApi) return fromApi;
         return {
@@ -85,7 +86,7 @@ export function createIconPacksState(): AdminFragment {
       return 'Guardá los cambios (botón «Guardar cambios» arriba) para habilitar la instalación y desinstalación de paquetes de íconos.';
     },
 
-    isIconPacksFeatureDisabledError(message) {
+    isIconPacksFeatureDisabledError(message: string | null | undefined) {
       const m = (message || '').toLowerCase();
       return m.includes('iconpacks') && m.includes('desactivada');
     },
@@ -108,18 +109,18 @@ export function createIconPacksState(): AdminFragment {
           this.availableIcons = res.availableIcons;
         }
         this.iconPackMsg = { text: '', error: false };
-      } catch (e) {
-        if (this.isIconPacksFeatureDisabledError(e.message)) {
+      } catch (e: unknown) {
+        if (this.isIconPacksFeatureDisabledError(errMsg(e))) {
           this.iconPackMsg = { text: this.iconPacksSaveRequiredMsg(), error: true };
         } else {
-          this.iconPackMsg = { text: 'Error al cargar paquetes: ' + e.message, error: true };
+          this.iconPackMsg = { text: 'Error al cargar paquetes: ' + errMsg(e), error: true };
         }
       } finally {
         this.iconPacksLoading = false;
       }
     },
 
-    async installPack(packId) {
+    async installPack(packId: string) {
       if (this.iconPacksNeedsSave()) {
         const msg = this.iconPacksSaveRequiredMsg();
         this.iconPackMsg = { text: msg, error: true };
@@ -134,10 +135,10 @@ export function createIconPacksState(): AdminFragment {
         window.umbralAdmin.toast(this.iconPackMsg.text, 'success');
         await this.loadIconPacks();
         await this.refreshAssets();
-      } catch (e) {
-        const text = this.isIconPacksFeatureDisabledError(e.message)
+      } catch (e: unknown) {
+        const text = this.isIconPacksFeatureDisabledError(errMsg(e))
           ? this.iconPacksSaveRequiredMsg()
-          : 'Error al instalar paquete: ' + e.message;
+          : 'Error al instalar paquete: ' + errMsg(e);
         this.iconPackMsg = { text, error: true };
         window.umbralAdmin.toast(text, 'error');
       } finally {
@@ -145,7 +146,7 @@ export function createIconPacksState(): AdminFragment {
       }
     },
 
-    async uninstallPack(packId) {
+    async uninstallPack(packId: string) {
       if (this.iconPacksNeedsSave()) {
         const msg = this.iconPacksSaveRequiredMsg();
         this.iconPackMsg = { text: msg, error: true };
@@ -159,10 +160,10 @@ export function createIconPacksState(): AdminFragment {
         window.umbralAdmin.toast(this.iconPackMsg.text, 'success');
         await this.loadIconPacks();
         await this.refreshAssets();
-      } catch (e) {
-        const text = this.isIconPacksFeatureDisabledError(e.message)
+      } catch (e: unknown) {
+        const text = this.isIconPacksFeatureDisabledError(errMsg(e))
           ? this.iconPacksSaveRequiredMsg()
-          : 'Error al desinstalar: ' + e.message;
+          : 'Error al desinstalar: ' + errMsg(e);
         this.iconPackMsg = { text, error: true };
         window.umbralAdmin.toast(text, 'error');
       } finally {
@@ -189,10 +190,10 @@ export function createIconPacksState(): AdminFragment {
         this.customPack.prefix = '';
         await this.loadIconPacks();
         await this.refreshAssets();
-      } catch (e) {
-        const text = this.isIconPacksFeatureDisabledError(e.message)
+      } catch (e: unknown) {
+        const text = this.isIconPacksFeatureDisabledError(errMsg(e))
           ? this.iconPacksSaveRequiredMsg()
-          : 'Error al instalar desde repositorio: ' + e.message;
+          : 'Error al instalar desde repositorio: ' + errMsg(e);
         this.iconPackMsg = { text, error: true };
         window.umbralAdmin.toast(text, 'error');
       } finally {

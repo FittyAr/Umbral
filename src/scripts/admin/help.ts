@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment } from "./types";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio help.
@@ -17,7 +17,7 @@ export function createHelpState(): AdminFragment {
     helpModalKey: null,
 
     // ── Help modal ──────────────────────────────────────────────
-    async showHelp(key) {
+    async showHelp(key: string) {
       this.helpModalKey = key;
       await this.ensureHelpTexts();
     },
@@ -30,9 +30,9 @@ export function createHelpState(): AdminFragment {
       try {
         const data = await window.umbralAdmin.api('GET', `/api/help/${window.__helpLocale || 'es'}.json`);
         this.helpTexts = data.texts || {};
-      } catch (e) {
+      } catch (e: unknown) {
         this.helpModalKey = null;
-        window.umbralAdmin.toast('No se pudo cargar la ayuda: ' + e.message, 'error');
+        window.umbralAdmin.toast('No se pudo cargar la ayuda: ' + errMsg(e), 'error');
       } finally {
         this.helpLoading = false;
       }

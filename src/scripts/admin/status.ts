@@ -1,4 +1,5 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment } from "./types";
+import type { Card } from "~/lib/schema";
 
 /**
  * Fragmento del objeto Alpine del admin: dominio status.
@@ -15,16 +16,16 @@ export function createStatusState(): AdminFragment {
       this.checkingStatus = true;
       this.statusResults = [];
       try {
-        const data = await window.umbralAdmin.api('POST', '/api/status', { ids: this.cfg.cards.filter(c=>c.enabled).map(c=>c.id) });
+        const data = await window.umbralAdmin.api('POST', '/api/status', { ids: this.cfg.cards.filter((c: Card)=>c.enabled).map((c: Card)=>c.id) });
         this.statusResults = data.results || [];
-      } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
+      } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
       finally { this.checkingStatus = false; }
     },
 
     async checkHealth() {
       try {
         this.healthInfo = await window.umbralAdmin.api('GET', '/api/health');
-      } catch (e) { window.umbralAdmin.toast(e.message, 'error'); }
+      } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
     },
 
   };

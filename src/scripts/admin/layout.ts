@@ -1,4 +1,5 @@
 import type { AdminFragment } from "./types";
+import type { LayoutPreviewViewport } from "~/lib/layout-admin-client";
 import { getLayoutClient, loadLayoutClient } from "./lazy-clients.ts";
 
 /**
@@ -58,11 +59,11 @@ export function createLayoutState(): AdminFragment {
         : this.l('layoutGridAlignCenter');
       return `${vpLabel} · ${cols} col · ${this.cfg.layout.maxWidth}px · ${align}`;
     },
-    setLayoutPreviewViewport(viewport) {
+    setLayoutPreviewViewport(viewport: LayoutPreviewViewport) {
       this.layoutPreviewViewport = viewport;
       this.layoutBreakpoint = viewport;
     },
-    setLayoutBreakpoint(breakpoint) {
+    setLayoutBreakpoint(breakpoint: LayoutPreviewViewport) {
       this.layoutBreakpoint = breakpoint;
       this.layoutPreviewViewport = breakpoint;
     },

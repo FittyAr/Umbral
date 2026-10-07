@@ -1,4 +1,7 @@
-import type { AdminFragment } from "./types";
+import { errMsg, type AdminFragment, type FeatureListItem, type AdminAsset } from "./types";
+import type Sortable from "sortablejs";
+import type { Card, Category } from "~/lib/schema";
+import type { AppPreset } from "~/lib/presets";
 import { cardGroups as buildCardGroups, adminCardsLayout as buildAdminCardsLayout, moveCardToCategory, moveCardToUngrouped, syncOrderFromDom, realCategories as filterRealCategories, reorderRealCategories, createGhostCategory, ORPHAN_CATEGORY_ID, GAP_CATEGORY_ID, UNGROUPED_SELECT_ID } from "~/lib/cards-admin";
 import { isSystemCard as checkSystemCard, SYSTEM_DOCS_ICON, SYSTEM_DOCS_ICON_PATH } from "~/lib/system-card";
 import { clampCardSpan, MAX_CARD_SPAN } from "~/lib/card-span";
@@ -27,7 +30,7 @@ export function createCardsState(): AdminFragment {
     // Markdown (opt-in: features.markdown). El toggle aparece en el
     // form sólo si la feature está activa. descriptionFormat default
     // a 'plain' para cards nuevos; el user puede flippearlo.
-    markdownEnabled: window.__featureList?.find?.((f) => f.name === 'markdown')?.enabled === true,
+    markdownEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'markdown')?.enabled === true,
     markdownPreview: '',
     markdownPreviewDirty: true,
     // i18n methods (Alpine 3: se llaman con `()` en el HTML)
@@ -64,7 +67,7 @@ export function createCardsState(): AdminFragment {
       if (!this._iconNamesPromise) {
         this._iconNamesPromise = window.umbralAdmin
           .api('GET', '/api/icon-names')
-          .then((res) => {
+          .then((res: { availableIcons?: string[] }) => {
             this.availableIcons = res.availableIcons || [];
           })
           .catch(() => {
@@ -97,7 +100,7 @@ export function createCardsState(): AdminFragment {
     },
 
     iconPickerPacks() {
-      const packs = new Set();
+      const packs = new Set<string>();
       for (const i of this.availableIcons) {
         const slash = i.indexOf('/');
         if (slash > 0) packs.add(i.slice(0, slash));
@@ -112,10 +115,10 @@ export function createCardsState(): AdminFragment {
     filteredIconPickerIcons() {
       let list = this.availableIcons;
       if (this.iconPickerPack !== 'all') {
-        list = list.filter((i) => i.startsWith(this.iconPickerPack + '/'));
+        list = list.filter((i: string) => i.startsWith(this.iconPickerPack + '/'));
       }
       const q = this.iconPickerSearch.toLowerCase().trim();
-      if (q) list = list.filter((i) => i.toLowerCase().includes(q));
+      if (q) list = list.filter((i: string) => i.toLowerCase().includes(q));
       return list;
     },
 
@@ -132,7 +135,7 @@ export function createCardsState(): AdminFragment {
     },
 
     iconPickerAssets() {
-      return this.assets.filter((a) => /\.(svg|png|jpg|jpeg|webp|gif|ico)$/i.test(a.name));
+      return this.assets.filter((a: AdminAsset) => /\.(svg|png|jpg|jpeg|webp|gif|ico)$/i.test(a.name));
     },
 
     iconPickerEmptyMessage() {
@@ -160,7 +163,7 @@ export function createCardsState(): AdminFragment {
     // completo del schema; el recorte a las columnas reales lo hace el
     // render (lib/card-span.ts) y el hint lo anticipa acá.
     cardSpanOptions() { return Array.from({ length: MAX_CARD_SPAN }, (_, i) => i + 1); },
-    cardSpanOptionLabel(n) {
+    cardSpanOptionLabel(n: number) {
       if (n === 1) return this.l('cardSpanSingle');
       const tpl = this.l('cardSpanMultiple');
       return tpl.replace('{n}', String(n));
@@ -171,19 +174,19 @@ export function createCardsState(): AdminFragment {
       const tpl = this.l('cardSpanHint');
       return tpl.split('{cols}').join(String(cols)).split('{n}').join(String(effective));
     },
-    cardSpanBadgeLabel(card) {
+    cardSpanBadgeLabel(card: Card | null | undefined) {
       const span = Number(card?.span) || 1;
       return span > 1 ? this.cardSpanOptionLabel(span) : '';
     },
     // Tags (opt-in: features.tags). El server dropea el array si la
     // feature está apagada. Acá solo manejamos el chip input + autocomplete.
-    tagsEnabled: window.__featureList?.find?.((f) => f.name === 'tags')?.enabled === true,
+    tagsEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'tags')?.enabled === true,
     tagInput: '',
     // Pinned (opt-in: features.pinned). El server fuerza pinned=false
     // si la feature está apagada.
-    pinnedEnabled: window.__featureList?.find?.((f) => f.name === 'pinned')?.enabled === true,
+    pinnedEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'pinned')?.enabled === true,
     // Presets (opt-in: features.presets)
-    presetsEnabled: window.__featureList?.find?.((f) => f.name === 'presets')?.enabled === true,
+    presetsEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'presets')?.enabled === true,
     // 225 plantillas, 55 KB: se piden a /api/presets.json al abrir el
     // modal, no en cada carga del dashboard.
     appPresets: [],
@@ -193,14 +196,14 @@ export function createCardsState(): AdminFragment {
     presetFilter: '',
     presetCategoryFilter: '',
     presetCategories() {
-      const map = new Map();
-      for (const p of this.appPresets) {
+      const map = new Map<string, { id: string; name: string; count: number }>();
+      for (const p of this.appPresets as AppPreset[]) {
         const catId = p.category;
         const catName = p.defaultCategoryName || p.category;
         if (!map.has(catId)) {
           map.set(catId, { id: catId, name: catName, count: 1 });
         } else {
-          map.get(catId).count++;
+          map.get(catId)!.count++;
         }
       }
       return Array.from(map.values());
@@ -208,11 +211,11 @@ export function createCardsState(): AdminFragment {
     filteredAppPresets() {
       let list = this.appPresets;
       if (this.presetCategoryFilter) {
-        list = list.filter((p) => p.category === this.presetCategoryFilter);
+        list = list.filter((p: AppPreset) => p.category === this.presetCategoryFilter);
       }
       if (this.presetFilter) {
         const q = this.presetFilter.toLowerCase().trim();
-        list = list.filter((p) =>
+        list = list.filter((p: AppPreset) =>
           p.name.toLowerCase().includes(q) ||
           p.description.toLowerCase().includes(q) ||
           p.category.toLowerCase().includes(q) ||
@@ -227,12 +230,12 @@ export function createCardsState(): AdminFragment {
         this.presetsLoading = true;
         this._appPresetsPromise = window.umbralAdmin
           .api('GET', '/api/presets.json')
-          .then((res) => {
+          .then((res: { presets?: AppPreset[] }) => {
             this.appPresets = res.presets || [];
           })
-          .catch((e) => {
+          .catch((e: unknown) => {
             this._appPresetsPromise = null;
-            window.umbralAdmin.toast('No se pudieron cargar las plantillas: ' + e.message, 'error');
+            window.umbralAdmin.toast('No se pudieron cargar las plantillas: ' + errMsg(e), 'error');
           })
           .finally(() => {
             this.presetsLoading = false;
@@ -247,9 +250,9 @@ export function createCardsState(): AdminFragment {
       this.showPresetsModal = true;
       await this.ensureAppPresets();
     },
-    applyAppPreset(p) {
+    applyAppPreset(p: AppPreset) {
       this.showPresetsModal = false;
-      let cat = this.realCategories().find((c) => c.name.toLowerCase() === (p.defaultCategoryName || '').toLowerCase() || c.id === p.category);
+      let cat = this.realCategories().find((c: Category) => c.name.toLowerCase() === (p.defaultCategoryName || '').toLowerCase() || c.id === p.category);
       if (!cat) cat = this.realCategories()[0];
       const newCard = {
         id: newId('card'),
@@ -283,8 +286,8 @@ export function createCardsState(): AdminFragment {
       // user está tipeando. Limit 8.
       if (!this.tagInput) return [];
       const q = this.tagInput.toLowerCase();
-      const current = new Set((this.editingCard?.tags || []).map(t => t.toLowerCase()));
-      const allTags = new Set();
+      const current = new Set((this.editingCard?.tags || []).map((t: string) => t.toLowerCase()));
+      const allTags = new Set<string>();
       for (const c of (this.cfg?.cards || [])) {
         for (const t of (c.tags || [])) {
           const norm = String(t).toLowerCase().trim();
@@ -293,7 +296,7 @@ export function createCardsState(): AdminFragment {
       }
       return Array.from(allTags).filter(t => t.startsWith(q)).sort().slice(0, 8);
     },
-    cardSortableOptions(container) {
+    cardSortableOptions(container: HTMLElement) {
       return {
         group: { name: 'cards', pull: true, put: true },
         draggable: '.card-item',
@@ -333,7 +336,7 @@ export function createCardsState(): AdminFragment {
           handle: '.drag-handle',
           animation: 150,
           onEnd: (evt) => {
-            reorderRealCategories(this.cfg.categories, evt.oldIndex, evt.newIndex);
+            reorderRealCategories(this.cfg.categories, evt.oldIndex!, evt.newIndex!);
             this.markDirty();
           },
         });
@@ -342,7 +345,7 @@ export function createCardsState(): AdminFragment {
     },
 
     pruneCardSortables() {
-      this._cardSortables = this._cardSortables.filter((s) => {
+      this._cardSortables = this._cardSortables.filter((s: Sortable) => {
         if (s.el && document.contains(s.el)) return true;
         try { s.destroy(); } catch { /* el may already be gone */ }
         return false;
@@ -350,7 +353,7 @@ export function createCardsState(): AdminFragment {
     },
 
     destroyAllCardSortables() {
-      this._cardSortables.forEach((s) => {
+      this._cardSortables.forEach((s: Sortable) => {
         try { s.destroy(); } catch { /* el may already be gone */ }
       });
       this._cardSortables = [];
@@ -377,7 +380,7 @@ export function createCardsState(): AdminFragment {
 
       this.pruneCardSortables();
 
-      const groups = container.querySelectorAll('.cards-group-list[data-category]');
+      const groups = container.querySelectorAll<HTMLElement>('.cards-group-list[data-category]');
       groups.forEach((groupEl) => {
         const wrap = groupEl.parentElement;
         if (wrap && window.getComputedStyle(wrap).display === 'none') return;
@@ -427,32 +430,32 @@ export function createCardsState(): AdminFragment {
       return filterRealCategories(this.cfg.categories);
     },
 
-    categorySelectValue(card) {
+    categorySelectValue(card: Card | null | undefined) {
       if (!card) return '';
-      const cat = this.cfg.categories.find((c) => c.id === card.category);
+      const cat = this.cfg.categories.find((c: Category) => c.id === card.category);
       if (!cat || cat.isGhost) return UNGROUPED_SELECT_ID;
       return card.category;
     },
 
-    toggleCardGroup(categoryId) {
+    toggleCardGroup(categoryId: string) {
       this.collapsedCardGroups[categoryId] = !this.isCardGroupCollapsed(categoryId);
       if (this.tab === 'cards') {
         this.$nextTick(() => this.initCardSortables());
       }
     },
 
-    isCardGroupCollapsed(categoryId) {
+    isCardGroupCollapsed(categoryId: string) {
       return Boolean(this.collapsedCardGroups[categoryId]);
     },
 
-    addCardToCategory(categoryId) {
+    addCardToCategory(categoryId: string) {
       if (categoryId === ORPHAN_CATEGORY_ID) return;
       this.addCard(categoryId);
     },
 
-    changeCardCategory(cardId, categoryId) {
+    changeCardCategory(cardId: string, categoryId: string) {
       if (!categoryId || categoryId === ORPHAN_CATEGORY_ID || categoryId === GAP_CATEGORY_ID) return;
-      const card = this.cfg.cards.find((c) => c.id === cardId);
+      const card = this.cfg.cards.find((c: Card) => c.id === cardId);
       if (!card || this.isSystemCard(card)) return;
       if (categoryId === UNGROUPED_SELECT_ID) {
         moveCardToUngrouped(this.cfg.categories, this.cfg.cards, cardId);
@@ -463,13 +466,13 @@ export function createCardsState(): AdminFragment {
       this.$nextTick(() => this.initCardSortables());
     },
 
-    editCardById(cardId) {
-      const idx = this.filteredCards().findIndex((c) => c.id === cardId);
+    editCardById(cardId: string) {
+      const idx = this.filteredCards().findIndex((c: Card) => c.id === cardId);
       if (idx >= 0) this.editCard(idx);
     },
 
-    removeCardById(cardId) {
-      const idx = this.filteredCards().findIndex((c) => c.id === cardId);
+    removeCardById(cardId: string) {
+      const idx = this.filteredCards().findIndex((c: Card) => c.id === cardId);
       if (idx >= 0) this.removeCard(idx);
     },
 
@@ -485,9 +488,9 @@ export function createCardsState(): AdminFragment {
       );
     },
 
-    addCard(categoryId) {
+    addCard(categoryId?: string) {
       const reals = this.realCategories();
-      if (!reals.length && categoryId !== UNGROUPED_SELECT_ID && !this.cfg.categories.some((c) => c.id === categoryId)) {
+      if (!reals.length && categoryId !== UNGROUPED_SELECT_ID && !this.cfg.categories.some((c: Category) => c.id === categoryId)) {
         window.umbralAdmin.toast('Primero creá una categoría', 'error');
         this.tab = 'categories';
         return;
@@ -517,10 +520,10 @@ export function createCardsState(): AdminFragment {
       };
       this.prepareCardEditor();
     },
-    async editCard(idx) {
+    async editCard(idx: number) {
       const cardId = this.filteredCards()[idx]?.id;
       if (cardId) {
-        const target = this.cfg.cards.find((c) => c.id === cardId);
+        const target = this.cfg.cards.find((c: Card) => c.id === cardId);
         if (target && this.isSystemCard(target)) {
           window.umbralAdmin.toast('Esta tarjeta es del sistema (apunta a la documentación de Umbral en /docs) y no se puede editar.', 'error');
           return;
@@ -530,7 +533,7 @@ export function createCardsState(): AdminFragment {
         window.umbralAdmin.toast('No se pudo encontrar la tarjeta', 'error');
         return;
       }
-      const realIdx = this.cfg.cards.findIndex((c) => c.id === cardId);
+      const realIdx = this.cfg.cards.findIndex((c: Card) => c.id === cardId);
       if (realIdx < 0) {
         window.umbralAdmin.toast('No se pudo encontrar la tarjeta en la config', 'error');
         return;
@@ -551,7 +554,7 @@ export function createCardsState(): AdminFragment {
         // de Alpine 3 puede perder tipos o referencias. Spread es
         // suficiente porque CardSchema es flat (sin objetos anidados).
         this.editingCard = { ...parsed.data };
-        const currentCat = this.cfg.categories.find((c) => c.id === this.editingCard.category);
+        const currentCat = this.cfg.categories.find((c: Category) => c.id === this.editingCard.category);
         if (currentCat?.isGhost) this.editingCard.category = UNGROUPED_SELECT_ID;
         this.cardFormDirty = false;
         // Incrementar el key fuerza re-mount del form, eliminando
@@ -562,9 +565,9 @@ export function createCardsState(): AdminFragment {
           const modal = document.querySelector('.modal--wide');
           if (modal) modal.scrollTop = 0;
         });
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('[umbral] editCard failed:', err);
-        window.umbralAdmin.toast('Error abriendo la tarjeta: ' + err.message, 'error');
+        window.umbralAdmin.toast('Error abriendo la tarjeta: ' + errMsg(err), 'error');
       }
     },
     saveCard() {
@@ -573,7 +576,7 @@ export function createCardsState(): AdminFragment {
       if (card.category === UNGROUPED_SELECT_ID) {
         const original = this.editingIndex >= 0 ? this.cfg.cards[this.editingIndex] : null;
         const origCat = original
-          ? this.cfg.categories.find((c) => c.id === original.category)
+          ? this.cfg.categories.find((c: Category) => c.id === original.category)
           : null;
         if (origCat?.isGhost) {
           card.category = origCat.id;
@@ -608,19 +611,19 @@ export function createCardsState(): AdminFragment {
     // Chip input con Enter/coma/espacio para agregar y backspace para
     // borrar. Sanitiza y normaliza (kebab-case lowercase). El server
     // también valida, pero hacerlo client-side da feedback inmediato.
-    sanitizeTag(raw) {
+    sanitizeTag(raw: unknown) {
       if (typeof raw !== 'string') return null;
       const norm = raw.toLowerCase().trim().replace(/\s+/g, '-').slice(0, 30);
       if (!/^[a-z0-9-]{1,30}$/.test(norm)) return null;
       return norm;
     },
-    addTag(raw) {
+    addTag(raw: unknown) {
       if (!this.editingCard) return;
       if (!Array.isArray(this.editingCard.tags)) this.editingCard.tags = [];
       if (this.editingCard.tags.length >= 10) return;
       const t = this.sanitizeTag(raw);
       if (!t) return;
-      if (this.editingCard.tags.some(x => x.toLowerCase() === t)) return; // dedup
+      if (this.editingCard.tags.some((x: string) => x.toLowerCase() === t)) return; // dedup
       this.editingCard.tags.push(t);
       this.tagInput = '';
       this.cardFormDirty = true;
@@ -630,7 +633,7 @@ export function createCardsState(): AdminFragment {
         this.addTag(this.tagInput);
       }
     },
-    removeTag(idx) {
+    removeTag(idx: number) {
       if (!this.editingCard?.tags) return;
       if (idx < 0 || idx >= this.editingCard.tags.length) return;
       this.editingCard.tags.splice(idx, 1);
@@ -666,8 +669,8 @@ export function createCardsState(): AdminFragment {
         const res = await window.umbralAdmin.api('POST', '/api/markdown/render', { text: desc });
         this.markdownPreview = res.html || '';
         this.markdownPreviewDirty = false;
-      } catch (e) {
-        this.markdownPreview = '<em style="color:#fca5a5">Error al renderizar preview: ' + (e?.message || e) + '</em>';
+      } catch (e: unknown) {
+        this.markdownPreview = '<em style="color:#fca5a5">Error al renderizar preview: ' + errMsg(e) + '</em>';
       }
     },
     // Auto-completar el form desde la URL o el nombre. Pide a
@@ -739,8 +742,8 @@ export function createCardsState(): AdminFragment {
           window.umbralAdmin.toast(`No se encontró info útil (${sourceLabel}). Cargá título/desc a mano.`, 'info');
         }
         this.markDirty();
-      } catch (err) {
-        window.umbralAdmin.toast(`Error: ${err.message}`, 'error');
+      } catch (err: unknown) {
+        window.umbralAdmin.toast(`Error: ${errMsg(err)}`, 'error');
       } finally {
         this.autofillBusy = false;
       }
@@ -755,7 +758,7 @@ export function createCardsState(): AdminFragment {
         && (!ec.icon || ec.icon === this.availableIcons[0]);
       if (isEmpty) this.autofillFromUrl();
     },
-    removeCard(idx) {
+    removeCard(idx: number) {
       const target = this.filteredCards()[idx];
       if (target && this.isSystemCard(target)) {
         window.umbralAdmin.toast('Esta tarjeta es del sistema (apunta a la documentación de Umbral en /docs) y no se puede borrar. Si no la querés ver, desactivala con el switch "Activa".', 'error');
@@ -763,7 +766,7 @@ export function createCardsState(): AdminFragment {
       }
       const id = target.id;
       if (!confirmAction('¿Borrar esta tarjeta?')) return;
-      this.cfg.cards = this.cfg.cards.filter(c => c.id !== id);
+      this.cfg.cards = this.cfg.cards.filter((c: Card) => c.id !== id);
       this.markDirty();
     },
     // ── System cards ───────────────────────────────────────────
@@ -773,7 +776,7 @@ export function createCardsState(): AdminFragment {
     // Heurística: cualquier card con id 'docs' o url que apunte a /docs
     // (incluyendo /docs/algo) es system. El user puede "ocultarla"
     // con el toggle "Activa", pero no editarla ni borrarla.
-    isSystemCard(card) {
+    isSystemCard(card: Card) {
       return checkSystemCard(card);
     },
 
@@ -781,22 +784,22 @@ export function createCardsState(): AdminFragment {
       this.cfg.categories.push({ id: newId('cat'), name: 'Nueva', icon: 'folder', isLocked: false, password: '', isSubpage: false, isGhost: false });
       this.markDirty();
     },
-    removeCategoryById(id) {
+    removeCategoryById(id: string) {
       const reals = this.realCategories();
       if (reals.length <= 1) {
         window.umbralAdmin.toast('No podés borrar la última categoría (las tarjetas necesitan una)', 'error');
         return;
       }
-      if (this.cfg.cards.some((c) => c.category === id && this.isSystemCard(c))) {
+      if (this.cfg.cards.some((c: Card) => c.category === id && this.isSystemCard(c))) {
         window.umbralAdmin.toast('No podés borrar esta categoría porque contiene la tarjeta del sistema. Desactivala si no la querés ver.', 'error');
         return;
       }
       if (!confirmAction('¿Borrar esta categoría? Las tarjetas que la usen se reasignan a la primera restante.')) return;
-      const idx = this.cfg.categories.findIndex((c) => c.id === id);
+      const idx = this.cfg.categories.findIndex((c: Category) => c.id === id);
       if (idx < 0) return;
       this.cfg.categories.splice(idx, 1);
       const fallback = this.realCategories()[0]?.id || '';
-      this.cfg.cards.forEach((c) => {
+      this.cfg.cards.forEach((c: Card) => {
         if (c.category === id && !this.isSystemCard(c)) c.category = fallback;
       });
       this.markDirty();
@@ -806,7 +809,7 @@ export function createCardsState(): AdminFragment {
     // pack, así que comparar la referencia alcanza para invalidar el
     // lookup, y leerla acá mantiene la reactividad de Alpine.
     _installedIcons: null,
-    isIconInstalled(icon) {
+    isIconInstalled(icon: string) {
       const list = this.availableIcons || [];
       if (!this._installedIcons || this._installedIcons.source !== list) {
         this._installedIcons = { source: list, has: createInstalledIconLookup(list) };
@@ -814,7 +817,7 @@ export function createCardsState(): AdminFragment {
       return this._installedIcons.has(icon);
     },
 
-    resolveIcon(icon, card) {
+    resolveIcon(icon: string | null | undefined, card?: Card | null) {
       if (card && checkSystemCard(card)) {
         icon = SYSTEM_DOCS_ICON;
       }

@@ -1,4 +1,4 @@
-import type { AdminFragment } from "./types";
+import type { AdminFragment, FeatureListItem, AdminUser } from "./types";
 import { newId } from '~/lib/ids';
 import { confirmAction } from './confirm.ts';
 
@@ -14,7 +14,7 @@ export function createUsersState(): AdminFragment {
     // de users + modo de acceso (password único / both / users only).
     // El server valida que singlePasswordEnabled=false requiera al
     // menos un user (rechaza saveConfig si quedás sin acceso).
-    multiUserEnabled: window.__featureList?.find?.((f) => f.name === 'multiUser')?.enabled === true,
+    multiUserEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'multiUser')?.enabled === true,
     newUser: { username: '', displayName: '', password: '', role: 'viewer' },
     // ── Multi-user helpers (opt-in: features.multiUser) ──────────
     // Aclaración: el server hace el hash con bcrypt (cost 12) y
@@ -42,13 +42,13 @@ export function createUsersState(): AdminFragment {
         window.umbralAdmin.toast('Password debe tener al menos 8 chars', 'error');
         return;
       }
-      if (this.cfg.auth.users.some((x) => x.username.toLowerCase() === u.username.toLowerCase())) {
+      if (this.cfg.auth.users.some((x: AdminUser) => x.username.toLowerCase() === u.username.toLowerCase())) {
         window.umbralAdmin.toast('Username ya existe', 'error');
         return;
       }
       // Hash bcrypt client-side (no ideal, pero evita un roundtrip
       // y mantiene la implementación simple para esta ola).
-      this.hashPasswordClientSide(u.password).then((hash) => {
+      this.hashPasswordClientSide(u.password).then((hash: string) => {
         if (!this.cfg.auth) return;
         this.cfg.auth.users.push({
           id: newId('u'),
@@ -65,11 +65,11 @@ export function createUsersState(): AdminFragment {
         window.umbralAdmin.toast('Usuario agregado', 'success');
       });
     },
-    async hashPasswordClientSide(password) {
+    async hashPasswordClientSide(password: string) {
       const res = await window.umbralAdmin.api('POST', '/api/auth/hash-password', { password });
       return res.hash;
     },
-    removeUser(id) {
+    removeUser(id: string) {
       if (!confirmAction('Borrar este usuario? Sus sesiones seran invalidadas (userEpoch + 1).')) return;
       if (!this.cfg.auth?.users) return;
       // bump userEpoch de los demas para invalidar las sesiones del borrado
@@ -77,25 +77,25 @@ export function createUsersState(): AdminFragment {
       // lo busca contra cada user; si el user no existe, falla.
       // El userEpoch + 1 del user borrado es un extra defense, pero
       // no es necesario para esta ola. Lo dejamos simple.)
-      this.cfg.auth.users = this.cfg.auth.users.filter((u) => u.id !== id);
+      this.cfg.auth.users = this.cfg.auth.users.filter((u: AdminUser) => u.id !== id);
       this.markDirty();
       window.umbralAdmin.toast('Usuario borrado', 'success');
     },
-    cycleUserRole(u) {
+    cycleUserRole(u: AdminUser) {
       if (!this.cfg.auth?.users) return;
-      const idx = this.cfg.auth.users.findIndex((x) => x.id === u.id);
+      const idx = this.cfg.auth.users.findIndex((x: AdminUser) => x.id === u.id);
       if (idx < 0) return;
       const newRole = u.role === 'admin' ? 'editor' : 'admin';
       this.cfg.auth.users[idx] = { ...this.cfg.auth.users[idx], role: newRole };
       this.markDirty();
     },
-    async resetUserPasswordPrompt(u) {
+    async resetUserPasswordPrompt(u: AdminUser) {
       const newPass = prompt(`Nuevo password para ${u.username} (min 8 chars):`);
       if (!newPass || newPass.length < 8) {
         if (newPass !== null) window.umbralAdmin.toast('Password minimo 8 chars', 'error');
         return;
       }
-      const idx = this.cfg.auth.users.findIndex((x) => x.id === u.id);
+      const idx = this.cfg.auth.users.findIndex((x: AdminUser) => x.id === u.id);
       if (idx < 0) return;
       const hash = await this.hashPasswordClientSide(newPass);
       this.cfg.auth.users[idx] = {
