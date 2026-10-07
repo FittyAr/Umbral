@@ -811,5 +811,8 @@ export const helpEs = {
     short: "Tokens de larga duración para automatización.",
     body: "Permiten llamar endpoints admin sin cookie de sesión. Rotá tokens comprometidos y usá scopes mínimos.\n\nRequiere feature `apiTokens` activa.",
   },
-} as const;
-export type HelpCatalog = typeof helpEs;
+} as const satisfies Record<string, HelpText>;
+// Las claves salen del catálogo español; los textos son `string` para que
+// los demás idiomas puedan traducirlos (con `typeof helpEs` el tipo exigía
+// los literales en español y ningún otro catálogo compilaba).
+export type HelpCatalog = Record<keyof typeof helpEs, HelpText>;

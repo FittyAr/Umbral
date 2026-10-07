@@ -384,7 +384,7 @@ export interface CustomThemePresetListItem {
   descriptionKey: string;
   thumbnail: 'gradient';
   custom: true;
-  theme: Partial<Theme>;
+  theme: Theme['customPresets'][number]['theme'];
 }
 
 export function getAllPresets(customPresets: Theme['customPresets'] = []): Array<ThemePreset | CustomThemePresetListItem> {

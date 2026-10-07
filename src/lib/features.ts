@@ -54,7 +54,8 @@ export type FeatureName =
   | 'multiPortal'
   | 'status'
   | 'ai'
-  | 'iconPacks';
+  | 'iconPacks'
+  | 'animations';
 
 /**
  * Metadata para renderizar la sección "Features" del admin.

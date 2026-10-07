@@ -90,7 +90,7 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
         console.log('[umbral] Initial password set from INITIAL_PASSWORD env var.');
       }
 
-      await fs.writeFile(portalCfgPath, JSON.stringify(cfg, null, 2), 'utf8');
+      await writeJsonAtomic(portalCfgPath, cfg);
       return cfg;
     }
     // File exists; load and validate.

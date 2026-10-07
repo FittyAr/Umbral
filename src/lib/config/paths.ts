@@ -8,6 +8,7 @@
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { randomBytes } from 'node:crypto';
 
 export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 
@@ -34,7 +35,10 @@ export async function ensureDirs() {
   // config es lo único que está por portal (ver lib/multi-portal.ts).
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
-  await fs.mkdir(path.join(DATA_DIR, 'portals'), { recursive: true });
+  // El directorio del portal activo tiene que existir antes del seed: sin él
+  // el primer `writeFile` de config.json falla con ENOENT en una instalación
+  // limpia.
+  await fs.mkdir(path.join(DATA_DIR, 'portals', activePortalId), { recursive: true });
 }
 
 /**
@@ -42,7 +46,22 @@ export async function ensureDirs() {
  * copiado siete veces dentro de config.ts, una de ellas sin `.tmp`.
  */
 export async function writeJsonAtomic(target: string, data: unknown): Promise<void> {
-  const tmp = target + '.tmp';
-  await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
-  await fs.rename(tmp, target);
+  // Nombre de tmp único por escritura: con un `.tmp` fijo dos escrituras
+  // concurrentes mezclaban contenido y el segundo rename fallaba con ENOENT.
+  const tmp = `${target}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+  const fh = await fs.open(tmp, 'w');
+  try {
+    await fh.writeFile(JSON.stringify(data, null, 2), 'utf8');
+    // fsync antes del rename: sin esto un corte de luz puede dejar el
+    // config vacío aunque el rename ya se haya hecho.
+    await fh.sync();
+  } finally {
+    await fh.close();
+  }
+  try {
+    await fs.rename(tmp, target);
+  } catch (err) {
+    await fs.rm(tmp, { force: true });
+    throw err;
+  }
 }

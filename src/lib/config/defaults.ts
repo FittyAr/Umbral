@@ -1,8 +1,16 @@
-import type { Config } from '../schema';
+import type { z } from 'zod';
+import { ConfigSchema, type Config } from '../schema';
 
-/** Defaults used to seed a brand-new config.json. */
+/**
+ * Defaults used to seed a brand-new config.json.
+ *
+ * El literal sólo fija los valores que difieren del schema; el resto
+ * (iconTint, animations, campos nuevos de layout, `span` de las cards...) lo
+ * completan los `.default()` de zod al parsear. Así el seed nunca queda
+ * atrasado respecto del schema.
+ */
 export function defaultConfig(): Config {
-  return {
+  const seed: z.input<typeof ConfigSchema> = {
     version: 1,
     branding: {
       companyName: 'Mi Empresa',
@@ -158,4 +166,5 @@ export function defaultConfig(): Config {
     ],
     _meta: { createdAt: null, updatedAt: null },
   };
+  return ConfigSchema.parse(seed);
 }
