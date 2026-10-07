@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { CardSchema, CategorySchema } from '../src/lib/schema/index.ts';
 import {
   cardGroups,
@@ -24,6 +24,15 @@ import {
   restoreSystemCardProtectedFields,
 } from '../src/lib/system-card.ts';
 import { JSDOM } from 'jsdom';
+
+/** `createCardsState()` y sus submódulos de `src/scripts/admin/cards/`. */
+async function readCardsStateSrc(): Promise<string> {
+  const dir = new URL('../src/scripts/admin/cards/', import.meta.url);
+  const files = (await readdir(dir)).filter((f) => f.endsWith('.ts')).sort();
+  const parts = [await readFile(new URL('../src/scripts/admin/cards.ts', import.meta.url), 'utf8')];
+  for (const f of files) parts.push(await readFile(new URL(f, dir), 'utf8'));
+  return parts.join('\n');
+}
 
 function makeCategory(id: string, name: string, extra: Record<string, unknown> = {}) {
   return CategorySchema.parse({ id, name, ...extra });
@@ -355,7 +364,7 @@ describe('dashboard card Sortable', () => {
     const dashboard = await readFile(new URL('../src/pages/admin/dashboard.astro', import.meta.url), 'utf8');
     assert.doesNotMatch(dashboard, /import Sortable from 'sortablejs'/);
     // El drag&drop de cards vive en el fragmento Alpine del dominio cards.
-    const src = await readFile(new URL('../src/scripts/admin/cards.ts', import.meta.url), 'utf8');
+    const src = await readCardsStateSrc();
     assert.match(src, /draggable:\s*['"]\.card-item['"]/);
     assert.doesNotMatch(src, /forceFallback|fallbackOnBody/);
     assert.match(src, /emptyInsertThreshold:\s*0/);

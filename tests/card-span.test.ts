@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import {
   clampCardSpan,
   computeCardSpanCss,
@@ -8,6 +8,15 @@ import {
   CARD_SPAN_BREAKPOINTS,
 } from '../src/lib/card-span.ts';
 import { CardSchema, LayoutSchema } from '../src/lib/schema/index.ts';
+
+/** `createCardsState()` y sus submódulos de `src/scripts/admin/cards/`. */
+async function readCardsStateSrc(): Promise<string> {
+  const dir = new URL('../src/scripts/admin/cards/', import.meta.url);
+  const files = (await readdir(dir)).filter((f) => f.endsWith('.ts')).sort();
+  const parts = [await readFile(new URL('../src/scripts/admin/cards.ts', import.meta.url), 'utf8')];
+  for (const f of files) parts.push(await readFile(new URL(f, dir), 'utf8'));
+  return parts.join('\n');
+}
 
 function layout(columnsMobile: number, columnsTablet: number, columnsDesktop: number) {
   return LayoutSchema.parse({ columnsMobile, columnsTablet, columnsDesktop });
@@ -187,7 +196,7 @@ describe('card span wiring', () => {
   });
 
   test('new cards default to one column', async () => {
-    const src = await readFile(new URL('../src/scripts/admin/cards.ts', import.meta.url), 'utf8');
+    const src = await readCardsStateSrc();
     // addCard() and applyAppPreset() both build a card literal.
     assert.equal(src.match(/^\s*span: 1,$/gm)?.length, 2);
   });

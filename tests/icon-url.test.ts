@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   createInstalledIconLookup,
@@ -8,11 +8,16 @@ import {
   resolveIconUrl,
 } from '../src/lib/icon-url.ts';
 
-// El estado Alpine de cards (resolveIcon, applyAppPreset) vive en su módulo.
-const dashboardSrc = readFileSync(
-  fileURLToPath(new URL('../src/scripts/admin/cards.ts', import.meta.url)),
-  'utf8',
-);
+// El estado Alpine de cards (resolveIcon, applyAppPreset) vive en
+// `src/scripts/admin/cards.ts` y sus submódulos de `cards/`.
+const cardsDir = fileURLToPath(new URL('../src/scripts/admin/cards/', import.meta.url));
+const dashboardSrc = [
+  readFileSync(fileURLToPath(new URL('../src/scripts/admin/cards.ts', import.meta.url)), 'utf8'),
+  ...readdirSync(cardsDir)
+    .filter((f) => f.endsWith('.ts'))
+    .sort()
+    .map((f) => readFileSync(cardsDir + f, 'utf8')),
+].join('\n');
 
 describe('normalizeIconName', () => {
   test('quita la extensión .svg y deja el pack', () => {
