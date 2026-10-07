@@ -13,11 +13,21 @@ export function createLabelsState(): Record<string, unknown> {
   const state: Record<string, unknown> = {
     labels: (globalThis as { __labels?: Record<string, string> }).__labels || null,
 
-    /** Lookup por nombre de label. Es la forma preferida para código nuevo. */
-    l(this: { labels: Record<string, string> | null }, name: string): string {
+    /**
+     * Lookup por nombre de label. Es la forma preferida para código nuevo.
+     * `vars` reemplaza los placeholders `{nombre}` del texto (toasts con
+     * datos: `l('msgAssetUploaded', { name, size })`).
+     */
+    l(
+      this: { labels: Record<string, string> | null },
+      name: string,
+      vars?: Record<string, string | number>,
+    ): string {
       const entry = ADMIN_LABELS[name];
       if (!entry) return '';
-      return this.labels?.[name] || entry[1];
+      const text = this.labels?.[name] || entry[1];
+      if (!vars) return text;
+      return text.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m));
     },
   };
 

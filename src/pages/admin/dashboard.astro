@@ -453,7 +453,7 @@ const THEME_PRESET_I18N = {
             await this.refreshAssets();
           } catch (e) {
             if (e.status === 409) {
-              window.umbralAdmin.toast('Otra pestaña o usuario guardó cambios. Recargá (tus cambios sin guardar se pierden) y volvé a aplicarlos.', 'error');
+              window.umbralAdmin.toast(this.l('msgSaveConflict'), 'error');
               return;
             }
             const tmpl = this.l('toastError');
@@ -464,7 +464,7 @@ const THEME_PRESET_I18N = {
         },
 
         async reloadConfig() {
-          if (this.dirty && !confirm('Hay cambios sin guardar. ¿Recargar igual?')) return;
+          if (this.dirty && !confirm(this.l('msgConfirmReloadDirty'))) return;
           try {
             const cfg = await window.umbralAdmin.api('GET', '/api/config');
             this.applyServerConfig(cfg);

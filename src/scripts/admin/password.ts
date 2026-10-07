@@ -12,7 +12,7 @@ export function createPasswordState(): AdminFragment {
     // Features section labels (i18n top-level)
     async changePassword() {
       if (this.pwForm.next !== this.pwForm.confirm) {
-        window.umbralAdmin.toast('Las contraseñas no coinciden', 'error');
+        window.umbralAdmin.toast(this.l('msgPasswordMismatch'), 'error');
         return;
       }
       try {
@@ -27,7 +27,7 @@ export function createPasswordState(): AdminFragment {
           this.csrfToken = data.csrfToken;
         }
         this.pwForm = { current: '', next: '', confirm: '' };
-        window.umbralAdmin.toast('Contraseña cambiada', 'success');
+        window.umbralAdmin.toast(this.l('msgPasswordChanged'), 'success');
       } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
     },
 
@@ -44,7 +44,24 @@ export function createPasswordState(): AdminFragment {
       div.id = 'umbral-pwd-warning';
       div.setAttribute('role', 'alert');
       div.style.cssText = 'background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%); color: #fff; padding: 0.75rem 1rem; border-bottom: 2px solid #fca5a5; display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: 0.9rem;';
-      div.innerHTML = '<span><strong>⚠ Password inseguro</strong> &mdash; Estás usando un password default (admin / changeme / etc). <a href="#" id="umbral-pwd-warning-link" style="color:#fde68a;text-decoration:underline;margin-left:0.5rem">Cambiarlo ahora</a></span><button id="umbral-pwd-warning-close" type="button" style="background:transparent;border:1px solid #fca5a5;color:#fff;padding:0.2rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.85rem">Cerrar</button>';
+      // Armado con nodos y textContent: los textos vienen del catálogo
+      // traducido y no deben interpretarse como HTML.
+      const span = document.createElement('span');
+      const strong = document.createElement('strong');
+      strong.textContent = '⚠ ' + this.l('msgPwdWarnTitle');
+      span.append(strong, ' \u2014 ' + this.l('msgPwdWarnBody') + ' ');
+      const a = document.createElement('a');
+      a.href = '#';
+      a.id = 'umbral-pwd-warning-link';
+      a.style.cssText = 'color:#fde68a;text-decoration:underline;margin-left:0.5rem';
+      a.textContent = this.l('msgPwdWarnLink');
+      span.append(a);
+      const btn = document.createElement('button');
+      btn.id = 'umbral-pwd-warning-close';
+      btn.type = 'button';
+      btn.style.cssText = 'background:transparent;border:1px solid #fca5a5;color:#fff;padding:0.2rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.85rem';
+      btn.textContent = this.l('msgPwdWarnClose');
+      div.append(span, btn);
       // Insert at the top of the admin-wrap
       const wrap = document.querySelector('.admin-wrap');
       if (wrap && wrap.firstChild) wrap.insertBefore(div, wrap.firstChild);

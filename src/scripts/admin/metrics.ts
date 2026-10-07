@@ -12,10 +12,8 @@ export function createMetricsState(): AdminFragment {
     // Métricas (opt-in: features.metrics). El server registra samples
     // en /api/status. La UI carga el summary + sparkline via /api/metrics.
     metricsEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'metrics')?.enabled === true,
-    metricsTitle() { return this.i18n?.metrics?.title || 'Métricas'; },
-    metricsIntro() { return this.i18n?.metrics?.intro || 'Sparklines + resumen (avg, p95, max) por card.'; },
-    metricsReloadLabel() { return this.i18n?.metrics?.reload || 'Recargar'; },
-    metricsLoadingLabel() { return this.i18n?.metrics?.loading || 'Cargando…'; },
+    // metricsTitle(), metricsIntro(), metricsReloadLabel() y
+    // metricsLoadingLabel() salen de ADMIN_LABELS (src/lib/admin-labels.ts).
     metricsRange: 3600000, // 1h default
     metricsLimit: 50,
     metricsRows: [],
@@ -60,7 +58,7 @@ export function createMetricsState(): AdminFragment {
     formatRelativeTime(iso: string | null | undefined) {
       if (!iso) return '—';
       const ms = Date.now() - new Date(iso).getTime();
-      if (ms < 0) return 'ahora';
+      if (ms < 0) return this.l('msgMetricsNow');
       const s = Math.floor(ms / 1000);
       if (s < 60) return `${s}s`;
       const m = Math.floor(s / 60);

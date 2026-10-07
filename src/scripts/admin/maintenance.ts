@@ -14,9 +14,8 @@ export function createMaintenanceState(): AdminFragment {
     // El server valida + sanitiza via Zod al guardar; nosotros sólo
     // construimos el objeto y manejamos active/remaining en el cliente.
     maintenanceWindowsEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'maintenanceWindows')?.enabled === true,
-    maintenanceTitle() { return this.i18n?.maintenance?.title || 'Mantenimiento'; },
-    maintenanceIntro() { return this.i18n?.maintenance?.intro || 'Programa ventanas donde una (o todas) las cards están en mantenimiento.'; },
-    maintenanceAddLabel() { return this.i18n?.maintenance?.add || 'Programar'; },
+    // maintenanceTitle(), maintenanceIntro() y maintenanceAddLabel() salen
+    // de ADMIN_LABELS (src/lib/admin-labels.ts).
     newMaintenance: { cardMode: 'all', cardIds: [], startsAt: '', endsAt: '', reason: '' },
     isMaintenanceActive(mw: AdminMaintenanceWindow) {
       if (!mw.enabled) return false;
@@ -32,19 +31,21 @@ export function createMaintenanceState(): AdminFragment {
     },
     formatMwRemaining(iso: string) {
       const ms = new Date(iso).getTime() - Date.now();
-      if (ms <= 0) return 'expirado';
+      if (ms <= 0) return this.l('msgMaintenanceExpired');
       const m = Math.floor(ms / 60_000);
-      if (m < 60) return `${m}m restantes`;
+      if (m < 60) return this.l('msgMaintenanceRemainingM', { m });
       const h = Math.floor(m / 60);
       const rem = m % 60;
-      return rem > 0 ? `${h}h ${rem}m restantes` : `${h}h restantes`;
+      return rem > 0
+        ? this.l('msgMaintenanceRemainingHM', { h, m: rem })
+        : this.l('msgMaintenanceRemainingH', { h });
     },
     addMaintenance() {
       if (!this.cfg.maintenanceWindows) this.cfg.maintenanceWindows = { items: [] };
       if (!Array.isArray(this.cfg.maintenanceWindows.items)) this.cfg.maintenanceWindows.items = [];
       const w = this.newMaintenance;
       if (!w.startsAt || !w.endsAt) {
-        window.umbralAdmin.toast('Inicio y fin son requeridos', 'error');
+        window.umbralAdmin.toast(this.l('msgMaintenanceStartEndRequired'), 'error');
         return;
       }
       // datetime-local devuelve "YYYY-MM-DDTHH:mm" sin zona. Lo
@@ -53,12 +54,12 @@ export function createMaintenanceState(): AdminFragment {
       const startIso = new Date(w.startsAt + ':00Z').toISOString();
       const endIso = new Date(w.endsAt + ':00Z').toISOString();
       if (new Date(endIso) <= new Date(startIso)) {
-        window.umbralAdmin.toast('El fin debe ser posterior al inicio', 'error');
+        window.umbralAdmin.toast(this.l('msgMaintenanceEndAfterStart'), 'error');
         return;
       }
       const cardIds = w.cardMode === 'all' ? ['*'] : (Array.isArray(w.cardIds) ? w.cardIds : []);
       if (cardIds.length === 0) {
-        window.umbralAdmin.toast('Seleccioná al menos una card', 'error');
+        window.umbralAdmin.toast(this.l('msgMaintenanceSelectCard'), 'error');
         return;
       }
       this.cfg.maintenanceWindows.items.push({
@@ -74,7 +75,7 @@ export function createMaintenanceState(): AdminFragment {
     },
     removeMaintenance(idx: number) {
       if (!this.cfg.maintenanceWindows?.items?.[idx]) return;
-      if (!confirmAction('¿Borrar esta ventana de mantenimiento?')) return;
+      if (!confirmAction(this.l('msgMaintenanceConfirmDelete'))) return;
       this.cfg.maintenanceWindows.items.splice(idx, 1);
       this.markDirty();
     },

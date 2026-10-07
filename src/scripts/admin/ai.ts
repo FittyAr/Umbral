@@ -68,7 +68,7 @@ export function createAiState(): AdminFragment {
     presetDescription() {
       const id = this.aiPreset || this.currentPresetId();
       const p = this.aiProviders.find((x: AIProvider) => x.id === id);
-      return p?.description || 'Custom: cualquier endpoint /v1/chat/completions';
+      return p?.description || this.l('msgAiPresetCustom');
     },
     presetRegion() {
       const id = this.aiPreset || this.currentPresetId();
@@ -83,7 +83,7 @@ export function createAiState(): AdminFragment {
     presetApiKeyHelp() {
       const id = this.aiPreset || this.currentPresetId();
       const p = this.aiProviders.find((x: AIProvider) => x.id === id);
-      return p?.apiKeyHelp || 'Tu clave del provider. Se guarda en data/config.json en texto plano (ver ayuda en el ícono ?).';
+      return p?.apiKeyHelp || this.l('msgAiApiKeyHelp');
     },
     presetModels() {
       const id = this.aiPreset || this.currentPresetId();
@@ -107,15 +107,15 @@ export function createAiState(): AdminFragment {
       this.aiTestResult = '';
       this.aiTestOk = false;
       if (!this.cfg.ai?.enabled) {
-        this.aiTestResult = '✗ Activá el switch "Habilitar asistente IA" arriba primero.';
+        this.aiTestResult = '✗ ' + this.l('msgAiTestDisabled');
         return;
       }
       if (!this.cfg.ai?.baseUrl) {
-        this.aiTestResult = '✗ Falta Base URL. Elegí un preset o tipeá la URL del provider.';
+        this.aiTestResult = '✗ ' + this.l('msgAiTestNoBaseUrl');
         return;
       }
       if (!this.cfg.ai?.model) {
-        this.aiTestResult = '✗ Falta Modelo. Elegí un preset (que autocompleta) o tipeá el nombre del modelo.';
+        this.aiTestResult = '✗ ' + this.l('msgAiTestNoModel');
         return;
       }
       this.aiBusy = true;
@@ -127,7 +127,7 @@ export function createAiState(): AdminFragment {
         if (this.dirty) {
           await this.saveAll();
           if (this.dirty) {
-            this.aiTestResult = '✗ No se pudo guardar la configuración antes de probar.';
+            this.aiTestResult = '✗ ' + this.l('msgAiTestSaveFailed');
             return;
           }
         }
@@ -137,7 +137,7 @@ export function createAiState(): AdminFragment {
           url: 'https://github.com',
         });
         this.aiTestOk = true;
-        this.aiTestResult = `✓ Conectado. Respuesta: "${data.title}" / "${data.description}"`;
+        this.aiTestResult = '✓ ' + this.l('msgAiTestOk', { title: data.title, description: data.description });
       } catch (err: unknown) {
         this.aiTestResult = `✗ ${errMsg(err)}`;
       } finally {
@@ -158,9 +158,9 @@ export function createAiState(): AdminFragment {
         });
         if (data.title) this.editingCard.title = data.title;
         if (data.description !== undefined) this.editingCard.description = data.description;
-        window.umbralAdmin.toast('Mejorado con IA. Revisá antes de guardar.', 'success');
+        window.umbralAdmin.toast(this.l('msgAiImproved'), 'success');
       } catch (err: unknown) {
-        window.umbralAdmin.toast(`Error: ${errMsg(err)}`, 'error');
+        window.umbralAdmin.toast(this.l('toastError', { message: errMsg(err) }), 'error');
       } finally {
         this.aiBusy = false;
       }

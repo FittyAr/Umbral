@@ -159,7 +159,7 @@ export const FEATURE_META: Record<FeatureName, FeatureMeta> = {
   totp2fa: {
     label: '2FA / TOTP',
     short: 'Segundo factor de autenticación con apps tipo Google Authenticator.',
-    body: 'TOTP por usuario (compatible con Authy, 1Password, etc.). Backup codes de un solo uso. El password único super-admin NO se puede proteger con TOTP (intencional: si perdés acceso a los seeds, el password único es el rescue).',
+    body: 'TOTP por usuario (compatible con Authy, 1Password, etc.). El password único super-admin NO se puede proteger con TOTP (intencional: si perdés acceso a los seeds, el password único es el rescue).',
     wave: 3,
     experimental: true,
     deps: ['otpauth'],

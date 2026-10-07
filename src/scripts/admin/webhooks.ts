@@ -13,10 +13,8 @@ export function createWebhooksState(): AdminFragment {
     // Webhooks (opt-in: features.webhooks). Engine se ejecuta en
     // server; acá solo manejamos la UI de la lista + form de alta.
     webhooksEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'webhooks')?.enabled === true,
-    webhooksTitle() { return this.i18n?.webhooks?.title || 'Webhooks'; },
-    webhooksIntro() { return this.i18n?.webhooks?.intro || 'Notifica a URLs externas cuando una card con health-check cambia de estado.'; },
-    webhooksAddLabel() { return this.i18n?.webhooks?.add || 'Agregar'; },
-    webhookTestNewLabel() { return this.i18n?.webhooks?.testNew || 'Probar antes de guardar'; },
+    // webhooksTitle(), webhooksIntro(), webhooksAddLabel() y
+    // webhookTestNewLabel() salen de ADMIN_LABELS (src/lib/admin-labels.ts).
     newWebhook: { name: '', url: '', eventFail: true, eventRecover: false, minFailures: 3, cooldownMin: 30 },
     webhookTesting: null,
     // ── Webhooks helpers (opt-in: features.webhooks) ─────────────
@@ -29,14 +27,14 @@ export function createWebhooksState(): AdminFragment {
       if (!Array.isArray(this.cfg.webhooks.items)) this.cfg.webhooks.items = [];
       const w = this.newWebhook;
       if (!w.name.trim() || !w.url.trim()) {
-        window.umbralAdmin.toast('Nombre y URL requeridos', 'error');
+        window.umbralAdmin.toast(this.l('msgWebhooksRequired'), 'error');
         return;
       }
       const events = [];
       if (w.eventFail) events.push('health_fail');
       if (w.eventRecover) events.push('health_recover');
       if (events.length === 0) {
-        window.umbralAdmin.toast('Al menos un evento requerido', 'error');
+        window.umbralAdmin.toast(this.l('msgWebhooksEventRequired'), 'error');
         return;
       }
       this.cfg.webhooks.items.push({
@@ -54,7 +52,7 @@ export function createWebhooksState(): AdminFragment {
     },
     removeWebhook(idx: number) {
       if (!this.cfg.webhooks?.items?.[idx]) return;
-      if (!confirmAction('¿Borrar este webhook?')) return;
+      if (!confirmAction(this.l('msgWebhooksConfirmDelete'))) return;
       this.cfg.webhooks.items.splice(idx, 1);
       this.markDirty();
     },
@@ -63,11 +61,13 @@ export function createWebhooksState(): AdminFragment {
       try {
         const r = await window.umbralAdmin.api('POST', '/api/webhooks/test', { url: wh.url });
         window.umbralAdmin.toast(
-          r.ok ? `Test OK (HTTP ${r.status})` : `Test falló: ${r.error || r.status || '?'}`,
+          r.ok
+            ? this.l('msgWebhooksTestOk', { status: r.status })
+            : this.l('msgWebhooksTestFailed', { error: r.error || r.status || '?' }),
           r.ok ? 'success' : 'error',
         );
       } catch (e: unknown) {
-        window.umbralAdmin.toast(`Error: ${errMsg(e)}`, 'error');
+        window.umbralAdmin.toast(this.l('toastError', { message: errMsg(e) }), 'error');
       } finally {
         this.webhookTesting = null;
       }
@@ -77,17 +77,19 @@ export function createWebhooksState(): AdminFragment {
       try {
         const r = await window.umbralAdmin.api('POST', '/api/webhooks/test', { url: this.newWebhook.url });
         window.umbralAdmin.toast(
-          r.ok ? `Test OK (HTTP ${r.status})` : `Test falló: ${r.error || r.status || '?'}`,
+          r.ok
+            ? this.l('msgWebhooksTestOk', { status: r.status })
+            : this.l('msgWebhooksTestFailed', { error: r.error || r.status || '?' }),
           r.ok ? 'success' : 'error',
         );
       } catch (e: unknown) {
-        window.umbralAdmin.toast(`Error: ${errMsg(e)}`, 'error');
+        window.umbralAdmin.toast(this.l('toastError', { message: errMsg(e) }), 'error');
       } finally {
         this.webhookTesting = null;
       }
     },
     webhookTestLabel(id: string) {
-      return this.webhookTesting === id ? 'Probando…' : 'Probar';
+      return this.webhookTesting === id ? this.l('msgWebhooksTesting') : this.l('msgWebhooksTest');
     },
 
   };

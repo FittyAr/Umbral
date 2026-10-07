@@ -31,19 +31,19 @@ export function createUsersState(): AdminFragment {
       if (!Array.isArray(this.cfg.auth.users)) this.cfg.auth.users = [];
       const u = this.newUser;
       if (!u.username || !u.password) {
-        window.umbralAdmin.toast('Username y password requeridos', 'error');
+        window.umbralAdmin.toast(this.l('msgUsersRequired'), 'error');
         return;
       }
       if (!/^[a-z0-9_-]{2,40}$/.test(u.username)) {
-        window.umbralAdmin.toast('Username debe ser kebab-case (a-z, 0-9, guiones, underscores)', 'error');
+        window.umbralAdmin.toast(this.l('msgUsersUsernameInvalid'), 'error');
         return;
       }
       if (u.password.length < 8) {
-        window.umbralAdmin.toast('Password debe tener al menos 8 chars', 'error');
+        window.umbralAdmin.toast(this.l('msgUsersPasswordTooShort', { n: 8 }), 'error');
         return;
       }
       if (this.cfg.auth.users.some((x: AdminUser) => x.username.toLowerCase() === u.username.toLowerCase())) {
-        window.umbralAdmin.toast('Username ya existe', 'error');
+        window.umbralAdmin.toast(this.l('msgUsersExists'), 'error');
         return;
       }
       // Hash bcrypt client-side (no ideal, pero evita un roundtrip
@@ -62,7 +62,7 @@ export function createUsersState(): AdminFragment {
         });
         this.newUser = { username: '', displayName: '', password: '', role: 'viewer' };
         this.markDirty();
-        window.umbralAdmin.toast('Usuario agregado', 'success');
+        window.umbralAdmin.toast(this.l('msgUsersAdded'), 'success');
       });
     },
     async hashPasswordClientSide(password: string) {
@@ -70,7 +70,7 @@ export function createUsersState(): AdminFragment {
       return res.hash;
     },
     removeUser(id: string) {
-      if (!confirmAction('Borrar este usuario? Sus sesiones seran invalidadas (userEpoch + 1).')) return;
+      if (!confirmAction(this.l('msgUsersConfirmDelete'))) return;
       if (!this.cfg.auth?.users) return;
       // bump userEpoch de los demas para invalidar las sesiones del borrado
       // (en realidad no es necesario — el server al verificar el token
@@ -79,7 +79,7 @@ export function createUsersState(): AdminFragment {
       // no es necesario para esta ola. Lo dejamos simple.)
       this.cfg.auth.users = this.cfg.auth.users.filter((u: AdminUser) => u.id !== id);
       this.markDirty();
-      window.umbralAdmin.toast('Usuario borrado', 'success');
+      window.umbralAdmin.toast(this.l('msgUsersDeleted'), 'success');
     },
     cycleUserRole(u: AdminUser) {
       if (!this.cfg.auth?.users) return;
@@ -90,9 +90,9 @@ export function createUsersState(): AdminFragment {
       this.markDirty();
     },
     async resetUserPasswordPrompt(u: AdminUser) {
-      const newPass = prompt(`Nuevo password para ${u.username} (min 8 chars):`);
+      const newPass = prompt(this.l('msgUsersResetPrompt', { user: u.username, n: 8 }));
       if (!newPass || newPass.length < 8) {
-        if (newPass !== null) window.umbralAdmin.toast('Password minimo 8 chars', 'error');
+        if (newPass !== null) window.umbralAdmin.toast(this.l('msgUsersPasswordTooShort', { n: 8 }), 'error');
         return;
       }
       const idx = this.cfg.auth.users.findIndex((x: AdminUser) => x.id === u.id);
@@ -104,16 +104,14 @@ export function createUsersState(): AdminFragment {
         userEpoch: this.cfg.auth.users[idx].userEpoch + 1, // invalida sesiones existentes
       };
       this.markDirty();
-      window.umbralAdmin.toast('Password reseteado. El user debe volver a loguearse.', 'success');
+      window.umbralAdmin.toast(this.l('msgUsersResetDone'), 'success');
     },
-    multiUserIntro() {
-      return this.i18n?.users?.intro || 'Crea usuarios con roles. El password unico sigue siendo valido como rescue path.';
-    },
+    // multiUserIntro() sale de ADMIN_LABELS (src/lib/admin-labels.ts).
     accessModeHelp() {
       if (!this.cfg.auth?.users || this.cfg.auth.users.length === 0) {
-        return 'Crea al menos un user antes de deshabilitar el password unico.';
+        return this.l('msgUsersAccessModeNeedUser');
       }
-      return this.i18n?.users?.accessModeHelp || 'Tres modos: solo password unico, password + usuarios, o solo usuarios.';
+      return this.l('msgUsersAccessModeHelp');
     },
 
   };

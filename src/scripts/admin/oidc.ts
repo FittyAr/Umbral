@@ -16,7 +16,7 @@ export function createOidcState(): AdminFragment {
       if (!Array.isArray(this.cfg.oidc.providers)) this.cfg.oidc.providers = [];
       const o = this.newOidc;
       if (!o.name || !o.id || !o.issuer || !o.clientId || !o.clientSecret) {
-        window.umbralAdmin.toast('Completá todos los campos obligatorios del provider', 'error');
+        window.umbralAdmin.toast(this.l('msgOidcMissingFields'), 'error');
         return;
       }
       this.cfg.oidc.providers.push({
@@ -33,13 +33,13 @@ export function createOidcState(): AdminFragment {
       });
       this.newOidc = { id: '', name: '', issuer: '', clientId: '', clientSecret: '', scopes: 'openid profile email', defaultRole: 'viewer', autoProvision: false };
       this.markDirty();
-      window.umbralAdmin.toast('Provider OIDC agregado', 'success');
+      window.umbralAdmin.toast(this.l('msgOidcAdded'), 'success');
     },
     removeOidcProvider(idx: number) {
       if (!this.cfg.oidc?.providers) return;
       this.cfg.oidc.providers.splice(idx, 1);
       this.markDirty();
-      window.umbralAdmin.toast('Provider OIDC eliminado', 'success');
+      window.umbralAdmin.toast(this.l('msgOidcRemoved'), 'success');
     },
   };
 }

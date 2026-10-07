@@ -19,7 +19,7 @@ export function createBackupState(): AdminFragment {
         a.download = `umbral-config-${new Date().toISOString().slice(0,10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        window.umbralAdmin.toast('Exportado', 'success');
+        window.umbralAdmin.toast(this.l('msgBackupExported'), 'success');
       } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
     },
 
@@ -31,30 +31,30 @@ export function createBackupState(): AdminFragment {
       // un archivo de 100MB en el browser congela la UI y se lleva la RAM.
       const MAX_IMPORT_BYTES = 1024 * 1024;
       if (file.size > MAX_IMPORT_BYTES) {
-        window.umbralAdmin.toast(`Archivo demasiado grande (${(file.size/1024).toFixed(0)} KB, máx ${MAX_IMPORT_BYTES/1024} KB)`, 'error');
+        window.umbralAdmin.toast(this.l('msgBackupFileTooLarge', { size: (file.size/1024).toFixed(0), max: MAX_IMPORT_BYTES/1024 }), 'error');
         target.value = ''; return;
       }
-      if (!confirmAction('Importar reemplazará TODA la configuración actual. ¿Continuar?')) {
+      if (!confirmAction(this.l('msgBackupConfirmImport'))) {
         target.value = ''; return;
       }
       try {
         const text = await file.text();
         const data = JSON.parse(text);
         await window.umbralAdmin.api('PUT', '/api/import', data);
-        window.umbralAdmin.toast('Importado. Recargando…', 'success');
+        window.umbralAdmin.toast(this.l('msgBackupImported'), 'success');
         setTimeout(() => location.reload(), 800);
       } catch (err: unknown) {
-        window.umbralAdmin.toast('Error: ' + errMsg(err), 'error');
+        window.umbralAdmin.toast(this.l('toastError', { message: errMsg(err) }), 'error');
       } finally { target.value = ''; }
     },
 
     async resetConfig() {
-      const confirmText = prompt('Esto restaurará la configuración a defaults. Escribí RESET para confirmar:');
+      const confirmText = prompt(this.l('msgBackupResetPrompt'));
       if (confirmText !== 'RESET') return;
       try {
         const cfg = await window.umbralAdmin.api('DELETE', '/api/config');
         this.applyServerConfig(cfg);
-        window.umbralAdmin.toast('Reseteado', 'success');
+        window.umbralAdmin.toast(this.l('msgBackupResetDone'), 'success');
         await this.refreshAssets();
       } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
     },

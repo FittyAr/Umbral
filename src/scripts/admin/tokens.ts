@@ -24,20 +24,20 @@ export function createTokensState(): AdminFragment {
           if (!this.cfg.apiTokens) this.cfg.apiTokens = { items: [] };
           this.cfg.apiTokens.items.push(res.item);
           this.newToken = { name: '', scope: 'read', expiresInDays: 0 };
-          window.umbralAdmin.toast('Token generado con éxito', 'success');
+          window.umbralAdmin.toast(this.l('msgTokenGenerated'), 'success');
         }
       } catch (e: unknown) {
         window.umbralAdmin.toast(errMsg(e), 'error');
       }
     },
     async revokeToken(id: string) {
-      if (!confirmAction('¿Revocar este token API? Las integraciones que lo usen dejarán de funcionar.')) return;
+      if (!confirmAction(this.l('msgTokenConfirmRevoke'))) return;
       try {
         await window.umbralAdmin.api('DELETE', '/api/tokens', { id });
         if (this.cfg.apiTokens?.items) {
           this.cfg.apiTokens.items = this.cfg.apiTokens.items.filter((t: AdminApiToken) => t.id !== id);
         }
-        window.umbralAdmin.toast('Token revocado', 'success');
+        window.umbralAdmin.toast(this.l('msgTokenRevoked'), 'success');
       } catch (e: unknown) {
         window.umbralAdmin.toast(errMsg(e), 'error');
       }

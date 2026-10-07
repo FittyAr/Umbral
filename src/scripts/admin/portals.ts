@@ -16,7 +16,7 @@ export function createPortalsState(): AdminFragment {
       if (!Array.isArray(this.cfg.portals.items)) this.cfg.portals.items = [];
       const p = this.newPortal;
       if (!p.id || !p.name) {
-        window.umbralAdmin.toast('ID y Nombre son obligatorios', 'error');
+        window.umbralAdmin.toast(this.l('msgPortalsRequired'), 'error');
         return;
       }
       this.cfg.portals.items.push({
@@ -27,13 +27,13 @@ export function createPortalsState(): AdminFragment {
       });
       this.newPortal = { id: '', name: '', host: '', pathPrefix: '' };
       this.markDirty();
-      window.umbralAdmin.toast('Portal agregado', 'success');
+      window.umbralAdmin.toast(this.l('msgPortalAdded'), 'success');
     },
     removePortal(idx: number) {
       if (!this.cfg.portals?.items) return;
       this.cfg.portals.items.splice(idx, 1);
       this.markDirty();
-      window.umbralAdmin.toast('Portal eliminado', 'success');
+      window.umbralAdmin.toast(this.l('msgPortalRemoved'), 'success');
     },
   };
 }

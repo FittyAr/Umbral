@@ -23,5 +23,5 @@ const { useI18n, tr } = Astro.props;
 >
   <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 1rem" x-text="currentHelp().short"></p>
   <div class="help-body" x-html="currentHelp().bodyHtml"></div>
-  <button slot="footer" type="button" class="btn btn-primary btn-sm" @click="closeHelp()">Entendido</button>
+  <button slot="footer" type="button" class="btn btn-primary btn-sm" @click="closeHelp()">{useI18n ? tr('admin.help.gotIt') : 'Entendido'}</button>
 </Modal>

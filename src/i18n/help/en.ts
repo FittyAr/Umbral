@@ -88,8 +88,8 @@ export const helpEn = {
   },
   "network.trustedProxies": {
     title: "Trusted proxies",
-    short: "IPs/CIDRs of your reverse proxies (informational).",
-    body: "Currently informational, not functional. Serves as documentation for you or your team on when trust was configured.\n\nFormat: one IP or CIDR per line. E.g. `10.0.0.1` or `192.168.1.0/24`.",
+    short: "IPs/CIDRs of your reverse proxies, used to find the real client IP.",
+    body: "With \"Trust X-Forwarded-For\" enabled, Umbral reads the header from the right and skips the hops listed here: the client IP is the first address that is not a trusted proxy. It drives the login rate limit and the audit log.\n\nLeave it empty if there is a single proxy in front of Umbral (the last entry, added by that proxy, is used). Fill it in when there are several (CDN + nginx, Traefik behind a load balancer…).\n\nFormat: one IP or CIDR per line. E.g. `10.0.0.1` or `192.168.1.0/24`.",
   },
   "network.cookieDomain": {
     title: "Cookie domain",

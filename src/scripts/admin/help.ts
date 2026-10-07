@@ -32,7 +32,7 @@ export function createHelpState(): AdminFragment {
         this.helpTexts = data.texts || {};
       } catch (e: unknown) {
         this.helpModalKey = null;
-        window.umbralAdmin.toast('No se pudo cargar la ayuda: ' + errMsg(e), 'error');
+        window.umbralAdmin.toast(this.l('msgHelpLoadError', { message: errMsg(e) }), 'error');
       } finally {
         this.helpLoading = false;
       }

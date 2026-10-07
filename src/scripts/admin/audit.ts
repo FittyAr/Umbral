@@ -18,12 +18,8 @@ export function createAuditState(): AdminFragment {
     auditError: '',
     auditResult: null,
     auditFilter: { action: '', detail: '', from: '', to: '', limit: 200 },
-    // i18n getters para los labels de la sección Auditoría.
-    auditTitle() { return this.i18n?.audit?.title || 'Auditoría'; },
-    auditResetLabel() { return this.i18n?.audit?.reset || 'Limpiar'; },
-    auditDownloadLabel() { return this.i18n?.audit?.download || 'Descargar log completo'; },
-    auditLoadingLabel() { return this.i18n?.audit?.loading || 'Cargando…'; },
-    auditEmptyLabel() { return this.i18n?.audit?.empty || 'No hay entradas que coincidan con los filtros.'; },
+    // Los labels de la sección (auditTitle(), auditResetLabel(), …) salen
+    // de ADMIN_LABELS (src/lib/admin-labels.ts).
     // ── Audit log viewer (opt-in: features.auditLogViewer) ────
     // Carga las acciones distintas para popular el dropdown + las
     // entries con los filtros actuales. Disparado automáticamente
@@ -99,7 +95,7 @@ export function createAuditState(): AdminFragment {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       } catch (e: unknown) {
-        window.umbralAdmin.toast(this.i18n?.audit?.downloadError || ('Error: ' + errMsg(e)), 'error');
+        window.umbralAdmin.toast(this.l('msgAuditDownloadError', { message: errMsg(e) }), 'error');
       }
     },
 

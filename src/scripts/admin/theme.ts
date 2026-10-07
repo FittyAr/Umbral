@@ -159,12 +159,12 @@ export function createThemeState(): AdminFragment {
     },
 
     saveCustomThemePreset() {
-      const name = prompt('Nombre del preset:', 'Mi tema');
+      const name = prompt(this.l('msgThemePresetNamePrompt'), this.l('msgThemePresetNameDefault'));
       if (!name) return;
       const id = newId('custom');
       if (!this.cfg.theme.customPresets) this.cfg.theme.customPresets = [];
       if (this.cfg.theme.customPresets.length >= 5) {
-        window.umbralAdmin.toast('Máximo 5 presets custom', 'error');
+        window.umbralAdmin.toast(this.l('msgThemePresetMax', { n: 5 }), 'error');
         return;
       }
       const snapshot = JSON.parse(JSON.stringify(this.cfg.theme));
@@ -176,7 +176,7 @@ export function createThemeState(): AdminFragment {
     },
 
     resetThemeToDefaults() {
-      if (!confirmAction('¿Restaurar tema a defaults?')) return;
+      if (!confirmAction(this.l('msgThemeConfirmReset'))) return;
       const defaults = window.__initialConfig?.theme || {};
       replaceThemeInPlace(this.cfg.theme, JSON.parse(JSON.stringify(defaults)));
       this.ensureThemeDefaults();
@@ -480,7 +480,7 @@ export function createThemeState(): AdminFragment {
         if (!file) return;
         try {
           const data = JSON.parse(await file.text());
-          if (!data.theme) throw new Error('JSON inválido: falta theme');
+          if (!data.theme) throw new Error(this.l('msgThemeImportInvalid'));
           applyThemePartialInPlace(this.cfg.theme, data.theme);
           this.ensureThemeDefaults();
           this.parseGradientFromBackground();

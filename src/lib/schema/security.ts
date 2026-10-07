@@ -61,7 +61,8 @@ export const NetworkSecuritySchema = z.object({
   // Activar SOLO si hay un reverse proxy en frente que sanea esos headers.
   // Activar sin proxy = cualquier cliente puede falsificar su IP.
   trustForwardedFor: z.boolean().default(false),
-  // Lista de IPs/CIDRs confiables (para logging/auditoría). Hoy es informativo.
+  // IPs/CIDRs de los proxies confiables: lib/client-ip.ts los saltea al leer
+  // X-Forwarded-For desde la derecha para encontrar la IP real del cliente.
   trustedProxies: z.array(z.string()).default([]),
   trustedProxiesText: z.string().optional(),
   // Dominio al que se emite la cookie (default: hostname del request).

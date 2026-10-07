@@ -83,7 +83,7 @@ export function createIconPacksState(): AdminFragment {
     },
 
     iconPacksSaveRequiredMsg() {
-      return 'Guardá los cambios (botón «Guardar cambios» arriba) para habilitar la instalación y desinstalación de paquetes de íconos.';
+      return this.l('msgIconPacksSaveRequired');
     },
 
     isIconPacksFeatureDisabledError(message: string | null | undefined) {
@@ -113,7 +113,7 @@ export function createIconPacksState(): AdminFragment {
         if (this.isIconPacksFeatureDisabledError(errMsg(e))) {
           this.iconPackMsg = { text: this.iconPacksSaveRequiredMsg(), error: true };
         } else {
-          this.iconPackMsg = { text: 'Error al cargar paquetes: ' + errMsg(e), error: true };
+          this.iconPackMsg = { text: this.l('msgIconPacksLoadError', { message: errMsg(e) }), error: true };
         }
       } finally {
         this.iconPacksLoading = false;
@@ -128,17 +128,17 @@ export function createIconPacksState(): AdminFragment {
         return;
       }
       this.iconPacksInstalling = { ...this.iconPacksInstalling, [packId]: true };
-      this.iconPackMsg = { text: 'Descargando e instalando paquete…', error: false };
+      this.iconPackMsg = { text: this.l('msgIconPacksInstalling'), error: false };
       try {
         const res = await window.umbralAdmin.api('POST', '/api/icon-packs', { packId });
-        this.iconPackMsg = { text: res.message || 'Paquete instalado correctamente.', error: false };
+        this.iconPackMsg = { text: res.message || this.l('msgIconPacksInstalled'), error: false };
         window.umbralAdmin.toast(this.iconPackMsg.text, 'success');
         await this.loadIconPacks();
         await this.refreshAssets();
       } catch (e: unknown) {
         const text = this.isIconPacksFeatureDisabledError(errMsg(e))
           ? this.iconPacksSaveRequiredMsg()
-          : 'Error al instalar paquete: ' + errMsg(e);
+          : this.l('msgIconPacksInstallError', { message: errMsg(e) });
         this.iconPackMsg = { text, error: true };
         window.umbralAdmin.toast(text, 'error');
       } finally {
@@ -156,14 +156,14 @@ export function createIconPacksState(): AdminFragment {
       this.iconPacksInstalling = { ...this.iconPacksInstalling, [packId]: true };
       try {
         const res = await window.umbralAdmin.api('POST', '/api/icon-packs/uninstall', { packId });
-        this.iconPackMsg = { text: res.message || 'Paquete desinstalado.', error: false };
+        this.iconPackMsg = { text: res.message || this.l('msgIconPacksUninstalled'), error: false };
         window.umbralAdmin.toast(this.iconPackMsg.text, 'success');
         await this.loadIconPacks();
         await this.refreshAssets();
       } catch (e: unknown) {
         const text = this.isIconPacksFeatureDisabledError(errMsg(e))
           ? this.iconPacksSaveRequiredMsg()
-          : 'Error al desinstalar: ' + errMsg(e);
+          : this.l('msgIconPacksUninstallError', { message: errMsg(e) });
         this.iconPackMsg = { text, error: true };
         window.umbralAdmin.toast(text, 'error');
       } finally {
@@ -180,10 +180,10 @@ export function createIconPacksState(): AdminFragment {
         return;
       }
       this.customPackInstalling = true;
-      this.iconPackMsg = { text: 'Clonando repositorio y extrayendo íconos…', error: false };
+      this.iconPackMsg = { text: this.l('msgIconPacksCloning'), error: false };
       try {
         const res = await window.umbralAdmin.api('POST', '/api/icon-packs', this.customPack);
-        this.iconPackMsg = { text: res.message || 'Íconos instalados correctamente.', error: false };
+        this.iconPackMsg = { text: res.message || this.l('msgIconPacksRepoInstalled'), error: false };
         window.umbralAdmin.toast(this.iconPackMsg.text, 'success');
         this.customPack.repoUrl = '';
         this.customPack.subpath = '';
@@ -193,7 +193,7 @@ export function createIconPacksState(): AdminFragment {
       } catch (e: unknown) {
         const text = this.isIconPacksFeatureDisabledError(errMsg(e))
           ? this.iconPacksSaveRequiredMsg()
-          : 'Error al instalar desde repositorio: ' + errMsg(e);
+          : this.l('msgIconPacksRepoInstallError', { message: errMsg(e) });
         this.iconPackMsg = { text, error: true };
         window.umbralAdmin.toast(text, 'error');
       } finally {
