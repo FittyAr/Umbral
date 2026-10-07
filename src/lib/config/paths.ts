@@ -45,7 +45,21 @@ export async function ensureDirs() {
  * Escritura atómica: primero el `.tmp`, después el rename. El patrón estaba
  * copiado siete veces dentro de config.ts, una de ellas sin `.tmp`.
  */
-export async function writeJsonAtomic(target: string, data: unknown): Promise<void> {
+const writeQueues = new Map<string, Promise<void>>();
+
+export function writeJsonAtomic(target: string, data: unknown): Promise<void> {
+  // Escrituras al mismo archivo en serie dentro del proceso: en Windows dos
+  // rename concurrentes sobre el mismo destino fallan con EPERM.
+  const prev = writeQueues.get(target) ?? Promise.resolve();
+  const next = prev.catch(() => {}).then(() => writeJsonAtomicNow(target, data));
+  const tracked = next.finally(() => {
+    if (writeQueues.get(target) === tracked) writeQueues.delete(target);
+  });
+  writeQueues.set(target, tracked);
+  return next;
+}
+
+async function writeJsonAtomicNow(target: string, data: unknown): Promise<void> {
   // Nombre de tmp único por escritura: con un `.tmp` fijo dos escrituras
   // concurrentes mezclaban contenido y el segundo rename fallaba con ENOENT.
   const tmp = `${target}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;

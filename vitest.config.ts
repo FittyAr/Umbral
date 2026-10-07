@@ -8,7 +8,7 @@ import { getViteConfig } from 'astro/config';
  */
 export default getViteConfig({
   test: {
-    include: ['tests/**/*.astro.test.ts', 'tests/tail-file.test.ts'],
+    include: ['tests/**/*.astro.test.ts', 'tests/tail-file.test.ts', 'tests/config-seed.test.ts'],
     environment: 'node',
   },
 });

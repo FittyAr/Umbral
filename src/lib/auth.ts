@@ -78,15 +78,19 @@ function getSecret(): string {
     return _secret;
   }
   const s = process.env.SESSION_SECRET;
-  if (s && s.length >= 16) {
-    if (!_secretChecked && process.env.NODE_ENV === 'production' && KNOWN_WEAK_SECRETS.has(s)) {
-      console.error(
-        '\n[umbral FATAL] SESSION_SECRET está usando un valor conocido (de .env.example o docker-compose).\n' +
-        'Esto es un riesgo crítico de seguridad: cualquiera puede forjar sesiones.\n' +
-        'Generá uno con `openssl rand -hex 32` y pasalo vía -e SESSION_SECRET=... o .env.\n' +
-        'El server sigue corriendo para no romper sesiones existentes, pero cambiá esto YA.\n',
-      );
-    }
+  // En producción un secreto público (de .env.example o docker-compose) es
+  // un compromiso de facto: cualquiera con el repo puede forjar sesiones.
+  // No lo usamos: caemos al secreto aleatorio, que invalida sesiones al
+  // reiniciar pero no se puede adivinar.
+  const weakInProd = !!s && process.env.NODE_ENV === 'production' && KNOWN_WEAK_SECRETS.has(s);
+  if (weakInProd && !_secretChecked) {
+    console.error(
+      '\n[umbral FATAL] SESSION_SECRET está usando un valor conocido (de .env.example o docker-compose).\n' +
+      'Se ignora y se usa un secreto aleatorio: las sesiones se pierden en cada reinicio.\n' +
+      'Generá uno con `openssl rand -hex 32` y pasalo vía -e SESSION_SECRET=... o .env.\n',
+    );
+  }
+  if (s && s.length >= 16 && !weakInProd) {
     _secretChecked = true;
     _secret = s;
     globalThis.__umbralSessionSecret = _secret;

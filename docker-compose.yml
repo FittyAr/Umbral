@@ -11,8 +11,9 @@ services:
       - PORT=4321
       - HOST=0.0.0.0
       - DATA_DIR=/app/data
-      # 32+ chars recommended. Override in production!
-      - SESSION_SECRET=${SESSION_SECRET:-change-me-please-this-is-32-chars-or-more}
+      # Obligatorio (32+ chars): `openssl rand -hex 32`. Antes había un
+      # default público, y con él cualquiera podía firmar sesiones válidas.
+      - SESSION_SECRET=${SESSION_SECRET:?Defini SESSION_SECRET en .env (minimo 32 caracteres)}
       # Initial password on first boot (hashed and stored in config.json).
       # Leave empty to use the default "admin" (with a warning in the logs).
       - INITIAL_PASSWORD=${INITIAL_PASSWORD:-}

@@ -3,10 +3,16 @@ dist/
 .astro/
 node_modules/
 
-# Data (mounted as volume at runtime)
-data/uploads/
-data/audit.log
-data/config.json
+# Data (mounted as volume at runtime). Todo data/: incluye config por portal,
+# hashes y secretos que no tienen que terminar en una capa de la imagen.
+data/
+
+# VCS, CI y tests no hacen falta para el build
+.git/
+.github/
+tests/
+legacy/
+.agents/
 
 # Env / secrets
 .env
