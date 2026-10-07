@@ -24,8 +24,11 @@ import {
   CONFIG_PATH,
   ensureDirs,
   getActivePortalId,
+  runWithPortal,
   writeJsonAtomic,
+  ROOT_PORTAL,
 } from './config/paths';
+import { pickGlobalSections, pickPortalSections } from './config/portal-sections';
 import { defaultConfig } from './config/defaults';
 import { getConfig, invalidate } from './config/load';
 import {
@@ -37,7 +40,7 @@ import {
   restoreClientSecrets,
 } from './config/gating';
 
-export { CONFIG_PATH, UPLOADS_DIR, AUDIT_LOG_PATH, setActivePortalId, getActivePortalId } from './config/paths';
+export { CONFIG_PATH, UPLOADS_DIR, AUDIT_LOG_PATH, getActivePortalId, runWithPortal, ROOT_PORTAL } from './config/paths';
 export { getConfig } from './config/load';
 export { audit } from './audit';
 
@@ -57,6 +60,34 @@ export function withConfigLock<T>(fn: () => Promise<T>): Promise<T> {
   const run = lockTail.then(fn, fn);
   lockTail = run.catch(() => {});
   return run;
+}
+
+/**
+ * Escribe un config completo del portal activo. En el raíz es un solo
+ * archivo; en otro portal, las secciones del portal van a su archivo y la
+ * parte global al raíz (sólo si cambió), con la misma versión en ambos.
+ */
+async function persist(result: Config): Promise<void> {
+  const portalId = getActivePortalId();
+  if (portalId === ROOT_PORTAL) {
+    await writeJsonAtomic(_portalConfigPath(ROOT_PORTAL), result);
+    return;
+  }
+  const full = result as unknown as Record<string, unknown>;
+  await ensureDirs();
+  await writeJsonAtomic(_portalConfigPath(portalId), {
+    ...pickPortalSections(full),
+    _meta: result._meta,
+  });
+  const root = await runWithPortal(ROOT_PORTAL, readCurrent);
+  const rootFull = root as unknown as Record<string, unknown>;
+  const nextGlobal = pickGlobalSections(full);
+  if (JSON.stringify(nextGlobal) !== JSON.stringify(pickGlobalSections(rootFull))) {
+    await writeJsonAtomic(
+      _portalConfigPath(ROOT_PORTAL),
+      ConfigSchema.parse({ ...rootFull, ...nextGlobal, _meta: { ...root._meta, updatedAt: result._meta?.updatedAt } }),
+    );
+  }
 }
 
 /** Lectura fresca de disco (dentro del lock, para no mergear sobre el cache). */
@@ -187,7 +218,7 @@ async function saveConfigUnlocked(current: Config, update: ConfigUpdate, opts: S
   // Re-validate the merged result.
   const result = ConfigSchema.parse(merged);
 
-  await writeJsonAtomic(_portalConfigPath(getActivePortalId()), result);
+  await persist(result);
   invalidate();
   return result;
 }
@@ -201,14 +232,30 @@ function nextVersion(prev: string | null | undefined): string {
   return new Date(now).toISOString();
 }
 
+/**
+ * Restaura los defaults. En el raíz conserva la auth; en otro portal sólo
+ * resetea las secciones del portal (marca, tema, tarjetas…) y no toca la
+ * configuración global.
+ */
 export function resetConfig(): Promise<Config> {
   return withConfigLock(async () => {
     await ensureDirs();
-    const cfg = defaultConfig();
     const now = new Date().toISOString();
+    const current = await readCurrent().catch(() => null);
+    if (getActivePortalId() !== ROOT_PORTAL && current) {
+      const defaults = defaultConfig() as unknown as Record<string, unknown>;
+      const result = ConfigSchema.parse({
+        ...current,
+        ...pickPortalSections(defaults),
+        _meta: { ...current._meta, updatedAt: nextVersion(current._meta?.updatedAt) },
+      });
+      await persist(result);
+      invalidate();
+      return result;
+    }
+    const cfg = defaultConfig();
     cfg._meta = { createdAt: now, updatedAt: now };
     // Preserve current auth
-    const current = await readCurrent().catch(() => null);
     if (current?.auth) cfg.auth = current.auth;
     else {
       const password = process.env.INITIAL_PASSWORD || 'admin';
@@ -220,7 +267,7 @@ export function resetConfig(): Promise<Config> {
         singlePasswordEnabled: true,
       };
     }
-    await writeJsonAtomic(_portalConfigPath(getActivePortalId()), cfg);
+    await persist(cfg);
     invalidate();
     return cfg;
   });
@@ -250,8 +297,7 @@ export function importConfig(newConfig: Config): Promise<Config> {
       _meta: { ...parsed._meta, updatedAt: nextVersion(current._meta?.updatedAt) },
     });
     await ensureDirs();
-    // Al path del portal activo, igual que saveConfig, resetConfig y updateAuth.
-    await writeJsonAtomic(_portalConfigPath(getActivePortalId()), result);
+    await persist(result);
     invalidate();
     return result;
   });
@@ -261,7 +307,9 @@ export function importConfig(newConfig: Config): Promise<Config> {
  *  todas las sesiones activas). Quien cambia la password recibe una sesión
  *  nueva (ver POST /api/password). */
 export function updateAuth(newPasswordHash: string, newCsrf: string): Promise<Config> {
-  return withConfigLock(async () => {
+  // La auth es global: vive en el portal raíz, se llame desde el portal que
+  // se llame.
+  return withConfigLock(() => runWithPortal(ROOT_PORTAL, async () => {
     const current = await readCurrent();
     const merged = {
       ...current,
@@ -275,8 +323,8 @@ export function updateAuth(newPasswordHash: string, newCsrf: string): Promise<Co
       _meta: { ...current._meta, updatedAt: nextVersion(current._meta?.updatedAt) },
     };
     const result = ConfigSchema.parse(merged);
-    await writeJsonAtomic(_portalConfigPath(getActivePortalId()), result);
+    await writeJsonAtomic(_portalConfigPath(ROOT_PORTAL), result);
     invalidate();
     return result;
-  });
+  }));
 }

@@ -11,12 +11,14 @@ import type { Config } from '~/lib/schema';
  * Era el mismo bloque de ~40 líneas escrito en `docs/index.astro` y en
  * `docs/[...slug].astro`, SVG del engranaje incluido.
  */
+import type { Locale } from '~/i18n';
+
 interface Props {
   config: Config;
   useI18n: boolean;
   trf: (key: string) => string;
-  locale: string;
-  logoUrl: string;
+  locale: Locale;
+  logoUrl: string | null;
   base: string;
 }
 

@@ -16,7 +16,7 @@
  */
 
 import { promises as fs } from 'node:fs';
-import { AUDIT_LOG_PATH, ensureDirs } from './config/paths';
+import { AUDIT_LOG_PATH, ensureDirs, getActivePortalId, ROOT_PORTAL } from './config/paths';
 
 /** Audit log (append-only). Best-effort, no I/O failure propagation.
  *  Rota cuando supera AUDIT_MAX_BYTES (10MB) → renombra a .1 y empieza de nuevo.
@@ -69,7 +69,11 @@ export async function audit(action: string, detail?: string) {
         }
         try { await fs.rename(AUDIT_LOG_PATH, `${AUDIT_LOG_PATH}.1`); } catch { /* skip */ }
       }
-      const line = `${new Date().toISOString()}\t${escapeAuditField(action)}\t${escapeAuditField(detail ?? '')}\n`;
+      // El log es uno para toda la instancia: con multi-portal cada entrada
+      // dice de qué portal vino (el raíz no lleva marca, como siempre).
+      const portal = getActivePortalId();
+      const fullDetail = portal === ROOT_PORTAL ? detail ?? '' : `portal=${portal}${detail ? ` ${detail}` : ''}`;
+      const line = `${new Date().toISOString()}\t${escapeAuditField(action)}\t${escapeAuditField(fullDetail)}\n`;
       await fs.appendFile(AUDIT_LOG_PATH, line, 'utf8');
     } catch (err) {
       console.error('[umbral] audit log write failed:', err);

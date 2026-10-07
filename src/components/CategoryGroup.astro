@@ -1,7 +1,7 @@
 ---
 import crypto from 'node:crypto';
 import Card from './Card.astro';
-import type { UmbralConfig, Card as CardType, Category } from '~/lib/schema';
+import type { Config, Card as CardType, Category, Theme } from '~/lib/schema';
 
 /**
  * Sección de una categoría en las páginas públicas: encabezado, caja de
@@ -22,8 +22,8 @@ interface Props {
   cat: Category | undefined;
   cards: CardType[];
   catId: string;
-  layout: UmbralConfig['layout'];
-  cardStyle: string;
+  layout: Config['layout'];
+  cardStyle: Theme['cardStyle'];
   cardMaintenance: Map<string, string>;
   qrEnabled?: boolean;
   noteBadge: string;

@@ -44,7 +44,7 @@ const locale: Locale = useI18n
   : 'es';
 const trf = tr(locale);
 
-const bootScript = buildBootScript({ base, isDemoBuild, config });
+const bootScript = buildBootScript({ base, isDemoBuild, config, portalId: Astro.locals.portal?.id });
 
 // Theme variables injected as inline style
 const cssBlocks = computeThemeCssBlocks(t);

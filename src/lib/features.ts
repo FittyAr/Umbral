@@ -182,7 +182,7 @@ export const FEATURE_META: Record<FeatureName, FeatureMeta> = {
   multiPortal: {
     label: 'Multi-portal',
     short: 'Múltiples portales (IT/Marketing/Dev) en una sola instancia.',
-    body: 'Cada portal tiene su propio config.json, uploads y audit log. Detección por subdominio o path prefix. **Migra automáticamente** el config legacy al activar la feature por primera vez.',
+    body: 'Cada portal tiene su propia portada (marca, tema, layout, categorías y tarjetas) y se elige por host o prefijo de ruta. Usuarios, seguridad, features y la lista de portales son comunes a todos; uploads y audit log son compartidos.',
     wave: 4,
     experimental: true,
   },

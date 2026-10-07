@@ -47,6 +47,13 @@ const config = await getConfig();
 // los secretos que vuelven vacíos al guardar (saveConfig, source 'client').
 const isAdminViewer = isDemoBuild || Astro.locals.auth?.isAdmin === true;
 const clientConfig = sanitizeConfigForRole(config, isAdminViewer);
+// Multi-portal: el panel edita el portal del request (?portal=<id>); el
+// selector del encabezado cambia de portal recargando con otro id.
+const multiPortalOn = isFeatureEnabled(config, 'multiPortal');
+const currentPortal = Astro.locals.portal?.id ?? 'default';
+const portalOptions = multiPortalOn
+  ? [{ id: 'default', name: 'default' }, ...(config.portals?.items ?? []).filter((p) => p.id !== 'default').map((p) => ({ id: p.id, name: p.name || p.id }))]
+  : [];
 // El catálogo de íconos se pide a `/api/icon-names` cuando el admin arranca.
 // El build estático del demo no tiene ese endpoint, así que ahí (y sólo ahí)
 // sigue viajando inline.
@@ -94,6 +101,16 @@ const THEME_PRESET_I18N = {
   <div class="admin-wrap">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
       <h1 style="margin:0;font-size:1.4rem">{useI18n ? trf('admin.dashboard.title') : 'Panel de configuración'}</h1>
+      {portalOptions.length > 1 && (
+        <label class="portal-switcher" style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem">
+          <span>{useI18n ? trf('admin.portals.switcher') : 'Portal'}</span>
+          <select
+            @change="if (!dirty || confirm(l('msgConfirmReloadDirty'))) { const u = new URL(location.href); u.searchParams.set('portal', $event.target.value); location.href = u.toString(); } else { $event.target.value = window.__UMBRAL_PORTAL__ || 'default'; }"
+          >
+            {portalOptions.map((p) => <option value={p.id} selected={p.id === currentPortal}>{p.name}</option>)}
+          </select>
+        </label>
+      )}
     </div>
 
     <div class="tabs">
@@ -211,11 +228,14 @@ const THEME_PRESET_I18N = {
     import { createPasswordState } from '~/scripts/admin/password';
     import { createBackupState } from '~/scripts/admin/backup';
     import { prefetchAdminClients } from '~/scripts/admin/lazy-clients';
+    import { errMsg, type AdminFragment } from '~/scripts/admin/types';
     // SortableJS se carga on-demand desde scripts/admin/sortable-loader.ts,
     // junto con su guard: no entra en el chunk inicial del panel.
-    window.Alpine = Alpine;
+    (window as unknown as { Alpine: typeof Alpine }).Alpine = Alpine;
 
-    Alpine.data('adminApp', () => ({
+    // Tipado como AdminFragment (mapa laxo) igual que los fragmentos: `this`
+    // es el objeto Alpine completo, que sólo existe en runtime.
+    Alpine.data('adminApp', (): AdminFragment => ({
         tab: 'cards',
         themeSection: 'presets',
         ...createLayoutState(),
@@ -252,7 +272,7 @@ const THEME_PRESET_I18N = {
         csrfToken: (document.body.dataset.csrf || ''),
         ...createPasswordState(),
         /** Reemplaza el config en memoria por uno del server (normalizado). */
-        applyServerConfig(raw) {
+        applyServerConfig(raw: unknown) {
           const cfg = window.__hydrateAdminCfg(JSON.parse(JSON.stringify(raw)));
           if (cfg && cfg._meta && cfg._meta.updatedAt) window.umbralAdmin.configVersion = cfg._meta.updatedAt;
           this.cfg = cfg;
@@ -332,7 +352,7 @@ const THEME_PRESET_I18N = {
           // Auto-mark dirty on any cfg change. x-model alone doesn't fire markDirty,
           // so we deep-watch cfg and re-check after each mutation. Cheap because
           // we only stringify when something actually changes.
-          this.$watch(() => JSON.stringify(this.cfg), (json) => {
+          this.$watch(() => JSON.stringify(this.cfg), (json: string) => {
             // El watcher ya serializó el config: se compara ese valor.
             this.dirty = json !== this.originalJson;
             this.syncThemePreviewStorage();
@@ -359,7 +379,7 @@ const THEME_PRESET_I18N = {
           // Markdown preview: refresh debounced cuando cambia la descripción
           // o el format. Si la feature está apagada, no hace nada.
           if (this.markdownEnabled) {
-            let mdTimer = null;
+            let mdTimer: ReturnType<typeof setTimeout> | null = null;
             const schedule = () => {
               if (mdTimer) clearTimeout(mdTimer);
               mdTimer = setTimeout(() => this.refreshMarkdownPreview(), 300);
@@ -372,7 +392,7 @@ const THEME_PRESET_I18N = {
           // Audit log: cargar cuando el user abre el tab Auditoría y la
           // feature está activa. Una sola carga — el user puede refrescar
           // manualmente con los filtros.
-          this.$watch('tab', (t) => {
+          this.$watch('tab', (t: string) => {
             if (t === 'cards') {
               this.$nextTick(() => this.initCardSortables());
             }
@@ -410,18 +430,18 @@ const THEME_PRESET_I18N = {
             if (this.original?.cards) {
               for (const card of payload.cards || []) {
                 if (!checkSystemCard(card)) continue;
-                const orig = this.original.cards.find((c) => c.id === card.id);
+                const orig = this.original.cards.find((c: { id: string }) => c.id === card.id);
                 if (orig) restoreSystemCardProtectedFields(card, orig);
               }
             }
             if (payload.security?.network) {
               payload.security.network.trustedProxies = (payload.security.network.trustedProxiesText || '')
-                .split('\n').map((s) => s.trim()).filter(Boolean);
+                .split('\n').map((s: string) => s.trim()).filter(Boolean);
               delete payload.security.network.trustedProxiesText;
             }
             if (this.cfg.security?.network) {
               this.cfg.security.network.trustedProxies = (this.cfg.security.network.trustedProxiesText || '')
-                .split('\n').map((s) => s.trim()).filter(Boolean);
+                .split('\n').map((s: string) => s.trim()).filter(Boolean);
             }
             const markdownOn = this.cfg?.features?.markdown?.enabled === true;
             let clampedCount = 0;
@@ -459,12 +479,12 @@ const THEME_PRESET_I18N = {
             }
             await this.refreshAssets();
           } catch (e) {
-            if (e.status === 409) {
+            if ((e as { status?: number }).status === 409) {
               window.umbralAdmin.toast(this.l('msgSaveConflict'), 'error');
               return;
             }
             const tmpl = this.l('toastError');
-            window.umbralAdmin.toast(tmpl.replace('{message}', e.message), 'error');
+            window.umbralAdmin.toast(tmpl.replace('{message}', errMsg(e)), 'error');
           } finally {
             this.busy = false;
           }
@@ -478,7 +498,7 @@ const THEME_PRESET_I18N = {
             window.umbralAdmin.toast(this.l('toastReloaded'), 'success');
           } catch (e) {
             const tmpl = this.l('toastError');
-            window.umbralAdmin.toast(tmpl.replace('{message}', e.message), 'error');
+            window.umbralAdmin.toast(tmpl.replace('{message}', errMsg(e)), 'error');
           }
         },
 
@@ -487,14 +507,14 @@ const THEME_PRESET_I18N = {
         // El switch togglea el flag en cfg.features[name].enabled y marca
         // `dirty` para que "Guardar cambios" persista. El backend también
         // valida y loguea cada toggle en el audit log con diff.
-        isFeatureOn(name) {
+        isFeatureOn(name: string) {
           const features = (this.cfg ?? window.__initialConfig)?.features;
           if (!features) return false;
           const flag = features[name];
           return flag && typeof flag === 'object' && flag.enabled === true;
         },
 
-        async toggleFeature(name, enabled) {
+        async toggleFeature(name: string, enabled: boolean) {
           if (!this.cfg.features) this.cfg.features = {};
           if (!this.cfg.features[name]) {
             this.cfg.features[name] = { enabled: false };

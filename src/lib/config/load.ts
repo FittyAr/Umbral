@@ -11,7 +11,8 @@ import {
   portalConfigPath as _portalConfigPath,
   migrateLegacyToMultiPortal,
 } from '../multi-portal';
-import { ensureDirs, getActivePortalId, writeJsonAtomic } from './paths';
+import { ensureDirs, getActivePortalId, runWithPortal, writeJsonAtomic, ROOT_PORTAL } from './paths';
+import { laterVersion, pickPortalSections } from './portal-sections';
 import { defaultConfig } from './defaults';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -22,8 +23,13 @@ let seedPromise: Promise<Config> | null = null; // dedupes concurrent seeds
 let refreshPromise: Promise<Config> | null = null; // dedupes concurrent read-throughs
 const CACHE_TTL_MS = 5_000; // read-through TTL to balance freshness and perf
 
+// Portales que no son el raíz: su config combinado (global + secciones del
+// portal), con el mismo TTL.
+const portalCache = new Map<string, { config: Config; loadedAt: number }>();
+
 export function invalidate() {
   cache = null;
+  portalCache.clear();
   // Una relectura en vuelo quedaría vieja respecto de lo que se acaba de
   // escribir: la descartamos para que no popule el cache.
   refreshPromise = null;
@@ -69,8 +75,8 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
     const mig = await migrateLegacyToMultiPortal();
     if (mig.migrated) console.log(`[umbral] multi-portal auto-migration: ${mig.reason}`);
 
-    await ensureDirs();
-    const portalCfgPath = _portalConfigPath(getActivePortalId());
+    await runWithPortal(ROOT_PORTAL, ensureDirs);
+    const portalCfgPath = _portalConfigPath(ROOT_PORTAL);
     try {
       await fs.access(portalCfgPath);
     } catch {
@@ -106,8 +112,9 @@ async function seedIfMissing(initialPassword?: string): Promise<Config> {
   }
 }
 
+/** Lee y migra el config del portal raíz (el que tiene la parte global). */
 export async function loadFresh(): Promise<Config> {
-  const portalCfg = _portalConfigPath(getActivePortalId());
+  const portalCfg = _portalConfigPath(ROOT_PORTAL);
   const raw = await fs.readFile(portalCfg, 'utf8');
   let parsed: unknown;
   try {
@@ -236,7 +243,53 @@ export async function loadFresh(): Promise<Config> {
   );
 }
 
+/**
+ * Config del portal activo (ver config/paths.ts → runWithPortal). Para el
+ * raíz es su archivo; para otro portal, la parte global del raíz más las
+ * secciones propias del portal (config/portal-sections.ts).
+ */
 export async function getConfig(): Promise<Config> {
+  const portalId = getActivePortalId();
+  if (portalId === ROOT_PORTAL) return getRootConfig();
+  const hit = portalCache.get(portalId);
+  if (hit && Date.now() - hit.loadedAt <= CACHE_TTL_MS) return hit.config;
+  const root = await getRootConfig();
+  try {
+    const cfg = await loadPortal(portalId, root);
+    portalCache.set(portalId, { config: cfg, loadedAt: Date.now() });
+    return cfg;
+  } catch (err) {
+    if (hit) return hit.config; // archivo ilegible: último bueno conocido
+    throw err;
+  }
+}
+
+/** Combina el raíz con `data/portals/<id>/config.json`. Un portal sin
+ *  archivo todavía arranca con las secciones por defecto. */
+async function loadPortal(portalId: string, root: Config): Promise<Config> {
+  let own: Record<string, unknown> = {};
+  try {
+    own = JSON.parse(await fs.readFile(_portalConfigPath(portalId), 'utf8')) as Record<string, unknown>;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw new Error(`config del portal "${portalId}" ilegible: ${(err as Error).message}`);
+    }
+    own = pickPortalSections(defaultConfig() as unknown as Record<string, unknown>);
+  }
+  const ownMeta = (own._meta ?? {}) as { createdAt?: string | null; updatedAt?: string | null };
+  return ConfigSchema.parse({
+    ...root,
+    ...pickPortalSections(own),
+    _meta: {
+      createdAt: ownMeta.createdAt ?? root._meta?.createdAt ?? null,
+      // La versión (If-Match) es la más reciente de las dos partes: un
+      // cambio global o uno del portal la mueven.
+      updatedAt: laterVersion(ownMeta.updatedAt, root._meta?.updatedAt),
+    },
+  });
+}
+
+async function getRootConfig(): Promise<Config> {
   // 1) fresh-load if no cache
   if (!cache) {
     const cfg = await seedIfMissing();

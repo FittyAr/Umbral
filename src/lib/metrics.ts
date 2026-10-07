@@ -18,7 +18,7 @@
  */
 
 import { isFeatureEnabled } from '~/lib/features';
-import { getConfig } from '~/lib/config';
+import { getConfig, getActivePortalId } from '~/lib/config';
 import type { Config } from '~/lib/schema';
 
 export interface MetricSample {
@@ -35,10 +35,16 @@ export interface MetricSample {
 const DEFAULT_BUFFER = 100;
 const sampleBuffers = new Map<string, MetricSample[]>();
 
+/** Clave por portal: con multi-portal dos portales pueden tener una card
+ *  con el mismo id. */
+function keyFor(cardId: string): string {
+  return `${getActivePortalId()}:${cardId}`;
+}
+
 /** Limpia el buffer de una card (o todos). Útil al borrar la card o
  *  reiniciar config. */
 export function clearMetrics(cardId?: string) {
-  if (cardId) sampleBuffers.delete(cardId);
+  if (cardId) sampleBuffers.delete(keyFor(cardId));
   else sampleBuffers.clear();
 }
 
@@ -53,10 +59,11 @@ export function recordSample(cardId: string, sample: MetricSample) {
     const cfg = await getConfig();
     if (!isFeatureEnabled(cfg, 'metrics')) return;
     const limit = DEFAULT_BUFFER;
-    let buf = sampleBuffers.get(cardId);
+    const key = keyFor(cardId);
+    let buf = sampleBuffers.get(key);
     if (!buf) {
       buf = [];
-      sampleBuffers.set(cardId, buf);
+      sampleBuffers.set(key, buf);
     }
     buf.push(sample);
     if (buf.length > limit) buf.shift();
@@ -68,7 +75,7 @@ export function recordSample(cardId: string, sample: MetricSample) {
 /** Devuelve las últimas N muestras de una card. Si no hay samples, [].
  *  Opcionalmente filtra por rango temporal (from/to ISO). */
 export function getSamples(cardId: string, opts: { limit?: number; from?: string; to?: string } = {}): MetricSample[] {
-  const buf = sampleBuffers.get(cardId);
+  const buf = sampleBuffers.get(keyFor(cardId));
   if (!buf) return [];
   let out = buf;
   if (opts.from) {
@@ -95,7 +102,7 @@ export function getCardSummary(cardId: string): {
   lastOk: boolean | null;
   lastTs: string | null;
 } | null {
-  const buf = sampleBuffers.get(cardId);
+  const buf = sampleBuffers.get(keyFor(cardId));
   if (!buf || buf.length === 0) return null;
   const lats = buf.map((s) => s.latencyMs).sort((a, b) => a - b);
   const sum = lats.reduce((a, b) => a + b, 0);
@@ -112,7 +119,10 @@ export function getCardSummary(cardId: string): {
 
 /** Lista de cards que tienen samples. Útil para iterar en el admin. */
 export function getCardIdsWithSamples(): string[] {
-  return Array.from(sampleBuffers.keys());
+  const prefix = `${getActivePortalId()}:`;
+  return Array.from(sampleBuffers.keys())
+    .filter((k) => k.startsWith(prefix))
+    .map((k) => k.slice(prefix.length));
 }
 
 /** Genera un path SVG inline de un sparkline. Devuelve string vacío si

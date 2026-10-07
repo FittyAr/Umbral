@@ -85,11 +85,18 @@ export function buildBootScript(options: {
   base: string;
   isDemoBuild: boolean;
   config: Config;
+  /** Portal de la página (multi-portal). Los fetch del cliente lo mandan en
+   *  `x-umbral-portal` para que la API resuelva el mismo portal (un portal
+   *  servido por prefijo de path no se reconoce por la URL de la API). */
+  portalId?: string;
 }): string {
   const parts = [
     `window.__BASE_URL__ = ${JSON.stringify(options.base)};`,
     `window.__UMBRAL_DEMO__ = ${options.isDemoBuild ? 'true' : 'false'};`,
   ];
+  if (options.portalId && options.portalId !== 'default') {
+    parts.push(`window.__UMBRAL_PORTAL__ = ${JSON.stringify(options.portalId)};`);
+  }
   if (options.isDemoBuild) {
     const seed = JSON.stringify(sanitizeConfigForClient(options.config));
     parts.push(`window.__INITIAL_DEMO_CONFIG__ = ${seed};`);

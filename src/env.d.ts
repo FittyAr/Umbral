@@ -11,5 +11,7 @@ declare namespace App {
   interface Locals {
     auth: import('./lib/auth').AuthContext;
     clientIp: string;
+    /** Portal del request (multi-portal); `default` con la feature apagada. */
+    portal: import('./lib/multi-portal').ResolvedPortal;
   }
 }

@@ -42,7 +42,10 @@ const cfg = needsConfig ? await getConfig() : null;
 const iconTint = iconTintProp ?? cfg!.theme.iconTint ?? 'original';
 const markdownEnabled = markdownEnabledProp ?? isFeatureEnabled(cfg!, 'markdown');
 const qrBase = base.endsWith('/') ? base : `${base}/`;
-const qrUrl = `${qrBase}api/qr/${encodeURIComponent(card.id)}.png?size=240`;
+// El QR es un <img>: el portal (multi-portal) va en la query, no en un header.
+const portalId = Astro.locals.portal?.id;
+const qrPortal = portalId && portalId !== 'default' ? `&portal=${encodeURIComponent(portalId)}` : '';
+const qrUrl = `${qrBase}api/qr/${encodeURIComponent(card.id)}.png?size=240${qrPortal}`;
 const rawIconUrl = resolveCardIconUrl(card);
 const iconUrl = rawIconUrl
   ? (rawIconUrl.startsWith('/') ? `${base.endsWith('/') ? base.slice(0, -1) : base}${rawIconUrl}` : rawIconUrl)

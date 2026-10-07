@@ -24,7 +24,7 @@
  */
 
 import { isFeatureEnabled } from '~/lib/features';
-import { getConfig } from '~/lib/config';
+import { getConfig, getActivePortalId } from '~/lib/config';
 import { audit } from '~/lib/config';
 import { getActiveWindowsForCard } from '~/lib/maintenance';
 import type { Config, Webhook, WebhookEvent } from '~/lib/schema';
@@ -51,8 +51,9 @@ const notifiedFailing = new Set<string>();
 /** Limpia estado de una card. Usado al borrar la card o reiniciar config. */
 export function clearWebhookState(cardId?: string) {
   if (cardId) {
-    failureCounters.delete(cardId);
-    for (const key of notifiedFailing) if (key.endsWith(`:${cardId}`)) notifiedFailing.delete(key);
+    const cardKey = `${getActivePortalId()}:${cardId}`;
+    failureCounters.delete(cardKey);
+    for (const key of notifiedFailing) if (key.endsWith(`:${cardKey}`)) notifiedFailing.delete(key);
   } else {
     failureCounters.clear();
     lastFired.clear();
@@ -234,18 +235,21 @@ export async function processHealthResults(results: CheckResult[]): Promise<{ fi
   const webhooks = (cfg.webhooks?.items ?? []).filter((w) => w.enabled);
   if (webhooks.length === 0) return { fired: 0 };
   const allowInternal = cfg.security.network.allowInternalHosts !== false;
+  // Estado por portal: dos portales pueden repetir ids de card.
+  const portal = getActivePortalId();
 
   let fired = 0;
   for (const result of results) {
     // En una ventana de mantenimiento no se manda health_fail (el admin sabe
     // que va a fallar); health_recover sí, para confirmar que volvió.
     const inMaintenance = (await getActiveWindowsForCard(result.cardId)).length > 0;
-    const prev = failureCounters.get(result.cardId);
+    const cardKey = `${portal}:${result.cardId}`;
+    const prev = failureCounters.get(cardKey);
     const newCount = result.ok ? 0 : (prev?.lastFailing ? prev.count + 1 : 1);
-    failureCounters.set(result.cardId, { count: newCount, lastFailing: !result.ok, lastCheckTs: Date.now() });
+    failureCounters.set(cardKey, { count: newCount, lastFailing: !result.ok, lastCheckTs: Date.now() });
 
     for (const wh of webhooks) {
-      const key = `${wh.id}:${result.cardId}`;
+      const key = `${wh.id}:${cardKey}`;
       let event: WebhookEvent | null = null;
       if (!result.ok) {
         if (newCount >= wh.minFailures && !notifiedFailing.has(key)) {

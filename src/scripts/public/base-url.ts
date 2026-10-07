@@ -10,7 +10,14 @@
 declare global {
   interface Window {
     __BASE_URL__?: string;
+    __UMBRAL_PORTAL__?: string;
   }
+}
+
+/** Header con el portal de la página (multi-portal), o vacío. */
+export function portalHeaders(): Record<string, string> {
+  const portal = window.__UMBRAL_PORTAL__;
+  return portal ? { 'x-umbral-portal': portal } : {};
 }
 
 /** Devuelve la URL absoluta de un path de API respetando el base del deploy. */

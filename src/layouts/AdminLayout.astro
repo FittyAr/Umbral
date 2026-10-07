@@ -8,6 +8,7 @@ import ThemeScript from '~/components/ThemeScript.astro';
 import { getConfig } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { buildBootScript } from '~/lib/client-config';
+import { ThemeSchema } from '~/lib/schema';
 import { t, resolveLocale, readLocaleCookie, type Locale } from '~/i18n';
 
 interface Props {
@@ -44,17 +45,19 @@ const locale: Locale = useI18n
   : 'es';
 const trf = t(locale);
 
-const bootScript = buildBootScript({ base, isDemoBuild, config });
+const bootScript = buildBootScript({ base, isDemoBuild, config, portalId: Astro.locals.portal?.id });
 
-const theme = {
-  colorMode: 'auto' as 'light' | 'dark' | 'auto',
+// Tema fijo del panel; ThemeSchema completa el resto de los campos con sus
+// defaults (ThemeScript espera un Theme entero).
+const theme = ThemeSchema.parse({
+  colorMode: 'auto',
   accentColor: '#60a5fa',
   textColor: '#f1f5f9',
   fontFamily: 'Inter',
-  fontUrl: null as string | null,
-  background: { type: 'color' as const, value: '#0b1220', blur: 0, overlay: 0, overlayColor: '#000' },
-  cardStyle: 'flat' as 'flat' | 'glass' | 'outlined',
-};
+  fontUrl: '',
+  background: { type: 'color', value: '#0b1220', blur: 0, overlay: 0, overlayColor: '#000' },
+  cardStyle: 'flat',
+});
 ---
 <!doctype html>
 <html lang={locale}>
@@ -134,8 +137,12 @@ const theme = {
           );
           const headers = { ...(opts.headers || {}) };
           // El CSRF sólo viaja al propio origen: nunca a un endpoint absoluto
-          // de otro host.
-          if (targetUrl.origin === window.location.origin) headers['x-csrf-token'] = this.csrf;
+          // de otro host. Lo mismo el portal que se está editando
+          // (multi-portal): la API resuelve el config de ese portal.
+          if (targetUrl.origin === window.location.origin) {
+            headers['x-csrf-token'] = this.csrf;
+            if (window.__UMBRAL_PORTAL__) headers['x-umbral-portal'] = window.__UMBRAL_PORTAL__;
+          }
           let b = undefined;
           if (body && !(body instanceof FormData)) {
             headers['content-type'] = 'application/json';

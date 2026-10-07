@@ -17,7 +17,6 @@
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import type { Config, Portal } from './schema';
-import { getConfig, audit } from './config';
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 
@@ -31,51 +30,104 @@ export function portalConfigPath(id: string): string {
 // son compartidos, en `data/`. Existían sin un solo caller y lo único que
 // hacían era invitar a mover archivos a un directorio que nadie lee.
 
-/** Resuelve qué portal matchea el request. Si multiPortal está apagado,
- *  devuelve "default" (legacy). Si está activo, matchea por Host header
- *  o path prefix según los portals configurados.
- *
- *  Si ningún portal matchea, devuelve el defaultPortal. */
-export function resolvePortalId(request: Request, cfg: Config): string {
-  if (!cfg.portals || !cfg.portals.items || cfg.portals.items.length === 0) {
-    return 'default';
-  }
-  const url = new URL(request.url);
-  const host = url.host.toLowerCase();
+export interface ResolvedPortal {
+  /** Id del portal (carpeta en data/portals/). */
+  id: string;
+  /** Prefijo de path que matcheó (ej. `/it`), o '' si el portal se resolvió
+   *  por host, por selección explícita o por default. Las páginas públicas
+   *  lo anteponen a sus links. */
+  basePath: string;
+  /** Path interno al que reescribir el request (sin el prefijo), si aplica. */
+  rewriteTo?: string;
+}
+
+/** Header (API) y query param (páginas, `<img>` de QR) para elegir portal. */
+export const PORTAL_HEADER = 'x-umbral-portal';
+export const PORTAL_PARAM = 'portal';
+
+// Paths que nunca se reescriben por prefijo: son compartidos por todos los
+// portales (API, panel, assets del build, íconos).
+const SHARED_PREFIXES = ['/api/', '/admin', '/_astro/', '/_image', '/icons/', '/favicon', '/docs', '/manifest.webmanifest'];
+
+/**
+ * Resuelve el portal de un request. Orden:
+ * 1. Selección explícita (`x-umbral-portal` o `?portal=`) de un portal
+ *    configurado: la usan la API del panel, los fetch de la portada de un
+ *    portal servido por prefijo y las imágenes de QR.
+ * 2. Host (+ prefijo de path) de los portales configurados.
+ * 3. Sólo prefijo de path (portales sin host).
+ * 4. `portals.defaultPortal`, o el raíz.
+ * Con la feature apagada siempre es el raíz.
+ */
+export function resolveRequestPortal(request: Request, url: URL, cfg: Config): ResolvedPortal {
+  const root: ResolvedPortal = { id: 'default', basePath: '' };
+  if (cfg.features?.multiPortal?.enabled !== true) return root;
+  const portals = cfg.portals?.items ?? [];
+  const known = new Set(['default', ...portals.map((p) => p.id)]);
+
+  const explicit = (request.headers.get(PORTAL_HEADER) || url.searchParams.get(PORTAL_PARAM) || '').trim();
+  if (explicit && known.has(explicit)) return { id: explicit, basePath: portalBasePath(portals, explicit) };
+
+  // El header Host (y no url.host): Astro sólo refleja en `url` los dominios
+  // declarados en security.allowedDomains. Elegir portal por Host no da
+  // permisos: la auth es global.
+  const host = (request.headers.get('host') || url.host).toLowerCase();
   const pathname = url.pathname;
-  const portals = cfg.portals.items;
-  // 1) Match exacto por host + path prefix
+  const shared = SHARED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
+  const withPrefix = (p: Portal): ResolvedPortal => {
+    const prefix = normalizePrefix(p.pathPrefix);
+    if (!prefix) return { id: p.id, basePath: '' };
+    const rest = pathname.slice(prefix.length) || '/';
+    return { id: p.id, basePath: prefix, rewriteTo: shared ? undefined : rest };
+  };
+
   for (const p of portals) {
-    if (p.host && matchesHost(p.host, host) && matchesPath(p.pathPrefix, pathname)) {
-      return p.id;
+    if (p.host && matchesHost(p.host, host) && (shared || matchesPath(p.pathPrefix, pathname))) {
+      return shared ? { id: p.id, basePath: '' } : withPrefix(p);
     }
   }
-  // 2) Match por path prefix solamente (host vacío = matchea cualquier host)
-  for (const p of portals) {
-    if (!p.host && p.pathPrefix !== '*' && matchesPath(p.pathPrefix, pathname)) {
-      return p.id;
+  if (!shared) {
+    for (const p of portals) {
+      if (!p.host && normalizePrefix(p.pathPrefix) && matchesPath(p.pathPrefix, pathname)) return withPrefix(p);
     }
   }
-  // 3) Default: si hay un portal con pathPrefix='*' o '', usarlo
-  const fallback = portals.find((p: Portal) => p.pathPrefix === '*' || p.pathPrefix === '/');
-  if (fallback) return fallback.id;
-  // 4) Fallback final: defaultPortal configurado
-  return cfg.portals.defaultPortal || 'default';
+  const fallback = cfg.portals?.defaultPortal;
+  return fallback && known.has(fallback) ? { id: fallback, basePath: '' } : root;
+}
+
+/** Compat: sólo el id. */
+export function resolvePortalId(request: Request, cfg: Config): string {
+  return resolveRequestPortal(request, new URL(request.url), cfg).id;
+}
+
+function normalizePrefix(prefix: string | undefined): string {
+  if (!prefix || prefix === '*' || prefix === '/') return '';
+  return prefix.replace(/\/+$/, '');
 }
 
 function matchesHost(pattern: string, host: string): boolean {
   if (pattern === '*') return true;
+  // El patrón puede venir con o sin puerto: `it.example.com` matchea
+  // `it.example.com:8443`.
+  const p = pattern.toLowerCase();
+  const hostname = host.replace(/:\d+$/, '');
+  if (!p.includes(':') && !p.startsWith('*.')) return hostname === p;
   if (pattern.startsWith('*.')) {
     // *.example.com → matchea foo.example.com pero NO example.com
     const suffix = pattern.slice(1); // ".example.com"
-    return host.endsWith(suffix) && host.length > suffix.length;
+    return hostname.endsWith(suffix) && hostname.length > suffix.length;
   }
-  return host === pattern.toLowerCase();
+  return host === p;
 }
 
 function matchesPath(prefix: string, pathname: string): boolean {
-  if (prefix === '*' || prefix === '/' || prefix === '') return true;
-  return pathname === prefix || pathname.startsWith(prefix + '/');
+  const p = normalizePrefix(prefix);
+  if (!p) return true;
+  return pathname === p || pathname.startsWith(p + '/');
+}
+
+function portalBasePath(portals: Portal[], id: string): string {
+  return normalizePrefix(portals.find((p) => p.id === id)?.pathPrefix);
 }
 
 /** Auto-migración: data/ → data/portals/default/. Se ejecuta una vez

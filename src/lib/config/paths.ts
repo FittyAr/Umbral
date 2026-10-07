@@ -3,12 +3,13 @@
  *
  * `DATA_DIR` se resolvía en siete módulos distintos; acá vive una sola vez y
  * el resto lo importa. Los tres paths exportados son los del portal
- * "default", que es el comportamiento histórico (single-portal): el código
- * que necesita el portal activo usa `portalConfigPath(getActivePortalId())`.
+ * "default", que es el comportamiento histórico (single-portal); el config
+ * de cada portal vive en `data/portals/<id>/config.json`.
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 
@@ -16,17 +17,29 @@ export const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 export const AUDIT_LOG_PATH = path.join(DATA_DIR, 'audit.log');
 
-// (Ola 4.1) Portal activo para este proceso. Default: 'default' (legacy
-// single-portal). Multi-portal mode: el middleware setea el portal id
-// per-request vía setActivePortalId() antes de que el handler llame a
-// getConfig(). En una sola instancia del server, se sirve un portal
-// a la vez — para multi-portal real con dispatch en runtime, el proxy
-// externo (nginx/Caddy/Traefik) rutea por host/pathPrefix a distintas
-// instancias, o se usa una sola instancia con cache per-portal in-memory
-// (v2 de esta feature, requiere refactor del cache a Map<portalId, Cache>).
-let activePortalId = 'default';
-export function setActivePortalId(id: string) { activePortalId = id; }
-export function getActivePortalId() { return activePortalId; }
+// ──────────────────────────────────────────────────────────────────────────
+// Portal activo (multi-portal)
+// ──────────────────────────────────────────────────────────────────────────
+// El portal se resuelve por request en el middleware y viaja en un
+// AsyncLocalStorage: antes era una variable del proceso, así que con dos
+// requests concurrentes de portales distintos uno leía el config del otro.
+// Fuera de un request (tests, scripts) el portal es el raíz.
+
+/** Portal raíz: guarda la configuración global (auth, seguridad, features,
+ *  lista de portales…) y es el que se sirve cuando multiPortal está apagado. */
+export const ROOT_PORTAL = 'default';
+
+const portalStore = new AsyncLocalStorage<string>();
+
+/** Ejecuta `fn` con `portalId` como portal activo (también en lo que `fn`
+ *  dispare de forma asíncrona). */
+export function runWithPortal<T>(portalId: string, fn: () => T): T {
+  return portalStore.run(portalId, fn);
+}
+
+export function getActivePortalId(): string {
+  return portalStore.getStore() ?? ROOT_PORTAL;
+}
 
 export async function ensureDirs() {
   // Los uploads viven en `data/uploads`, que es de donde los leen
@@ -38,7 +51,7 @@ export async function ensureDirs() {
   // El directorio del portal activo tiene que existir antes del seed: sin él
   // el primer `writeFile` de config.json falla con ENOENT en una instalación
   // limpia.
-  await fs.mkdir(path.join(DATA_DIR, 'portals', activePortalId), { recursive: true });
+  await fs.mkdir(path.join(DATA_DIR, 'portals', getActivePortalId()), { recursive: true });
 }
 
 /**

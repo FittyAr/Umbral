@@ -41,7 +41,7 @@ const title = useI18n ? tr('home.refreshTitle') : 'Recargar configuración';
   // entre este archivo (que sólo ponía la clase .is-loading) y un handler en
   // index.astro, copiado en [category].astro con `/api/config` absoluto — o
   // sea roto en cualquier deploy bajo subpath.
-  import { apiUrl } from '~/scripts/public/base-url';
+  import { apiUrl, portalHeaders } from '~/scripts/public/base-url';
 
   const btn = document.querySelector('[data-action="refresh-config"]');
   btn?.addEventListener('click', async () => {
@@ -50,7 +50,7 @@ const title = useI18n ? tr('home.refreshTitle') : 'Recargar configuración';
     // conserva scroll, foco y el estado del buscador del browser— ve los
     // datos nuevos sin esperar la lectura del disco.
     try {
-      await fetch(apiUrl('api/config'), { cache: 'no-store' });
+      await fetch(apiUrl('api/config'), { cache: 'no-store', headers: portalHeaders() });
     } catch { /* igual recargamos */ }
     window.location.reload();
   });

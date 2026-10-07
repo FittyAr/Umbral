@@ -26,7 +26,7 @@ const hour12 = config.theme.clockFormat === '12h';
 // el código de locale de Umbral al código BCP-47 que Intl entiende —
 // 'es' → 'es-AR' (default del proyecto), 'en' → 'en-US', 'pt' → 'pt-BR'.
 const intlLocale = useI18n
-  ? ({ es: 'es-AR', en: 'en-US', pt: 'pt-BR' }[locale] || locale)
+  ? (({ es: 'es-AR', en: 'en-US', pt: 'pt-BR' } as Record<string, string>)[locale] || locale)
   : 'es-AR';
 const ariaLabel = useI18n ? tr('home.clock.aria') : 'Hora actual';
 ---

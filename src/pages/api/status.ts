@@ -5,6 +5,7 @@ import { processHealthResults } from '~/lib/webhooks';
 import { recordSample } from '~/lib/metrics';
 import { safeFetch } from '~/lib/safe-fetch';
 import { checkRateLimit } from '~/lib/rate-limit';
+import { getActivePortalId } from '~/lib/config';
 
 export const prerender = false;
 
@@ -60,6 +61,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // Cap total a 50 chequeos para evitar abuso si alguien carga miles de cards.
   const capped = targets.slice(0, 50);
   const maxAge = freshnessMs(cfg.layout.healthCheckInterval);
+  // Las claves llevan el portal: dos portales pueden repetir ids de card.
+  const portal = getActivePortalId();
+  const keyOf = (id: string) => `${portal}:${id}`;
   const fresh: Array<{ result: StatusResult; title: string }> = [];
 
   const runCheck = async (c: (typeof capped)[number]): Promise<StatusResult> => {
@@ -82,21 +86,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
       result = { id: c.id, url: c.url, ok: false, error: (err as Error).message, latencyMs: Date.now() - t0 };
     }
     recordSample(c.id, { ts: new Date().toISOString(), latencyMs: result.latencyMs ?? 0, ok: result.ok });
-    recent.set(c.id, { result, at: Date.now() });
+    recent.set(keyOf(c.id), { result, at: Date.now() });
     fresh.push({ result, title: c.title });
     return result;
   };
 
   const checks: StatusResult[] = await Promise.all(
     capped.map((c) => {
-      const cached = recent.get(c.id);
+      const cached = recent.get(keyOf(c.id));
       if (cached && cached.result.url === c.url && Date.now() - cached.at < maxAge) {
         return Promise.resolve(cached.result);
       }
-      let p = inflight.get(c.id);
+      let p = inflight.get(keyOf(c.id));
       if (!p) {
-        p = runCheck(c).finally(() => inflight.delete(c.id));
-        inflight.set(c.id, p);
+        p = runCheck(c).finally(() => inflight.delete(keyOf(c.id)));
+        inflight.set(keyOf(c.id), p);
       }
       return p;
     }),

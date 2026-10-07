@@ -1,8 +1,10 @@
 import { defineMiddleware } from 'astro:middleware';
+import type { APIContext, MiddlewareNext } from 'astro';
+import { resolveRequestPortal, type ResolvedPortal } from '~/lib/multi-portal';
 import { buildAuthContext, CSRF_HEADER, safeEqual } from '~/lib/auth';
 import { hasRole, requiredRole } from '~/lib/authz';
 import { resolveClientIp } from '~/lib/client-ip';
-import { getConfig } from '~/lib/config';
+import { getConfig, runWithPortal, ROOT_PORTAL } from '~/lib/config';
 import { applySecurityHeaders } from '~/lib/http';
 
 // /api/status: el home lo usa para el health check de las cards con
@@ -102,13 +104,23 @@ const MAX_CONFIG_BODY_BYTES = 1 * 1024 * 1024;
 const MAX_UPLOAD_BODY_BYTES = 10 * 1024 * 1024;
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  const { url, request } = context;
-  const pathname = url.pathname;
-
   // Las rutas prerenderizadas se generan en el build y se sirven como
   // archivos: no hay sesión que validar ni headers de request que leer
   // (tocarlos durante el prerender emite warnings de Astro).
   if (context.isPrerendered) return next();
+
+  // Multi-portal: el portal se resuelve con el config raíz (que tiene la
+  // lista de portales) y todo el request —middleware, página o endpoint—
+  // corre con ese portal activo (config/paths.ts → runWithPortal).
+  const rootCfg = await runWithPortal(ROOT_PORTAL, getConfig);
+  const portal = resolveRequestPortal(context.request, context.url, rootCfg);
+  context.locals.portal = portal;
+  return runWithPortal(portal.id, () => handle(context, next, portal));
+});
+
+async function handle(context: APIContext, next: MiddlewareNext, portal: ResolvedPortal): Promise<Response> {
+  const { url, request } = context;
+  const pathname = url.pathname;
 
   // Pull config once (cached) for security/network/headers settings.
   const cfg = await getConfig();
@@ -200,7 +212,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  const response = await next();
+  // Portal servido por prefijo (`/it/...`): las páginas se renderizan con
+  // el path sin el prefijo.
+  const response = await (portal.rewriteTo ? next(portal.rewriteTo + url.search) : next());
 
   // Versión del config para el control de concurrencia del panel: cada
   // respuesta de la API lleva el `updatedAt` vigente, el panel lo guarda y lo
@@ -233,4 +247,4 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   return response;
-});
+}

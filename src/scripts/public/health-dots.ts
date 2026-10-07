@@ -1,4 +1,4 @@
-import { apiUrl } from './base-url.ts';
+import { apiUrl, portalHeaders } from './base-url.ts';
 
 /**
  * Puntos de salud en vivo y sparklines de métricas de las páginas públicas.
@@ -76,7 +76,7 @@ export function initHealthDots(): void {
     try {
       const res = await fetch(apiUrl('api/status'), {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...portalHeaders() },
         body: JSON.stringify({ ids: Array.from(dots.keys()) }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -125,7 +125,7 @@ function initSparklines(cards: HTMLElement[], period: number): void {
       if (!id) continue;
       try {
         const url = apiUrl(`api/metrics?id=${encodeURIComponent(id)}&svg=1&range=1h&limit=40`);
-        const res = await fetch(url, { credentials: 'same-origin' });
+        const res = await fetch(url, { credentials: 'same-origin', headers: portalHeaders() });
         if (!res.ok) continue;
         const svg = await res.text();
         if (!svg) continue;

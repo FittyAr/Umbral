@@ -6,15 +6,41 @@ Umbral está preparado para despliegues empresariales y multidepartamentales que
 
 ## 🏢 Arquitectura Multi-Portal
 
-La feature `multiPortal` permite alojar múltiples portales independientes dentro de un único contenedor Docker de Umbral, sin necesidad de levantar instancias adicionales ni consumir más memoria.
+La feature `multiPortal` sirve varias portadas desde un único container: por ejemplo `it.empresa.local` para IT y `empresa.local/mk` para Marketing, cada una con su marca, tema y tarjetas.
 
-### Características Principales
-- **Aislamiento Total:** Cada portal cuenta con su propio archivo de configuración (`data/portals/<id>/config.json`), su propio directorio de uploads (`data/portals/<id>/uploads/`) y su propio registro de auditoría (`data/portals/<id>/audit.log`).
-- **Portal por Defecto:** La instancia siempre mantiene el portal `default` como raíz principal.
-- **Estrategias de Enrutamiento:**
-  1. **Por Subdominio:** `it.empresa.local`, `dev.empresa.local`, `ops.empresa.local`.
-  2. **Por Prefijo de Ruta:** `empresa.local/it`, `empresa.local/dev`, `empresa.local/ops`.
-- **Migración Automática:** Al activar `multiPortal` por primera vez, el servidor migra automáticamente los datos existentes de `data/config.json` hacia `data/portals/default/` sin pérdida de información.
+### Qué es de cada portal y qué es común
+
+| De cada portal (`data/portals/<id>/config.json`) | Común a la instancia (portal `default`) |
+|---|---|
+| Branding, tema, layout, categorías, tarjetas, ventanas de mantenimiento | Password y usuarios, 2FA, OIDC, API tokens, Hardening, features, IA, webhooks, la lista de portales |
+
+- **Un solo login** sirve para todos los portales: la auth es global.
+- **Uploads y audit log** son compartidos (`data/uploads/`, `data/audit.log`). Cada entrada del log de un portal que no es el raíz lleva `portal=<id>`.
+- Un portal nuevo arranca con la portada por defecto hasta que lo editás; su archivo se crea al primer guardado.
+
+### Cómo se elige el portal de un request
+
+1. **Selección explícita**: header `x-umbral-portal: <id>` o query `?portal=<id>` (sólo ids configurados). Lo usan la API del panel, los fetch de la portada de un portal servido por prefijo y las imágenes de QR.
+2. **Host**: el header `Host` contra el host del portal (`it.empresa.local`, con o sin puerto, o `*.empresa.local`).
+3. **Prefijo de ruta** (portales sin host): `/mk`, `/mk/dev`… La página se renderiza sin el prefijo (`/mk/dev` → categoría `dev` del portal `mk`), y el "volver" de las subpáginas apunta a `/mk/`. La API (`/api/*`), el panel (`/admin`), `/docs` y los assets no se reescriben.
+4. **Portal para pedidos sin match** (`portals.defaultPortal`), o el raíz.
+
+Con la feature apagada todo va al portal `default`, como siempre.
+
+### Administrar los portales
+
+- **Panel → Multi-Portal**: alta y baja de portales (id `a-z0-9-`, `default` está reservado; host y/o prefijo), y el portal para pedidos sin match.
+- **Editar la portada de un portal**: el selector **Portal** del encabezado del panel (o el botón "Editar portada") recarga el panel con `?portal=<id>`. Lo que guardás en los tabs de portada va a ese portal; lo global (Hardening, usuarios, features…) se guarda para todos.
+- **Reset a defaults** dentro de un portal sólo resetea su portada.
+- Borrar un portal de la lista no borra `data/portals/<id>/`: si lo volvés a crear con el mismo id recupera su portada.
+
+### Detrás de un reverse proxy
+
+El proxy tiene que pasar el header `Host` original (`proxy_set_header Host $host;` en nginx; Caddy y Traefik lo hacen por defecto). Para portales por prefijo no hace falta nada especial: Umbral reescribe la ruta internamente.
+
+### Migración desde instalaciones viejas
+
+Al arrancar, si existe `data/config.json` (instalaciones v1), se mueve a `data/portals/default/config.json` sin pérdida de datos.
 
 ---
 
