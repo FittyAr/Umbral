@@ -28,7 +28,9 @@ docker run -d \
   ghcr.io/FittyAr/Umbral:latest
 ```
 
-El server te va a loguear un warning diciendo que el secret es débil. Para producción usá siempre el primer comando.
+Sin `SESSION_SECRET` (o con uno de menos de 16 caracteres) el server usa un secreto aleatorio y loguea un warning: las sesiones se pierden en cada reinicio y, si activás 2FA, los seeds TOTP también. Lo mismo pasa si en producción le pasás uno de los valores de ejemplo conocidos (`change-me-...`, `changeme`, `secret`): se ignora con un `[umbral FATAL]` en el log. Para producción usá siempre el primer comando.
+
+> Con `docker compose` no hay modo "sin secreto": el `docker-compose.yml` exige `SESSION_SECRET` en el `.env` y no arranca sin ella. Ver [Docker](./docker.md).
 
 ## 2. Abrir
 

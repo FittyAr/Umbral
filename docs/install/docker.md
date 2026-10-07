@@ -38,6 +38,8 @@ PORT=3000
 
 Ver [Variables de entorno](../config/env.md) para la lista completa.
 
+> **`SESSION_SECRET` es obligatoria.** El `docker-compose.yml` la declara como `${SESSION_SECRET:?...}`: si no está en `.env`, `docker compose up` corta con un error en vez de arrancar con un secreto público. El `.env.example` la trae vacía a propósito. Y si ponés uno de los valores de ejemplo conocidos, en producción la app lo ignora y usa uno aleatorio (las sesiones se pierden en cada reinicio).
+
 > ⚠️ **Importante:** cambiá `INITIAL_PASSWORD` apenas puedas desde `/admin` → Seguridad. El valor en `.env` sólo se usa en el primer arranque.
 
 ## 3. Build de la imagen
@@ -115,11 +117,13 @@ services:
       - PORT=4321
       - HOST=0.0.0.0
       - DATA_DIR=/app/data
-      - SESSION_SECRET=${SESSION_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET:?Defini SESSION_SECRET en .env (minimo 32 caracteres)}
       - INITIAL_PASSWORD=${INITIAL_PASSWORD:-}
       - BASE_URL=${BASE_URL:-}
     volumes:
       - umbral-data:/app/data
+    tmpfs:
+      - /tmp
     cap_drop:
       - ALL
     security_opt:
@@ -129,6 +133,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 10s
 
   # Descomentar para activar Caddy:
   # caddy:
@@ -143,7 +148,7 @@ volumes:
 
 - **`cap_drop: ALL`** + **`no-new-privileges: true`** — el container no puede escalar privilegios ni cargar capabilities del kernel.
 - **Usuario no-root** dentro del container (definido en el Dockerfile con `USER app`).
-- **Healthcheck** que Docker usa para saber si el container está sano.
+- **Healthcheck** que Docker usa para saber si el container está sano. `/api/health` devuelve `503` si el config no se puede leer (volumen sin permisos, `config.json` roto), así el container queda `unhealthy` en vez de reportar `ok` igual. En la imagen, el `HEALTHCHECK` del Dockerfile usa `$PORT`.
 - **Volumen `umbral-data`** montado en `/app/data` — la única cosa que necesitás backupear.
 
 ## Variables de entorno
@@ -155,9 +160,10 @@ volumes:
 | `PORT` (container) | `4321` | Puerto interno del container |
 | `HOST` | `0.0.0.0` | Bind address dentro del container |
 | `DATA_DIR` | `/app/data` | Carpeta persistente dentro del container |
-| `SESSION_SECRET` | random (dev) | Secreto para firmar cookies. **32+ chars en prod** |
+| `SESSION_SECRET` | — (obligatoria) | Secreto para firmar sesiones. **32+ chars.** Sin ella el compose no arranca |
 | `INITIAL_PASSWORD` | `admin` | Password del primer arranque. **Cambiala ASAP.** |
 | `BASE_URL` | — | Si vas detrás de HTTPS, poné `https://tu-dominio` |
+| `TRUST_FORWARDED_FOR` | `false` | `true` detrás de un reverse proxy, para que el rate limit vea la IP real. No viene en el compose: agregala en `environment:` si la necesitás |
 
 Ver [Variables de entorno](../config/env.md) para más detalle.
 

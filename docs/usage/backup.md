@@ -6,7 +6,7 @@
 
 `data/` contiene:
 
-- `config.json` — branding, theme, layout, security, categorías, tarjetas, auth (password hash + CSRF).
+- `config.json` — branding, theme, layout, security, categorías, tarjetas, auth (password hash + CSRF), API tokens (hasheados) y los secretos de integraciones (API key de IA, client secrets de OIDC). **Tratá el backup del volumen como material sensible.**
 - `uploads/` — todos los assets subidos (logos, íconos, fondos, favicons).
 - `audit.log` (y `.1`, `.2`, `.3` rotados) — log append-only de eventos.
 
@@ -21,9 +21,20 @@
 
 `/admin` → tab **Avanzado** → **Descargar config.json**.
 
-- Baja un JSON con la config completa.
+- Baja un JSON con la config **saneada**: branding, tema, layout, categorías, tarjetas, features, Hardening, etc.
+- **No incluye secretos.** El panel nunca recibe el hash de la password, el CSRF, los hashes ni seeds TOTP de los usuarios, los client secrets de OIDC, la API key de IA, las keys de búsqueda externa ni los hashes de los API tokens: en el archivo esos campos van vacíos (`""`).
 - **No incluye los assets** — sólo las URLs a `/api/assets/...`.
-- Útil para migrar la config entre instancias **que comparten los assets** (no es lo normal).
+- Útil para versionar la config o migrarla entre instancias **que comparten los assets** (no es lo normal). Para un backup completo, con passwords y secretos, usá el método 2.
+
+### Método 1b: el CLI
+
+```bash
+umbral config backup                       # → umbral-config-<timestamp>.json
+umbral config backup --out=config.json     # a un archivo puntual
+umbral config backup --out=-               # imprime el JSON por stdout
+```
+
+Lee `GET /api/config` con un API token, así que el resultado es el mismo JSON saneado que el export del panel (sin secretos). Antes el CLI sugería `umbral config get > archivo`, que guarda el resumen legible y no el JSON: usá `config backup`. Ver `packages/cli/README.md`.
 
 ### Método 2: backup manual del volumen (recomendado)
 
@@ -152,8 +163,12 @@ sudo systemctl start umbral
 
 `/admin` → tab **Avanzado** → **Importar config.json** → seleccionar archivo.
 
+- Requiere rol `admin` (`PUT /api/import`).
+- **La auth y los API tokens actuales se conservan.** Lo que traiga el archivo en `auth` y `apiTokens` se ignora: importar un backup viejo no restaura una password anterior ni revive sesiones que un cambio de password había cerrado. Los usuarios, passwords y tokens se administran aparte.
+- **Los secretos vacíos se conservan del server.** Como el export viene sin secretos, al importarlo se mantienen la API key de IA, las keys de búsqueda y los client secrets de OIDC (por `id` de provider) que ya tenía el server. En un server nuevo, cargalos a mano después del import.
+- A las tarjetas se les aplica el mismo gating de features que a un guardado normal (por ejemplo, con `markdown` apagado las descripciones quedan como texto plano).
 - **Cuidado:** los assets referenciados con `/api/assets/...` no van a estar en el nuevo server. Las tarjetas van a mostrar íconos rotos hasta que subas los assets.
-- Para una migración **completa** entre servers: copiá `uploads/` aparte + importá el config.
+- Para una migración **completa** entre servers: copiá `uploads/` aparte + importá el config, o mejor restaurá el volumen entero (método 2).
 
 ## Estrategias de retención
 

@@ -6,28 +6,29 @@
 
 | Variable | Default | Obligatoria en prod | Descripción |
 |---|---|---|---|
-| `SESSION_SECRET` | random en dev | **Sí** | Secreto HMAC para firmar cookies. 32+ chars. |
+| `SESSION_SECRET` | random si falta | **Sí** (el `docker-compose.yml` no arranca sin ella) | Secreto HMAC de las sesiones y del CSRF, y clave de cifrado de los seeds TOTP. 32+ chars. |
 | `INITIAL_PASSWORD` | `admin` | Recomendado | Password del primer arranque. Cambiala ASAP desde `/admin`. |
 | `BASE_URL` | `''` | Si usás HTTPS | URL base (ej: `https://home.example.com`). Usado para cookies Secure y HSTS. |
 | `PORT` | `4321` | No | Puerto del proceso. En Docker compose, mapeado al host. |
 | `HOST` | `0.0.0.0` | No | Bind address. `127.0.0.1` para sólo loopback. |
 | `DATA_DIR` | `./data` | No | Carpeta persistente. Default: `data/` en el cwd. |
 | `NODE_ENV` | `production` | No | Setear `development` para logs verbose. |
-| `TRUST_FORWARDED_FOR` | `false` | No | `true` para confiar en headers `X-Forwarded-For` / `X-Real-IP` de reverse proxies (OpenResty, Nginx, Caddy). |
+| `TRUST_FORWARDED_FOR` | `false` | No | `true` para tomar la IP del cliente de `X-Forwarded-For` / `X-Real-IP` (detrás de OpenResty, Nginx, Caddy, Traefik). Ver [más abajo](#trust_forwarded_for). |
 | `DOMAIN` | `home.example.internal` | Sólo Caddy | Dominio que Caddy sirve. Ignorado si no usás el servicio Caddy. |
 
 ## `SESSION_SECRET`
 
-> **Crítica.** Secreto con el que se firman los tokens de sesión (HMAC-SHA256) y se encripta el CSRF token.
+> **Crítica.** Secreto con el que se firman los tokens de sesión (HMAC-SHA256), se deriva el CSRF de cada sesión y se cifran los seeds TOTP (AES-256-GCM con clave derivada por HKDF).
 
-- **Default en dev:** random por proceso. Las sesiones **no sobreviven reinicios**.
-- **Default conocido (`change-me-please-this-is-32-chars-or-more`):** la app loguea **FATAL** y rechaza operar en producción. Esto es deliberado: no queremos que nadie se olvide de cambiarlo.
+- **Si falta o tiene menos de 16 caracteres:** el server usa un secreto aleatorio por proceso y loguea un warning. Las sesiones **no sobreviven reinicios** y los seeds TOTP guardados dejan de descifrarse (los usuarios con 2FA tienen que volver a configurarlo). Sirve para probar, no para producción.
+- **Valores públicos conocidos** (los que alguna vez estuvieron en `.env.example` o en el `docker-compose.yml`, como `change-me-please-this-is-32-chars-or-more`, o genéricos como `changeme` / `secret`): con `NODE_ENV=production` la app **los ignora**, loguea `[umbral FATAL]` y cae al secreto aleatorio. No se niega a arrancar, pero tampoco firma con un secreto que cualquiera con el repo podría usar para forjar sesiones.
+- **`docker-compose.yml` la exige:** usa `${SESSION_SECRET:?...}`, así que `docker compose up` corta con un error si no está definida en `.env`. El `.env.example` ya no trae ningún valor por default.
 - **Generar uno fuerte:**
   ```bash
   openssl rand -hex 32
   # → e.g. 5f4dcc3b5aa765d61d8327deb882cf99...
   ```
-- **Cambiar el secret invalida todas las sesiones existentes.** Es lo correcto — un secret rotado es un secret "perdido", no se puede seguir firmando tokens viejos.
+- **Cambiar el secret invalida todas las sesiones existentes** y los seeds TOTP. Es lo correcto — un secret rotado es un secret "perdido", no se puede seguir firmando tokens viejos.
 
 **En Docker compose**, pasalo vía `.env`:
 ```env
@@ -107,6 +108,22 @@ El proceso necesita **escritura** en esta carpeta. Si lo corrés con un usuario 
 - `development`: logs verbose (cada request, cada save).
 
 No setees `development` en prod — el ruido de logs te va a tapar lo importante.
+
+## `TRUST_FORWARDED_FOR`
+
+Equivale a prender `security.network.trustForwardedFor` en el panel (cualquiera de los dos alcanza; también se acepta `TRUST_PROXY=true`). Sin esto, la IP del cliente es la del socket: detrás de un reverse proxy, todos los requests parecen venir del proxy y el rate limit del login los cuenta como uno solo.
+
+Con `true`, la IP se saca de `X-Forwarded-For` **recorriéndolo de derecha a izquierda**, porque Nginx, Traefik y OpenResty *agregan* al header lo que manda el cliente: la entrada de la izquierda la elige el atacante.
+
+- **Sin `trustedProxies`** (`security.network.trustedProxies` vacío): se confía en un solo salto. La IP del cliente es la última entrada de `X-Forwarded-For` (la que agregó tu proxy). Es lo correcto con un único reverse proxy delante.
+- **Con `trustedProxies`** (IPs o CIDRs, ej. `10.0.0.0/8`, `172.18.0.2`): si el socket no es un proxy de la lista, se usa la IP del socket e `X-Forwarded-For` se ignora; si lo es, se saltean desde la derecha todas las entradas que estén en la lista y la primera que no está es el cliente. Usalo cuando hay más de un proxy en la cadena (CDN + reverse proxy, por ejemplo).
+- Si no hay `X-Forwarded-For`, se usa `X-Real-IP` (si es una IP válida) o el socket.
+
+**No lo prendas si Umbral está expuesto directo**, sin proxy: cualquiera podría mandar el header que quiera.
+
+```env
+TRUST_FORWARDED_FOR=true
+```
 
 ## `DOMAIN` (sólo Caddy)
 

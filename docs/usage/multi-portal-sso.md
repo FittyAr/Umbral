@@ -23,25 +23,43 @@ La feature `multiPortal` permite alojar múltiples portales independientes dentr
 La feature `oidc` permite integrar Umbral con proveedores de identidad corporativos estándar OpenID Connect (Keycloak, Authentik, Google Workspace, Okta, Azure AD / Microsoft Entra ID).
 
 ### Configuración del Proveedor OIDC
-1. **Issuer URL:** URL base del servidor de identidad (ej. `https://auth.empresa.com/realms/master`).
-2. **Client ID & Client Secret:** Credenciales de la aplicación cliente registrada en el IdP.
-3. **Redirect URI (Callback):** `https://tu-umbral.empresa.com/api/auth/oidc/callback`.
-4. **Scopes:** `openid profile email`.
+Cada provider vive en `oidc.providers[]` (Avanzado → OIDC en el panel):
+1. **Issuer URL (`issuer`):** URL base del servidor de identidad (ej. `https://auth.empresa.com/realms/master`). **Tiene que ser `https`**: el `id_token` se confía por venir del token endpoint por TLS, y sobre `http` cualquiera en el medio podía inyectar claims. La única excepción es `http://localhost` / `127.0.0.1` / `[::1]` para desarrollo. Un config viejo con issuer `http` sigue cargando, pero el login con ese provider falla hasta corregirlo.
+2. **Client ID & Client Secret:** Credenciales de la aplicación cliente registrada en el IdP. El `clientSecret` nunca viaja al navegador: el panel lo muestra vacío y, si guardás sin tocarlo, se conserva el que estaba.
+3. **Redirect URI (Callback):** `https://tu-umbral.empresa.com/api/auth/oidc/<providerId>/callback` (con el `id` del provider). Se arma con `BASE_URL`, así que definila.
+4. **Scopes:** `openid profile email` por default.
+5. **`redirectPath`:** a dónde va el usuario después del login (default `/`). **Tiene que ser un path local** que empiece con `/`: una URL absoluta o algo como `//evil.com` se reemplaza por `/` (antes era un open redirect).
+6. **`autoProvision` / `defaultRole`:** si el usuario no existe, crearlo con `defaultRole` (default `viewer`) o rechazar el login.
+7. **`trustRoleClaim`** (default `false`): ver abajo.
+
+### Vínculo de identidad (`iss` + `sub`)
+Un usuario OIDC se identifica por `<issuer>|<sub>` (se guarda en `oidcSubject`), no por el username. El `preferred_username` suele ser editable por el propio usuario en el IdP: vincular por nombre permitía que alguien se renombrara como `admin` y entrara con esa cuenta.
+- **Primer login:** si ya hay un usuario con ese `iss`+`sub`, entra con esa cuenta. Si no, y existe un usuario OIDC sin vincular con el mismo username (creado por una versión anterior), se vincula en ese momento.
+- **Conflicto con un usuario local:** si el username del IdP coincide con un **usuario local con password**, el login falla con `409` ("Ya existe un usuario local…") y queda `oidc_username_conflict` en el audit log. Un admin tiene que renombrar o borrar el usuario local; Umbral no toma cuentas locales por nombre.
+- Si no hay usuario y `autoProvision` está apagado, el login falla con `403`.
+
+### Rol desde el IdP (`trustRoleClaim`)
+Por default **el rol lo administra Umbral**: un usuario nuevo recibe `defaultRole` y uno existente conserva el rol que tiene en `users[]`, sin importar lo que diga el `id_token`. En muchos IdP el usuario puede editar claims de su propio perfil, así que confiar en ellos era una escalada de privilegios.
+
+Si tu IdP controla ese claim (un grupo o atributo que sólo el admin del IdP puede asignar), activá `trustRoleClaim`: en cada login, el claim `claimMap.role` (default `umbral_role`) define el rol si vale `admin`, `editor` o `viewer`; cualquier otro valor se ignora.
 
 ### Flujo de Acceso
-- El formulario de login en `/admin` muestra el botón **"Iniciar sesión con SSO"**.
-- Al completar la autenticación en el proveedor de identidad, Umbral valida los tokens JWT y aprovisiona al usuario de forma Just-in-Time (JIT) respetando los roles asignados.
+- Con la feature `oidc` activa y al menos un provider habilitado, el login de `/admin` muestra **"O continuar con SSO"** con un botón por provider.
+- El flow es Authorization Code + PKCE. El `state` queda atado a una cookie del navegador que inició el login (un callback con un `state` ajeno no sirve), los flows pendientes tienen tope y `/start` tiene rate limit (20 por minuto por IP).
+- Los errores del callback no exponen detalles internos del IdP.
 
 ---
 
 ## 👥 Modo Multi-Usuario y 2FA (TOTP)
 
 ### Roles y Privilegios
-- **`admin`:** Acceso total a configuración, usuarios, claves de API y opciones de seguridad.
-- **`editor`:** Capacidad para crear, editar, reordenar y eliminar tarjetas y categorías.
-- **`viewer`:** Acceso de solo lectura al dashboard administrativo y diagnósticos de estado.
+Los roles se aplican **en el server**, no sólo en la UI (ver [Seguridad](../config/security.md) y la tabla por endpoint en la [Referencia de API](./api.md#roles-por-endpoint)):
+- **`admin`:** Acceso total a configuración, usuarios, claves de API, features y opciones de seguridad.
+- **`editor`:** Edita contenido: branding, tema, layout, categorías, tarjetas y ventanas de mantenimiento; sube assets y usa el autocompletar. Si guarda desde el panel, las demás secciones se descartan y quedan como estaban.
+- **`viewer`:** Sólo lectura: ve el config saneado (sin secretos) y las métricas, pero no puede guardar nada.
 
 ### Autenticación en Dos Pasos (2FA / TOTP)
 - Cada usuario puede escanear un código QR desde su aplicación de autenticación favorita (Google Authenticator, Aegis, 1Password, Bitwarden).
-- Se generan **códigos de recuperación (backup codes)** de un solo uso para garantizar acceso en caso de pérdida del dispositivo.
+- Un mismo código no se acepta dos veces.
+- El seed se guarda cifrado con una clave derivada de `SESSION_SECRET`: si cambiás el secreto, los usuarios tienen que volver a configurar 2FA.
 - La contraseña maestra del super-admin permanece como vía de rescate de emergencia en el servidor.

@@ -9,24 +9,21 @@ Umbral permite automatizar notificaciones de estado hacia canales de comunicaci�
 Cuando la feature `webhooks` está habilitada, Umbral monitorea el estado de las tarjetas que tienen activo el **Health Check** y envía alertas HTTP automáticas.
 
 ### 1. Disparadores de Eventos
-- **Servicio Caído (Service Outage):** Cuando un servicio falla de forma consecutiva un número configurable de veces (umbral de tolerancia).
-- **Servicio Recuperado (Service Recovery):** Cuando un servicio que estaba caído vuelve a responder satisfactoriamente.
+Los chequeos los hace `/api/status` (el que usa la portada). Sólo cuentan los chequeos nuevos: los resultados cacheados no avanzan los contadores.
+- **Servicio Caído (`health_fail`):** cuando las fallas consecutivas de una tarjeta llegan al **umbral de ese webhook** (`minFailures`, default 3, de 1 a 20). Cada webhook tiene su propio umbral: uno con `minFailures: 1` avisa en la primera falla y otro con `5` recién en la quinta. Notifica una sola vez por caída.
+- **Servicio Recuperado (`health_recover`):** cuando la tarjeta vuelve a responder, **sólo si antes ese webhook notificó la falla** (o habría notificado: el estado se marca aunque el webhook no esté suscripto a `health_fail`). Un servicio que falló una vez y volvió, sin llegar al umbral, no genera un "recuperado" suelto.
+- **Cooldown (`cooldownMin`, default 30):** se cuenta por **webhook + tarjeta + evento**. Que una tarjeta dispare no silencia las alertas de otra.
+- El estado vive en memoria: un reinicio vuelve los contadores a cero.
 
-### 2. Plataformas e Integraciones Soportadas
+### 2. Formato del Payload y Destinos
+Umbral manda un `POST` con un JSON genérico: `event`, `card` (`id`, `title`, `url`), `status` (`ok`, `code`, `latencyMs`, `error`), `consecutiveFailures`, `threshold`, `timestamp` y `portal`, con los headers `X-Umbral-Event`, `X-Umbral-Card` y `User-Agent: Umbral-Webhook/1.0`.
 
-Umbral incluye formateadores automáticos para las principales herramientas de mensajería:
+Ese JSON sirve tal cual para endpoints propios, n8n, Node-RED, Home Assistant o cualquier receptor que acepte JSON arbitrario. Para Slack, Discord, Mattermost o Gotify, que esperan su propio formato, poné en el medio un puente (n8n, matterbridge) que lo traduzca.
 
-| Plataforma | Tipo de Payload | Ejemplo de Configuración |
-|---|---|---|
-| **Slack** | Block Kit / JSON | `https://hooks.slack.com/services/...` |
-| **Discord** | Embeds JSON | `https://discord.com/api/webhooks/...` |
-| **Mattermost** | Formato Slack compatible | `https://mattermost.internal/hooks/...` |
-| **ntfy.sh** | Notificaciones Push | `https://ntfy.sh/mi-topico-alertas` |
-| **Gotify** | Mensajería Push Self-Hosted | `https://gotify.internal/message?token=...` |
-| **Webhook Genérico** | JSON estructurado | Endpoint personalizado |
+**Destinos en la red interna:** los envíos pasan por `safeFetch` (sin seguir redirects) y **respetan `security.network.allowInternalHosts`**. Con el default (`true`) podés apuntar a un ntfy o Gotify en la LAN (`http://192.168.1.10:8080/...`); con `false`, las IPs privadas se bloquean. La metadata de la nube (`169.254.169.254` y compañía) queda bloqueada siempre.
 
 ### 3. Prueba de Conectividad
-En la pestaña **Webhooks**, el botón **"Probar antes de guardar"** envía un payload de prueba al endpoint remoto para verificar que la URL y los permisos sean correctos antes de activar las notificaciones.
+En la pestaña **Webhooks**, el botón **"Probar antes de guardar"** (`POST /api/webhooks/test`, sólo admin) envía un payload de prueba al endpoint remoto, con las mismas reglas de `allowInternalHosts`, para verificar que la URL y los permisos sean correctos antes de activar las notificaciones.
 
 ---
 
@@ -37,6 +34,6 @@ Para evitar falsas alarmas durante reinicios de servidores, actualizaciones de s
 1. **Configuración:**
    - En la pestaña **Mantenimiento** (o directamente en el editor de cada tarjeta), define una fecha y hora de inicio y fin.
 2. **Efectos Durante el Mantenimiento:**
-   - **Silenciamiento de Alertas:** El servicio no disparará notificaciones de error hacia los webhooks aunque el health check falle.
+   - **Silenciamiento de Alertas:** El servicio no disparará `health_fail` hacia los webhooks aunque el health check falle. `health_recover` sí sale, para confirmar que volvió.
    - **Badge Ámbar en Portada:** La tarjeta muestra un distintivo ámbar indicando *"En Mantenimiento"*, informando de manera clara a los usuarios finales.
    - **Restauración Automática:** Al concluir la ventana temporal, el monitoreo normal se reanuda de forma transparente.

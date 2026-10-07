@@ -18,9 +18,22 @@ Desde la pestaña **Git Íconos** en el panel administrativo, puedes instalar co
 ## 🔗 Repositorios Git Personalizados
 
 Además de los paquetes del catálogo oficial, puedes conectar cualquier repositorio Git que contenga archivos `.svg`:
-- **URL del Repositorio:** `https://github.com/usuario/mi-pack-iconos`
+- **URL del Repositorio:** `https://github.com/usuario/mi-pack-iconos`. **Sólo `https`**: se rechazan `http://`, `git://`, `ssh://`, `file://`, URLs con credenciales y cualquier cosa que empiece con `--` (los SVG del pack terminan servidos desde el origen de Umbral, así que tienen que llegar por un canal autenticado).
 - **Subdirectorio (opcional):** Carpeta interna donde residen los SVGs (ej. `icons/svg/`).
 - **Almacenamiento Local:** Los íconos se clonan y extraen en `data/icon-packs/<nombre-pack>/`.
+
+---
+
+## 🔒 Límites y Sanitización
+
+Instalar un pack es bajar contenido de un tercero y servirlo desde tu dominio, así que la instalación es defensiva:
+
+- **Topes de tamaño:** el ZIP descargado no puede pasar de 300 MB, cada SVG de 1 MB (los más grandes se saltean), la suma extraída de 200 MB y la cantidad de archivos de 50.000. Un pack que excede los totales se corta en vez de llenar el disco (zip bomb).
+- **Sanitización:** cada SVG pasa por **DOMPurify** antes de guardarse: se van los `<script>`, los handlers `on*` y las referencias externas. Además `/api/icons/*` los sirve con una CSP `sandbox` propia.
+- **Sin salirse del clone:** el recorrido del repositorio no sigue symlinks que apunten afuera, y dos íconos con el mismo nombre no se pisan.
+- **Instalación atómica:** el pack se arma en un directorio temporal y recién al final reemplaza al instalado; el registro de packs se escribe de forma atómica. Una instalación que falla a mitad de camino deja el pack anterior intacto.
+- **Desinstalar** valida el `packId`: no se puede usar para borrar nada fuera de `data/icon-packs/`.
+- Instalar y desinstalar packs requiere rol `admin`.
 
 ---
 

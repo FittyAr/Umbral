@@ -14,7 +14,7 @@ Pensado para intranets detrás de VPN, equipos chicos, sysadmins que prefieren *
 
 - 🏠 **Portada pública** con tarjetas reordenables, búsqueda, modo claro/oscuro/auto
 - 🎨 **Personalización total** desde el panel admin: branding, tema, layout, íconos, fondo
-- 🔐 **Auth simple** con un solo password (bcrypt cost 12, sesión firmada con epoch, CSRF, rate limit)
+- 🔐 **Auth simple** con un solo password (bcrypt cost 12, sesión firmada con expiración en el server, CSRF por sesión, rate limit); usuarios con roles, 2FA y OIDC opt-in
 - 🛡️ **Hardening configurable** desde el panel: CSP, HSTS, rate limit, MIME allowlist, body caps, headers
 - 📁 **Sin base de datos** — todo en `data/config.json` + archivos subidos
 - 🖼️ **Subida de assets** (logos, fondos, íconos) con validación magic-numbers, sharp processing y DOMPurify
@@ -48,7 +48,7 @@ Si preferís `docker-compose`:
 
 ```bash
 git clone https://github.com/FittyAr/Umbral.git umbral && cd umbral
-cp .env.example .env   # editar SESSION_SECRET e INITIAL_PASSWORD
+cp .env.example .env   # SESSION_SECRET es obligatoria (openssl rand -hex 32); editar también INITIAL_PASSWORD
 docker compose up -d
 ```
 
@@ -116,10 +116,11 @@ Entrá a `/admin` y logueate. Tabs disponibles:
 | `PORT` | `4321` | Puerto del container |
 | `HOST` | `0.0.0.0` | Bind address |
 | `DATA_DIR` | `./data` | Carpeta persistente |
-| `SESSION_SECRET` | random (dev) | Secreto para firmar cookies. **32+ chars en prod** |
+| `SESSION_SECRET` | random si falta | Secreto para firmar sesiones. **32+ chars en prod; el `docker-compose.yml` no arranca sin ella.** Un valor de ejemplo conocido se ignora en producción |
 | `INITIAL_PASSWORD` | `admin` | Password del primer arranque (cambiala desde el panel) |
 | `BASE_URL` | — | Si vas detrás de HTTPS, poné `https://tu-dominio` |
 | `NODE_ENV` | `production` | Setear `development` para logs verbose |
+| `TRUST_FORWARDED_FOR` | `false` | `true` detrás de un reverse proxy: la IP del cliente sale de `X-Forwarded-For` (leído desde la derecha) |
 
 Ver [Variables de entorno](./docs/config/env.md) para la lista completa y ejemplos.
 
@@ -138,20 +139,21 @@ Detalle completo en [Caddy reverse proxy](./docs/install/caddy.md).
 
 ### Nginx / Traefik
 
-Headers a propagar al upstream: `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`. Ver [Nginx / Traefik](./docs/install/nginx.md).
+Headers a propagar al upstream: `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`, y activar `TRUST_FORWARDED_FOR=true` (o `security.network.trustForwardedFor`). Con más de un proxy en la cadena, listalos en `security.network.trustedProxies`. Ver [Nginx / Traefik](./docs/install/nginx.md).
 
 ## Seguridad
 
 - Password hasheado con **bcrypt** (cost 12), nunca en texto claro
 - Cookie de sesión **HttpOnly + SameSite** (configurable), Secure si `BASE_URL` es https
-- **Auth epoch** en session token → cambiar password invalida todas las sesiones al instante
-- **CSRF token** rotativo en cada mutación
-- **Rate limit** en login (default 30/min/IP, configurable)
+- **Session token** con usuario, fecha de emisión y epochs firmados: expira en el server (`ttlHours`), se revoca en el logout, y cambiar la password invalida todas las sesiones al instante
+- **Roles en el server** (`viewer` lee, `editor` edita contenido, el resto es `admin`) y config **sin secretos** hacia el navegador
+- **CSRF por sesión** en cada mutación
+- **Rate limit** en login (default 30/min, por IP y por usuario, configurable); la IP real se lee desde la derecha de `X-Forwarded-For`
 - Headers: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, HSTS
 - **CSP** configurable (default permisivo para que Alpine funcione OOTB)
-- Subidas: **whitelist MIME** (`image/*`) + magic-numbers + **DOMPurify** para SVG
-- **Body caps** en middleware: 1MB para config, 10MB para upload
-- **SSRF protection** en `/api/status` (blocklist de IPs privadas/loopback)
+- Subidas: **whitelist MIME** (`image/*`) + magic-numbers + **DOMPurify** siempre para SVG, servidos con CSP `sandbox`
+- **Body caps**: 1MB para JSON, 10MB para upload (también con requests `chunked`)
+- **SSRF protection** en todo fetch saliente (`safeFetch`: valida cada redirect y la IP real de conexión; metadata de la nube bloqueada siempre)
 - Container: usuario **no-root**, `cap_drop: ALL`, `no-new-privileges`
 - Audit log append-only en `data/audit.log` con rotación a 10MB
 
@@ -253,7 +255,7 @@ services:
 ### Cómo se publican las releases
 
 1. Alguien mergea cambios a `main` (vía PR).
-2. El CI corre (build + smoke test) en cada push.
+2. El CI corre (build, `npm run typecheck`, `npm test` y smoke test) en cada push y PR a `main`. El release no publica la imagen si fallan typecheck o tests.
 3. Para publicar una release, se taggea `main` con `vX.Y.Z` y se pushea:
    ```bash
    git tag v1.2.0

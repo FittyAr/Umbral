@@ -5,6 +5,72 @@ versionado con [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Notas de actualización
+Leé esto antes de actualizar. Varios cambios de seguridad cambian comportamiento visible:
+
+- **Todas las sesiones se invalidan.** El token de sesión tiene formato nuevo (`v2.…`, con el usuario firmado): después de actualizar, todos los usuarios tienen que volver a loguearse.
+- **`docker-compose.yml` exige `SESSION_SECRET`.** Sin la variable en `.env`, `docker compose up` corta con un error. El `.env.example` ya no trae un valor por default. Además, en producción un secreto conocido (los que estuvieron en `.env.example` o el compose, `changeme`, `secret`…) **se ignora** y la app usa uno aleatorio: las sesiones y los seeds TOTP se pierden en cada reinicio hasta que pongas uno propio (`openssl rand -hex 32`).
+- **`/api/config` ya no devuelve secretos.** Ni hashes, ni CSRF, ni seeds TOTP, ni client secrets de OIDC, ni API keys, ni hashes de tokens: esos campos llegan vacíos. Un secreto que vuelve vacío en un `PUT` se conserva. Si tenías un script que leía el CSRF o una key desde `/api/config`, ya no está ahí.
+- **Los roles `viewer` / `editor` se aplican en el server.** Antes cualquier sesión podía hacer todo por la API. Ahora `viewer` sólo lee, `editor` edita contenido (branding, tema, layout, categorías, tarjetas, ventanas de mantenimiento) y el resto requiere `admin`. Los API tokens `read` son `viewer`; los `write`, `admin`.
+- **OIDC:** el usuario se vincula por `iss`+`sub` (no por username), y un username que coincide con un usuario local con password da `409` en vez de entrar con esa cuenta. **El claim de rol del IdP ya no se usa salvo que actives `trustRoleClaim`** en el provider: sin eso, el rol lo administra Umbral. El `issuer` tiene que ser `https` (salvo localhost) y `redirectPath` un path local; si no, el login con ese provider falla o redirige a `/`.
+- **Icon packs sólo desde repos `https`.**
+- **API tokens nuevos con sha256.** Los tokens viejos (bcrypt) siguen funcionando; no hace falta regenerarlos.
+- **Catálogos de ayuda:** 18 de los 21 idiomas (todos menos `es`, `en` y `pt`) muestran la ayuda del panel en inglés. Eran copias idénticas del inglés de todos modos.
+- **Se eliminó `public/sw.js`** (nunca se registraba). El manifest sigue.
+- **`X-Forwarded-For` se lee desde la derecha.** Con `trustForwardedFor` / `TRUST_FORWARDED_FOR`, la IP del cliente es la última entrada (la que agregó tu proxy), o el primer salto que no está en `security.network.trustedProxies` si la cargaste. Con varios proxies en la cadena, cargalos ahí.
+- **`/api/status` sólo chequea tarjetas con `healthCheck`** y cachea los resultados (media `healthCheckInterval`); tiene rate limit de 30/min por IP.
+- **Los webhooks respetan `security.network.allowInternalHosts`**: con `false`, un webhook a una IP privada deja de salir.
+- **`/api/health` devuelve `503`** si el config no se puede leer: el healthcheck de Docker puede marcar unhealthy un container que antes figuraba sano.
+- **CLI:** `umbral config backup` guarda el JSON en un archivo (`--out=<archivo>`, `--out=-` lo imprime).
+
+### Security
+- **Cualquier usuario nuevo entraba como super-admin.** El token de sesión no identificaba al usuario: se validaba probando el `userEpoch` de cada user, y todo user nuevo (`userEpoch` 0) validaba como el token legacy. Ahora el token firma el sujeto (`legacy` o el id del user), el `iat` y los epochs.
+- **Sesiones con expiración en el server** según `security.session.ttlHours` (antes sólo el `Max-Age` de la cookie) y **revocación en el logout**.
+- **CSRF por sesión**, derivado del id de la sesión y comparado en tiempo constante (antes era uno solo para todas las sesiones).
+- **Roles aplicados en el middleware** (`src/lib/authz.ts`): un `viewer` podía hacer `PUT /api/config` con `auth.users` y volverse admin, crear API tokens, bajar el CSRF a `none` o importar un backup. Las rutas no listadas requieren `admin`; un `editor` que guarda el config entero sólo modifica las secciones de contenido.
+- **El config saneado** en `GET`/`PUT /api/config` y en el dashboard: sin hashes, CSRF base, seeds TOTP, client secrets ni API keys. Los secretos vacíos se reponen al guardar y los users se mergean por id. Los API tokens no se aceptan por el `PUT` genérico.
+- **Import conserva la auth y los API tokens vigentes**: un backup viejo restauraba passwords anteriores y un `authEpoch` menor, reviviendo sesiones cerradas. El import también aplica el gating de features a las tarjetas.
+- **IP del cliente desde la derecha de `X-Forwarded-For`** respetando `trustedProxies`: la entrada de la izquierda la elige el atacante, y con un XFF distinto por request el rate limit del login no frenaba nada. El rate limit tiene tope de claves y límite por usuario además de por IP.
+- **OIDC:** `state` atado a la cookie del navegador, `pendingFlows` acotado y con rate limit, vínculo por `iss`+`sub`, claim de rol opt-in (`trustRoleClaim`), issuer `https` y `redirectPath` local (era un open redirect). Errores sin detalles internos.
+- **TOTP:** un código no se acepta dos veces; usa el mismo secreto que las sesiones.
+- **API tokens nuevos con sha256**: un `Bearer umb_...` inventado (sin autenticar) disparaba un bcrypt por token configurado. Los bcrypt viejos siguen valiendo con un presupuesto global de verificaciones.
+- **Login con costo constante** para usuarios inexistentes; el audit log escapa caracteres de control.
+- **SSRF con `safeFetch`** (`src/lib/safe-fetch.ts`): valida cada redirect y la IP con la que conecta (lookup del Agent de undici, cierra DNS rebinding), timeout que cubre el body y tope de bytes. Lo usan fetch-card-info, upload-from-url, `/api/status`, webhooks y la IA. `src/lib/ssrf.ts` usa `net.BlockList` (faltaban `198.18/15`, `192.0.0/24`, NAT64, `fec0::/10` y las IPv4 mapeadas en IPv6) y bloquea la metadata de la nube por IP resuelta, siempre.
+- **Icon packs:** `uninstall` valida el `packId` (`..` borraba `data/`), SVG sanitizados con DOMPurify, sólo repos `https`, topes de descarga y extracción (zip bomb), instalación en staging + swap, registro atómico, el recorrido git no sale del clone por symlinks, nombres duplicados no se pisan.
+- **SVG servidos con CSP `sandbox`** en `/api/icons` y `/api/assets`. Las subidas sanitizan SVG con DOMPurify siempre, aunque `sanitizeSvg` esté apagado.
+- **Bodies JSON/multipart con tope de bytes** también para requests `chunked`.
+- **QR:** `?text=` sólo con sesión; el modal de 2FA ya no manda el secreto TOTP en una URL.
+- **Markdown:** `rel=noopener` en links con `target`; con la feature `markdown` apagada, una card marcada como markdown (por ejemplo tras un import) ya no pasa su descripción cruda a `set:html`.
+- **`SESSION_SECRET`:** el compose lo exige, `.env.example` sin valor público, y en producción un secreto conocido se ignora.
+
+### Fixed
+- **Webhooks que nunca disparaban:** con `minFailures >= 2`, `health_fail` no salía nunca. Ahora el umbral es por webhook, `health_recover` sale sólo después de un fail, el cooldown es por webhook+card y los envíos respetan `allowInternalHosts` (Gotify/ntfy en la LAN).
+- **`/api/status`** chequeaba todas las cards y era público sin cache: cada visitante disparaba hasta 50 `HEAD`. Ahora sólo cards con `healthCheck`, cache por card, rate limit por IP, y las métricas y webhooks ven sólo chequeos nuevos. Un `3xx` cuenta como servicio arriba.
+- **`upload-from-url`** usa los límites de Hardening y devuelve `ok: true` (el autocompletar nunca seteaba el ícono).
+- **Primer arranque con `data/` vacío** fallaba con `ENOENT` al sembrar `config.json` (faltaba crear `data/portals/<id>`). `writeJsonAtomic` usa un tmp único por escritura, hace `fsync` antes del rename y serializa escrituras al mismo archivo (`EPERM` en Windows).
+- **`defaultConfig`** se valida con el schema, así los campos con default (`iconTint`, `animations`, `layout`, `span`) no quedan afuera. Las subsecciones de `security` tienen default: configs viejos sin `headers` no arrancaban. La auth regenerada se persiste.
+- **Guardados que se pisaban:** `saveConfig`/`updateConfig` serializados con un lock; `If-Match` con `_meta.updatedAt` (`409` si otra pestaña guardó, la versión viaja en el header `x-config-version`); `/api/tokens`, TOTP y OIDC hacen read-modify-write atómico.
+- **Panel:** un único hydrate del config (Recargar ya no borra `trustedProxies`), aviso `beforeunload` con cambios sin guardar, llamadas de IA/upload/autofill por `umbralAdmin.api` (CSRF y subpath), CSRF sólo al mismo origen; el CSRF del panel de Seguridad se actualiza tras cambiar la password.
+- **Accesibilidad:** modales con `role=dialog`, `aria-modal`, foco atrapado y restaurado, Escape que cierra sólo el modal de arriba; los campos del admin tienen nombre accesible.
+- **Google Fonts:** la URL ya no se borra en cada relectura y la CSP agrega `fonts.googleapis.com` / `fonts.gstatic.com` cuando está activo.
+- **Portada:** sparklines sólo con sesión y polling pausado en pestañas ocultas; las descripciones de cards link no generan `<a>` anidados. `renderDescription` se espera (antes el valor era una Promise).
+- **CLI:** `config backup` guarda a archivo (antes sugería `config get >`, que escribe el resumen); `cards add` usa `If-Match` y reintenta en `409`.
+- **`/api/health`** devuelve `503` si el config no se puede leer.
+- **Imagen arm64 sin sharp:** el prune de `@img` conserva el binario de la arquitectura destino. El `HEALTHCHECK` del Dockerfile usa `$PORT`.
+
+### Changed
+- **Catálogos de ayuda sin copias:** 18 de los 21 eran copias idénticas de `en.ts` (~14.000 líneas). Se borraron; `getHelpTexts` cae al inglés por clave (y al español en último término). Para traducir un idioma se agrega `src/i18n/help/<idioma>.ts` y se registra en `CATALOGS`.
+- **Se eliminó `public/sw.js`**: nunca se registraba.
+- **Editor de tarjetas traducido** (título y botones).
+- **`fetch-card-info`** carga jsdom sólo cuando hay HTML para parsear.
+
+### Internal
+- **CI** corre `npm run typecheck` y `npm test`; el smoke test arranca con un `DATA_DIR` vacío y espera `/api/health` en vez de `sleep`. `release.yml` no publica la imagen si fallan typecheck o tests.
+- **`npm test` descubre los tests solo:** vitest toma los `tests/*.test.ts` que importan de `vitest` y `scripts/run-node-tests.mjs` corre el resto con `node --test`. `icon-pack-validate` no corría en ningún script.
+- **`tsc --noEmit` en 0 errores:** `HelpCatalog` tipa los textos como `string` (con `typeof helpEs` ningún otro idioma compilaba, ~9.400 errores), scripts del admin tipados (`scripts/admin/types.ts`), `FeatureName` incluye `animations`.
+- **`.dockerignore`** excluye `data/`, `.git`, tests y legacy.
+- Tests nuevos de seed en `DATA_DIR` vacío y de escrituras concurrentes.
+
 ### Added
 - **Animaciones** (opt-in: `features.animations`). Nueva sección "Animaciones" en el tab Tema, con `theme.animations`: `cardEntrance`, `categoryEntrance` y `headerEffect` (`none` / `fade` / `scale` / `slide-up` / `slide-down` / `slide-left` / `slide-right` / `blur`), compartiendo `cardEntranceDuration` (100-2000 ms), `cardEntranceStagger` (0-300 ms, escalonado que se corta en el elemento 12 para que el último no aparezca después de que el usuario ya scrolleó), `entranceEasing` (`ease-out` / `ease-in-out` / `linear` / `spring`) y `entranceDistance` (4-64 px, sólo para los slides); `entranceTrigger` (`load` o `scroll`, este último con un `IntersectionObserver` inline que sin JavaScript no esconde nada); `cardHover` (`default` / `none` / `lift` / `grow` / `glow` / `tilt`) con `hoverDuration` (0-600 ms, default 180 = el valor histórico); más `titleTypewriter`, `counters` y `respectReducedMotion`. **Todos los defaults son "sin animación"**: prender la feature no cambia nada de lo que se ve hasta que elijas un efecto. La entrada de tarjetas y el header se generan como CSS en el servidor (`src/lib/animations.ts`, mismo patrón que `computeCardSpanCss`) en vez de envolver las tarjetas en componentes, porque un elemento intermedio se convertiría en el hijo del grid y rompería el ancho de `data-span`. El título con máquina de escribir y el contador de apps de la status bar usan `@astroanimate/core` (MIT, bundleado vía `ssr.noExternal`, sin CDN ni fetch externo) y sirven el texto completo en el HTML, así que sin JavaScript se ven normales. Labels y ayuda en `es`/`en`/`pt`.
 - **Las animaciones se ven en la vista previa del tema.** La miniatura del admin usa el mismo `computeAnimationCss` que la portada, apuntando a su propio markup vía `AnimationTargets`, en vez de una segunda implementación que se desincronizaría. Cada edición renombra los `@keyframes` con un sufijo, que es lo que hace que el navegador vuelva a reproducir la animación: sin eso el CSS cambia pero no se ve nada. El disparo por scroll se muestra como "al cargar", porque en la miniatura no hay scroll que lo dispare. Botón "Repetir en la vista previa" para volver a verla cuando quieras.

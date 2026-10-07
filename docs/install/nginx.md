@@ -117,6 +117,8 @@ Y en la app: `cfg.security.headers.hsts = 'never'` (porque ya viene en el header
 
 Idem Caddy: `/admin` → **Hardening** → **Red** → ✓ **Confiar en X-Forwarded-For**.
 
+Con `$proxy_add_x_forwarded_for`, Nginx agrega la IP del cliente al final del header que ya traía el request. Umbral lee `X-Forwarded-For` **desde la derecha**, así que toma la entrada que agregó Nginx y no la que pudo inventar el cliente. Si delante de Nginx hay otro proxy (un CDN, un load balancer), listá sus IPs o CIDRs en `security.network.trustedProxies`.
+
 ---
 
 ## Traefik

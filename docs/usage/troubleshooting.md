@@ -123,9 +123,11 @@ Después andá a `/admin` → **Password** y cambiala a algo memorable.
 
 ---
 
-## "SERVICE_SECRET not set" o warning rojo en logs
+## "SESSION_SECRET not set" o `[umbral FATAL]` en logs
 
-**Causa:** `SESSION_SECRET` está en su default débil (`change-me-please-this-is-32-chars-or-more` o similar).
+**Causa:** `SESSION_SECRET` falta, tiene menos de 16 caracteres, o es uno de los valores de ejemplo conocidos (`change-me-please-this-is-32-chars-or-more` o similar). En producción un valor conocido **se ignora**: la app arranca con un secreto aleatorio, así que las sesiones se pierden en cada reinicio y los seeds TOTP dejan de descifrarse.
+
+Con `docker compose`, si la variable no está definida en `.env`, el compose ni siquiera arranca: `SESSION_SECRET` es obligatoria.
 
 **Solución:**
 
@@ -144,6 +146,26 @@ docker compose up -d
 
 ---
 
+## Después de actualizar me pide login de nuevo
+
+Es esperado. La versión con sesiones por usuario cambió el formato del token de sesión (`v2.…`), así que **todas las sesiones anteriores se invalidan** con la actualización. Logueate de nuevo; no hay que tocar nada más.
+
+Si te pasa **en cada reinicio** del container, el problema es otro: `SESSION_SECRET` falta o es un valor conocido y la app usa uno aleatorio (ver arriba).
+
+---
+
+## Un usuario `editor` / `viewer` no puede guardar ciertas cosas
+
+Es esperado: los roles se aplican en el server. Un `viewer` no puede guardar nada; un `editor` sólo modifica branding, tema, layout, categorías, tarjetas y ventanas de mantenimiento (el resto de las secciones se descarta al guardar). Lo demás (Hardening, features, usuarios, tokens, OIDC, webhooks, icon packs, import) responde `403` si no sos `admin`.
+
+---
+
+## "Otra pestaña o usuario guardó cambios" / `409` al guardar
+
+Otra pestaña u otro usuario guardó después de que abriste el panel. Recargá (los cambios sin guardar se pierden) y volvé a aplicarlos. El panel manda `If-Match` con la versión que editaste para no pisar cambios ajenos.
+
+---
+
 ## Rate limit me bloquea a mí mismo
 
 **Causa probable:** estás detrás de un reverse proxy (Caddy/Nginx/Traefik) y **no activaste** `trustForwardedFor` en la app. Todos tus requests llegan con la IP del container y después de unos pocos intentos, el rate limit te bloquea.
@@ -153,6 +175,8 @@ docker compose up -d
 1. `/admin` → **Hardening** → **Red** → ✓ **Confiar en X-Forwarded-For**.
 2. **Guardar cambios**.
 3. Logout y login de nuevo.
+
+Con la opción activa, la IP se toma de la **derecha** de `X-Forwarded-For` (la entrada que agregó tu proxy). Si hay más de un proxy en la cadena (por ejemplo CDN + Nginx), cargalos en **Proxies confiables** (`security.network.trustedProxies`); si no, todos los requests van a parecer venir del proxy intermedio.
 
 Si **no** estás detrás de un proxy, entonces alguien (o vos) está realmente haciendo muchos intentos. Esperá 60 segundos (default `rateLimitWindowSec`) y vuelve a intentar.
 

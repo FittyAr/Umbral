@@ -45,6 +45,10 @@ Astro tiene HMR (hot module reload) — los cambios en `.astro`, `.ts`, `.css` s
 | `npm run preview` | Sirve `dist/` con el adapter de Node. Útil para testear el build antes de Docker. |
 | `npm start` | `node ./dist/server/entry.mjs` (lo que corre en el container). |
 | `npm run gen:icons` | Regenera los íconos Lucide predefinidos en `public/icons/`. |
+| `npm test` | Corre toda la suite: `test:astro` (vitest) y después `test:node` (`node --test`). |
+| `npm run test:astro` | `vitest run` sobre los tests que importan de `vitest`. |
+| `npm run test:node` | `node scripts/run-node-tests.mjs`: el resto de los tests con `node --test`. |
+| `npm run typecheck` | `tsc --noEmit`. Tiene que quedar en 0 errores. |
 | `npm run astro` | Acceso directo a la CLI de Astro. |
 
 ## Estructura
@@ -104,7 +108,7 @@ Astro hace HMR de:
 - `astro.config.mjs` — reiniciar dev server.
 - `tsconfig.json` — reiniciar dev server.
 - `package.json` — reiniciar dev server (y `npm install`).
-- `public/*` — en general sí, pero service worker es tricky (Ctrl+Shift+R).
+- `public/*` — en general sí (si el navegador cachea algo, Ctrl+Shift+R).
 
 ## Debugging
 
@@ -155,7 +159,7 @@ Equivalente a lo que corre en Docker, sin el container. Útil para debuggear un 
 ```bash
 docker build -t umbral:test .
 docker run --rm -p 3000:4321 \
-  -e SESSION_SECRET=test \
+  -e SESSION_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD=test \
   -v $(pwd)/data-test:/app/data \
   umbral:test
@@ -165,14 +169,26 @@ Ver [Docker (completo)](../install/docker.md) para más detalle.
 
 ## Testing
 
-No hay suite de tests automatizados todavía. (Hay un `.test-tmp/` que se usó para validación manual con curl — borrarlo si te molesta.)
+Los tests viven en `tests/*.test.ts` y corren con dos runners. **Ninguno necesita registrarse a mano**: los dos descubren los archivos solos.
 
-Para validar manualmente:
+```bash
+npm test             # todo: vitest + node --test
+npm run typecheck    # tsc --noEmit, tiene que dar 0 errores
+```
+
+- **vitest** (`npm run test:astro`): los tests que **importan de `'vitest'`**. Son los que necesitan el pipeline de Vite de Astro: los que renderizan componentes `.astro` con la Container API (`tests/admin-*.astro.test.ts`) y los que importan módulos con el alias `~/`. `vitest.config.ts` arma la lista leyendo `tests/` en cada corrida.
+- **`node --test`** (`npm run test:node`): **todo el resto** de `tests/*.test.ts`, con `--experimental-strip-types`. `scripts/run-node-tests.mjs` los descubre (cualquier `*.test.ts` que no importe de `vitest`). Antes había que sumar cada archivo a mano a la cadena de `npm test`, y un test nuevo que nadie agregaba simplemente no corría (le pasó a `icon-pack-validate`).
+- Para correr un solo archivo de node: `node --test --experimental-strip-types tests/<archivo>.test.ts` (o el script `test:<nombre>` si existe). Argumentos extra a `run-node-tests.mjs` se pasan a `node --test`, por ejemplo `npm run test:node -- --test-name-pattern=csrf`.
+- Un test nuevo: creá `tests/<nombre>.test.ts`. Si importa de `vitest` corre en vitest; si usa `node:test`, en node. No hay que tocar `package.json`.
+
+### CI
+
+`.github/workflows/ci.yml` corre en cada push y PR a `main`: `npm ci`, `npm audit` (dependencias de producción, nivel high), `gen:icons`, `build`, **`npm run typecheck`** y **`npm test`**, y después un smoke test que arranca el server con un `DATA_DIR` vacío (primer arranque) y espera a que `/api/health` responda. `release.yml` corre typecheck y tests antes de construir la imagen: si fallan, no se publica.
+
+### Validación manual extra
 
 1. **Build limpio:** `rm -rf dist && npm run build` — debe completar sin warnings.
-2. **Tipos:** `npx tsc --noEmit` — debe pasar.
-3. **Lint (si lo agregás):** `npx eslint src/`.
-4. **Smoke test:** `npm start` y `curl http://localhost:4321/api/health` → 200.
+2. **Smoke test:** `npm start` y `curl http://localhost:4321/api/health` → 200 (`503` si el config no se puede leer).
 
 ## Convenciones
 
@@ -193,7 +209,9 @@ git add -p
 git commit -m "feat(scope): qué cambia"
 # (conventional commits — feat / fix / refactor / docs / chore)
 
-# 3. Build local + smoke
+# 3. Tipos, tests, build local + smoke
+npm run typecheck
+npm test
 npm run build
 npm start &
 sleep 2
