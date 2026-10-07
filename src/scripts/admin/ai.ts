@@ -120,30 +120,24 @@ export function createAiState(): AdminFragment {
       }
       this.aiBusy = true;
       try {
-        // El server lee su propia config (la persistida). Si el user cambió
-        // algo y no guardó todavía, el test va a usar la config vieja. Para
-        // evitar eso: primero guardamos silenciosamente y después testeamos.
-        await window.umbralAdmin.api('PUT', '/api/config', this.cfg).catch(() => null);
-        const res = await fetch('/api/ai/format-card', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            title: 'GitHub',
-            description: 'Plataforma de código',
-            url: 'https://github.com',
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          this.aiTestOk = true;
-          this.aiTestResult = `✓ Conectado. Respuesta: "${data.title}" / "${data.description}"`;
-          // refrescamos la config en memoria (PUT exitoso la devuelve)
-          const updated = await window.umbralAdmin.api('GET', '/api/config').catch(() => null);
-          if (updated) { this.cfg = JSON.parse(JSON.stringify(updated)); this.original = JSON.parse(JSON.stringify(updated)); this.dirty = false; }
-        } else {
-          const err = await res.json().catch(() => ({}));
-          this.aiTestResult = `✗ ${res.status}: ${err.error || res.statusText}`;
+        // El server lee su propia config (la persistida). Si hay cambios sin
+        // guardar, se guardan primero; si el guardado falla se aborta (antes
+        // el error se tragaba y el test recargaba el config del server,
+        // descartando lo que el admin había tipeado).
+        if (this.dirty) {
+          await this.saveAll();
+          if (this.dirty) {
+            this.aiTestResult = '✗ No se pudo guardar la configuración antes de probar.';
+            return;
+          }
         }
+        const data = await window.umbralAdmin.api('POST', '/api/ai/format-card', {
+          title: 'GitHub',
+          description: 'Plataforma de código',
+          url: 'https://github.com',
+        });
+        this.aiTestOk = true;
+        this.aiTestResult = `✓ Conectado. Respuesta: "${data.title}" / "${data.description}"`;
       } catch (err: unknown) {
         this.aiTestResult = `✗ ${errMsg(err)}`;
       } finally {
@@ -155,21 +149,13 @@ export function createAiState(): AdminFragment {
       if (!this.editingCard?.title) return;
       this.aiBusy = true;
       try {
-        const res = await fetch('/api/ai/format-card', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            title: this.editingCard.title,
-            description: this.editingCard.description,
-            url: this.editingCard.url,
-          }),
+        // Por umbralAdmin.api: manda el CSRF (sin él, el middleware respondía
+        // 403) y respeta el subpath del deploy.
+        const data = await window.umbralAdmin.api('POST', '/api/ai/format-card', {
+          title: this.editingCard.title,
+          description: this.editingCard.description,
+          url: this.editingCard.url,
         });
-        if (!res.ok) {
-          const e = await res.json().catch(() => ({}));
-          window.umbralAdmin.toast(e.error || `Error HTTP ${res.status}`, 'error');
-          return;
-        }
-        const data = await res.json();
         if (data.title) this.editingCard.title = data.title;
         if (data.description !== undefined) this.editingCard.description = data.description;
         window.umbralAdmin.toast('Mejorado con IA. Revisá antes de guardar.', 'success');

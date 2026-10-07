@@ -2,10 +2,13 @@
  * API token verification (opt-in: features.apiTokens).
  *
  * Verifica el header `Authorization: Bearer umb_xxx` contra la lista de
- * tokens guardados en cfg.auth (o más adelante cfg.apiTokens.items).
- * El token plain nunca se guarda — sólo su hash bcrypt. Verificación O(n)
- * sobre tokens (típicamente <10). Si crece a miles, podemos indexar
- * por hash prefix.
+ * tokens guardados en cfg.apiTokens.items. El token plain nunca se guarda.
+ *
+ * Hash: los tokens nuevos se guardan como `sha256:<hex>`. El token son 256
+ * bits aleatorios, así que un hash lento no agrega nada y sí costaba caro:
+ * cualquier request con un `Bearer umb_...` inventado (sin autenticar)
+ * disparaba un bcrypt por token configurado. Los tokens viejos (bcrypt)
+ * siguen funcionando, con un presupuesto global de verificaciones lentas.
  */
 
 import bcrypt from 'bcryptjs';
@@ -13,7 +16,21 @@ import crypto from 'node:crypto';
 import { getConfig } from './config';
 import { isFeatureEnabled } from './features';
 import { audit } from './config';
+import { checkRateLimit } from './rate-limit';
 import type { ApiToken } from './schema';
+
+const SHA_PREFIX = 'sha256:';
+
+/** Hash a guardar para un token nuevo. */
+export function hashApiToken(plain: string): string {
+  return SHA_PREFIX + crypto.createHash('sha256').update(plain).digest('hex');
+}
+
+function matchesSha(presented: string, stored: string): boolean {
+  const expected = Buffer.from(stored.slice(SHA_PREFIX.length), 'hex');
+  const actual = crypto.createHash('sha256').update(presented).digest();
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
 
 export interface ApiTokenAuthContext {
   valid: boolean;
@@ -113,15 +130,29 @@ export async function verifyApiToken(request: Request): Promise<ApiTokenAuthCont
     }
   }
 
+  // Primero los hashes sha256 (baratos), después los bcrypt legacy con un
+  // presupuesto global para que tokens inventados no consuman CPU sin fin.
+  let matched: ApiToken | null = null;
   for (const t of tokens) {
-    if (t.revoked) continue;
-    let ok = false;
-    try {
-      ok = await bcrypt.compare(presented, t.tokenHash);
-    } catch {
-      continue;
+    if (!t.revoked && t.tokenHash.startsWith(SHA_PREFIX) && matchesSha(presented, t.tokenHash)) {
+      matched = t;
+      break;
     }
-    if (!ok) continue;
+  }
+  const legacy = tokens.filter((t) => !t.revoked && !t.tokenHash.startsWith(SHA_PREFIX));
+  if (!matched && legacy.length > 0 && checkRateLimit('api-token-bcrypt', 60, 60).ok) {
+    for (const t of legacy) {
+      try {
+        if (await bcrypt.compare(presented, t.tokenHash)) {
+          matched = t;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+  for (const t of matched ? [matched] : []) {
     // Match! Validar expiración
     if (t.expiresAt && new Date(t.expiresAt).getTime() < Date.now()) {
       return { valid: false, token: t, reason: 'expired' };

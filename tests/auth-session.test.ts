@@ -7,6 +7,6 @@ describe('auth session dev secret', () => {
     const src = await readFile(new URL('../src/lib/auth.ts', import.meta.url), 'utf8');
     assert.match(src, /globalThis\.__umbralSessionSecret/);
     assert.match(src, /createSessionToken/);
-    assert.match(src, /verifySessionToken/);
+    assert.match(src, /parseSessionToken/);
   });
 });

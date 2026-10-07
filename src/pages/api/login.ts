@@ -1,10 +1,19 @@
 import type { APIRoute } from 'astro';
 import crypto from 'node:crypto';
 import { getConfig, updateAuth, audit } from '~/lib/config';
-import { verifyPassword, createSessionToken, buildSessionCookie, checkRateLimit, generateToken } from '~/lib/auth';
+import {
+  verifyPassword,
+  createSessionToken,
+  buildSessionCookie,
+  checkRateLimit,
+  csrfForToken,
+  generateToken,
+  hashPassword,
+  LEGACY_SUBJECT,
+} from '~/lib/auth';
 import { json, error, readJson } from '~/lib/http';
 import { isFeatureEnabled } from '~/lib/features';
-import { verifyTotp, decryptTotpSecret } from '~/lib/totp';
+import { verifyTotpOnce, decryptTotpSecret } from '~/lib/totp';
 
 // globalThis hack para mantener el Map de partials entre requests
 // (los módulos ES se cachean). En server restart se pierde, aceptable.
@@ -14,6 +23,11 @@ declare global {
 }
 
 export const prerender = false;
+
+let _dummyHash: Promise<string> | null = null;
+function dummyHash(): Promise<string> {
+  return (_dummyHash ??= hashPassword(generateToken(16)));
+}
 
 export const POST: APIRoute = async ({ request, locals }) => {
   const cfg = await getConfig();
@@ -38,6 +52,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   if (!cfg.auth) {
     return error('Auth no inicializado. Revisá la configuración.', 500);
+  }
+
+  // Límite también por usuario: el de IP sólo frena a un atacante que no
+  // puede variar su IP (botnets, IPv6 con un /64 entero).
+  if (typeof body.username === 'string' && body.username) {
+    const userRl = checkRateLimit(
+      `login-user:${body.username.toLowerCase().trim()}`,
+      cfg.security.auth.rateLimitMax,
+      cfg.security.auth.rateLimitWindowSec,
+    );
+    if (!userRl.ok) {
+      return error(`Demasiados intentos. Probá en ${userRl.resetInSec}s.`, 429);
+    }
   }
 
   // ── TOTP step 2: si nos mandan partialToken + totpCode, verificamos
@@ -77,6 +104,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const target = body.username.toLowerCase().trim();
     const found = users.find((u) => u.username.toLowerCase() === target);
     if (!found) {
+      // Mismo costo que un password incorrecto: sin el bcrypt, la latencia
+      // delataba qué usernames existen.
+      await verifyPassword(body.password, await dummyHash());
       await audit('login_fail', `ip=${ip} user=${target}`);
       return error('Usuario o password incorrecto', 401);
     }
@@ -117,8 +147,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const updated = await updateAuth(cfg.auth.passwordHash, newCsrf);
     if (updated.auth) cfg.auth = updated.auth;
   }
-  const csrfToken = cfg.auth?.csrfToken ?? '';
-  const token = createSessionToken(cfg.auth?.authEpoch ?? 0, userEpoch);
+  const token = createSessionToken({
+    subject: isLegacy ? LEGACY_SUBJECT : matchedUser!.id,
+    authEpoch: cfg.auth?.authEpoch ?? 0,
+    userEpoch,
+  });
+  const csrfToken = csrfForToken(token, cfg.auth?.csrfToken ?? '');
 
   const actor = isLegacy ? 'legacy' : (matchedUser?.username ?? 'unknown');
   await audit('login_ok', `ip=${ip} actor=${actor}`);
@@ -185,15 +219,19 @@ async function completeTotpLogin(
     partMap.delete(key);
     return error('No se pudo descifrar el secret 2FA. Contactá al admin.', 500);
   }
-  if (!verifyTotp(secret, totpCode)) {
+  if (typeof totpCode !== 'string' || !verifyTotpOnce(user.id, secret, totpCode)) {
     partMap.delete(key);
     await audit('login_totp_fail', `ip=${ip} actor=${user.username}`);
     return error('Código 2FA incorrecto', 401);
   }
   partMap.delete(key);
   // Crear sesión final con el userEpoch de este user
-  const csrfToken = cfg.auth?.csrfToken ?? '';
-  const token = createSessionToken(cfg.auth?.authEpoch ?? 0, user.userEpoch);
+  const token = createSessionToken({
+    subject: user.id,
+    authEpoch: cfg.auth?.authEpoch ?? 0,
+    userEpoch: user.userEpoch,
+  });
+  const csrfToken = csrfForToken(token, cfg.auth?.csrfToken ?? '');
   await audit('login_ok_totp', `ip=${ip} actor=${user.username}`);
   return json(
     { ok: true, csrfToken },

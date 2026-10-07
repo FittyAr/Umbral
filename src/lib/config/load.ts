@@ -127,6 +127,9 @@ export async function loadFresh(): Promise<Config> {
     if (!data.auth) {
       const password = process.env.INITIAL_PASSWORD || 'admin';
       data = { ...data, auth: newAuth(await hashPassword(password)) };
+      // Se persiste: si no, cada relectura (TTL de 5s) generaba otro hash y
+      // otro CSRF, y las sesiones y el CSRF del panel cambiaban solos.
+      await writeJsonAtomic(portalCfg, data);
       console.warn('[umbral] config sin auth — regenerando. Cambiá la password desde /admin ASAP.');
     }
     // ai es .optional() en el schema (para no romper configs viejos en el

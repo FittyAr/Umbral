@@ -1,5 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
-import { buildAuthContext, CSRF_HEADER } from '~/lib/auth';
+import { buildAuthContext, CSRF_HEADER, safeEqual } from '~/lib/auth';
+import { hasRole, requiredRole } from '~/lib/authz';
+import { resolveClientIp } from '~/lib/client-ip';
 import { getConfig } from '~/lib/config';
 import { applySecurityHeaders } from '~/lib/http';
 
@@ -13,7 +15,14 @@ import { applySecurityHeaders } from '~/lib/http';
 // activa y desactiva el segundo factor de un usuario con un POST— y
 // `/api/auth/hash-password` sin verificación de CSRF: quedaban colgados de
 // que la cookie sea SameSite=Lax, no del control que el resto del panel usa.
-const PUBLIC_API_PREFIXES = ['/api/login', '/api/health', '/api/status', '/api/assets/', '/api/icons/', '/api/locale', '/api/qr/', '/api/auth/oidc/'];
+// Paths exactos y prefijos (terminan en `/`) por separado: con un prefijo
+// `/api/login` también quedaba público cualquier `/api/loginXYZ`.
+const PUBLIC_API_EXACT = new Set(['/api/login', '/api/health', '/api/status', '/api/locale']);
+const PUBLIC_API_PREFIXES = ['/api/assets/', '/api/icons/', '/api/qr/', '/api/auth/oidc/'];
+
+function isPublicApiPath(pathname: string): boolean {
+  return PUBLIC_API_EXACT.has(pathname) || PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p));
+}
 const PUBLIC_PAGE_PATHS = new Set(['/', '/404', '/500', '/manifest.webmanifest', '/sw.js']);
 // Prefijos que matchean cualquier URL que EMPIEZA con ellos.
 // `_image` se matchea como exact (es un archivo estático, no un prefijo de
@@ -25,7 +34,7 @@ const UNSAFE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_PAGE_PATHS.has(pathname)) return true;
-  if (PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p))) return true;
+  if (isPublicApiPath(pathname)) return true;
   if (PUBLIC_EXACT.has(pathname)) return true;
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return true;
   if (pathname.startsWith('/icons/')) return true;
@@ -40,19 +49,6 @@ function safeClientAddress(context: { clientAddress?: string }): string {
     // adapter/dev-server paths. Never let that abort the request.
     return 'unknown';
   }
-}
-
-function clientIp(request: Request, trustForwarded: boolean, socketIp: string): string {
-  if (trustForwarded) {
-    const xff = request.headers.get('x-forwarded-for');
-    if (xff) return xff.split(',')[0].trim();
-    const xri = request.headers.get('x-real-ip');
-    if (xri) return xri;
-  }
-  // Sin proxy confiable: usamos la IP del socket TCP directamente.
-  // Si no está disponible (test, edge), caemos a 'unknown' para
-  // debuggear (mejor que inventar).
-  return socketIp || 'unknown';
 }
 
 /** Detecta HTTPS: BASE_URL en env o X-Forwarded-Proto si el admin confió
@@ -105,7 +101,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const auth = await buildAuthContext(request);
   context.locals.auth = auth;
-  context.locals.clientIp = clientIp(request, trustForwarded, safeClientAddress(context));
+  context.locals.clientIp = resolveClientIp({
+    socketIp: safeClientAddress(context),
+    forwardedFor: request.headers.get('x-forwarded-for'),
+    realIp: request.headers.get('x-real-ip'),
+    trustForwarded,
+    trustedProxies: netCfg.trustedProxies,
+  });
 
   // Body size cap para endpoints que aceptan JSON grande. Si el cliente
   // declara Content-Length mayor al cap, rechazamos sin leer el body
@@ -141,10 +143,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   // Protected API routes (everything under /api except the public prefixes).
-  const isPublicApi = PUBLIC_API_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(p),
-  );
-  if (pathname.startsWith('/api/') && !isPublicApi) {
+  if (pathname.startsWith('/api/') && !isPublicApiPath(pathname)) {
     if (!auth.isAuthenticated) {
       return new Response(JSON.stringify({ error: 'No autorizado' }), {
         status: 401,
@@ -154,20 +153,22 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const method = request.method.toUpperCase();
     const isMutation = UNSAFE_METHODS.has(method);
 
-    if (auth.isApiToken) {
-      if (isMutation && !auth.isAdmin) {
-        return new Response(JSON.stringify({ error: 'Token solo tiene permisos de lectura' }), {
-          status: 403,
-          headers: { 'content-type': 'application/json' },
-        });
-      }
-      // Los API tokens no requieren CSRF
-    } else {
+    // Rol mínimo por ruta y método (lib/authz.ts). Aplica igual a sesiones
+    // y a API tokens (escritura = admin, lectura = viewer).
+    if (!hasRole(auth.role, requiredRole(pathname, method))) {
+      return new Response(JSON.stringify({ error: 'Permisos insuficientes para esta operación' }), {
+        status: 403,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    // Los API tokens no requieren CSRF (no viajan en cookies).
+    if (!auth.isApiToken) {
       const requiresCsrf =
         csrfPolicy === 'all' || (csrfPolicy === 'mutations' && isMutation);
       if (requiresCsrf) {
         const sent = request.headers.get(CSRF_HEADER);
-        if (!auth.csrfToken || !sent || sent !== auth.csrfToken) {
+        if (!auth.csrfToken || !safeEqual(sent, auth.csrfToken)) {
           return new Response(JSON.stringify({ error: 'CSRF inválido' }), {
             status: 403,
             headers: { 'content-type': 'application/json' },
@@ -178,6 +179,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   const response = await next();
+
+  // Versión del config para el control de concurrencia del panel: cada
+  // respuesta de la API lleva el `updatedAt` vigente, el panel lo guarda y lo
+  // manda como If-Match al guardar (ver PUT /api/config).
+  if (pathname.startsWith('/api/') && auth.isAuthenticated && !auth.isApiToken) {
+    try {
+      const fresh = await getConfig();
+      const version = fresh._meta?.updatedAt;
+      if (version) response.headers.set('x-config-version', version);
+    } catch {
+      // headers inmutables (redirects) o config ilegible: no es crítico
+    }
+  }
 
   // Apply config-driven security headers to all HTML responses and
   // to public asset responses too (CSP, X-Frame-Options, etc.).

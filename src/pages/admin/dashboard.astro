@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '~/layouts/AdminLayout.astro';
 import { getConfig } from '~/lib/config';
+import { sanitizeConfigForRole } from '~/lib/client-config';
 import { getAvailableIconNames } from '~/lib/icon-pack-names.ts';
 import { FEATURE_META, FEATURE_NAMES, isFeatureEnabled } from '~/lib/features';
 import { ADMIN_LABELS } from '~/lib/admin-labels';
@@ -41,17 +42,11 @@ if (!isAuthed) {
 }
 const csrfToken = isDemoBuild ? 'demo-csrf-token' : (Astro.locals.auth?.csrfToken ?? '');
 const config = await getConfig();
-// El dashboard sólo necesita `auth.users` y `auth.singlePasswordEnabled` para
-// el panel de usuarios; el hash del super-admin y el CSRF de la config no
-// tienen razón de estar en el HTML. `saveConfig` ignora ambos campos en un
-// PUT, así que sacarlos no rompe el round-trip del formulario.
-const clientConfig = {
-  ...config,
-  auth: {
-    users: config.auth?.users ?? [],
-    singlePasswordEnabled: config.auth?.singlePasswordEnabled ?? true,
-  },
-};
+// Saneado según el rol: sin hashes (super-admin, users, tokens), sin seeds
+// TOTP, sin el CSRF base, sin API keys ni client secrets. El server repone
+// los secretos que vuelven vacíos al guardar (saveConfig, source 'client').
+const isAdminViewer = isDemoBuild || Astro.locals.auth?.isAdmin === true;
+const clientConfig = sanitizeConfigForRole(config, isAdminViewer);
 // El catálogo de íconos se pide a `/api/icon-names` cuando el admin arranca.
 // El build estático del demo no tiene ese endpoint, así que ahí (y sólo ahí)
 // sigue viajando inline.
@@ -161,14 +156,28 @@ const THEME_PRESET_I18N = {
 
   <!-- Alpine.js + Sortable + dashboard logic -->
   <script is:inline define:vars={{ initialConfig: clientConfig, demoAvailableIcons, themePresetI18n: THEME_PRESET_I18N, helpLocale: locale, FEATURE_LIST, labels: I18N_LABELS }}>
-    // Mirror trustedProxies (array) into a text form so the textarea can edit it.
-    initialConfig.security.network.trustedProxiesText = (initialConfig.security.network.trustedProxies || []).join('\n');
-    // Si el config legacy no tiene `features`, lo inicializamos como objeto
-    // vacío (cada feature tendrá default {enabled:false} al renderizar).
-    if (!initialConfig.features) initialConfig.features = {};
-    if (!initialConfig.oidc) initialConfig.oidc = { providers: [] };
-    if (!initialConfig.apiTokens) initialConfig.apiTokens = { items: [] };
-    if (!initialConfig.portals) initialConfig.portals = { defaultPortal: 'default', items: [] };
+    // Normaliza un config que viene del server para el panel. Se usa en el
+    // arranque y cada vez que se reemplaza `cfg` (guardar, recargar, reset,
+    // import): antes sólo corría al cargar la página, y después de un
+    // "Recargar" el `trustedProxiesText` quedaba vacío y el siguiente guardado
+    // borraba los proxies confiables.
+    window.__hydrateAdminCfg = function (cfg) {
+      if (!cfg) return cfg;
+      if (cfg.security && cfg.security.network) {
+        // Mirror trustedProxies (array) into a text form so the textarea can edit it.
+        cfg.security.network.trustedProxiesText = (cfg.security.network.trustedProxies || []).join('\n');
+      }
+      // Si el config legacy no tiene `features`, lo inicializamos como objeto
+      // vacío (cada feature tendrá default {enabled:false} al renderizar).
+      if (!cfg.features) cfg.features = {};
+      if (!cfg.oidc) cfg.oidc = { providers: [] };
+      if (!cfg.apiTokens) cfg.apiTokens = { items: [] };
+      if (!cfg.portals) cfg.portals = { defaultPortal: 'default', items: [] };
+      if (!cfg.auth) cfg.auth = { users: [], singlePasswordEnabled: true };
+      return cfg;
+    };
+    window.__hydrateAdminCfg(initialConfig);
+    window.__initialConfigVersion = (initialConfig._meta && initialConfig._meta.updatedAt) || null;
     // expose config to adminApp data
     window.__initialConfig = initialConfig;
     if (demoAvailableIcons) window.__availableIcons = demoAvailableIcons;
@@ -238,9 +247,26 @@ const THEME_PRESET_I18N = {
         featureList: window.__featureList || [],
         csrfToken: (document.body.dataset.csrf || ''),
         ...createPasswordState(),
+        /** Reemplaza el config en memoria por uno del server (normalizado). */
+        applyServerConfig(raw) {
+          const cfg = window.__hydrateAdminCfg(JSON.parse(JSON.stringify(raw)));
+          if (cfg && cfg._meta && cfg._meta.updatedAt) window.umbralAdmin.configVersion = cfg._meta.updatedAt;
+          this.cfg = cfg;
+          this.original = JSON.parse(JSON.stringify(cfg));
+          this.dirty = false;
+        },
+
         async init() {
+          if (!window.umbralAdmin.configVersion) window.umbralAdmin.configVersion = window.__initialConfigVersion;
           this.cfg = JSON.parse(JSON.stringify(window.__initialConfig));
           this.original = JSON.parse(JSON.stringify(window.__initialConfig));
+          // Aviso al salir con cambios sin guardar.
+          window.addEventListener('beforeunload', (e) => {
+            if (this.dirty) {
+              e.preventDefault();
+              e.returnValue = '';
+            }
+          });
           // Sin await: la lista de tarjetas es el tab inicial y necesita el
           // catálogo para dibujar sus íconos, pero el resto del init no
           // depende de él.
@@ -410,13 +436,11 @@ const THEME_PRESET_I18N = {
                 }
               }
             }
-            const updated = await window.umbralAdmin.api('PUT', '/api/config', payload);
-            if (updated.security?.network) {
-              updated.security.network.trustedProxiesText = (updated.security.network.trustedProxies || []).join('\n');
-            }
-            this.cfg = JSON.parse(JSON.stringify(updated));
-            this.original = JSON.parse(JSON.stringify(updated));
-            this.dirty = false;
+            const ifMatch = window.umbralAdmin.configVersion;
+            const updated = await window.umbralAdmin.api('PUT', '/api/config', payload, {
+              headers: ifMatch ? { 'if-match': ifMatch } : {},
+            });
+            this.applyServerConfig(updated);
             if (clampedCount > 0) {
               const tmpl = this.l('toastSavedClamped');
               window.umbralAdmin.toast(tmpl.replace('{n}', String(clampedCount)), 'info');
@@ -428,6 +452,10 @@ const THEME_PRESET_I18N = {
             }
             await this.refreshAssets();
           } catch (e) {
+            if (e.status === 409) {
+              window.umbralAdmin.toast('Otra pestaña o usuario guardó cambios. Recargá (tus cambios sin guardar se pierden) y volvé a aplicarlos.', 'error');
+              return;
+            }
             const tmpl = this.l('toastError');
             window.umbralAdmin.toast(tmpl.replace('{message}', e.message), 'error');
           } finally {
@@ -439,9 +467,7 @@ const THEME_PRESET_I18N = {
           if (this.dirty && !confirm('Hay cambios sin guardar. ¿Recargar igual?')) return;
           try {
             const cfg = await window.umbralAdmin.api('GET', '/api/config');
-            this.cfg = JSON.parse(JSON.stringify(cfg));
-            this.original = JSON.parse(JSON.stringify(cfg));
-            this.dirty = false;
+            this.applyServerConfig(cfg);
             window.umbralAdmin.toast(this.l('toastReloaded'), 'success');
           } catch (e) {
             const tmpl = this.l('toastError');

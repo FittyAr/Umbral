@@ -26,7 +26,8 @@ import { isFeatureEnabled } from './features';
 import { getConfig } from './config';
 import type { OIDCProvider } from './schema';
 
-const STATE_COOKIE = 'umbral_oidc_state';
+export const STATE_COOKIE = 'umbral_oidc_state';
+const MAX_PENDING_FLOWS = 1_000;
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 min
 
 // Estado del flow en memoria (keyed por cookie value hasheado).
@@ -201,9 +202,11 @@ export function resolveRole(
   existingRole: 'admin' | 'editor' | 'viewer' | null,
 ): 'admin' | 'editor' | 'viewer' {
   const claimMap = provider.claimMap ?? {};
-  const roleClaim = idToken[claimMap.role ?? 'umbral_role'] as string | undefined;
-  if (roleClaim === 'admin' || roleClaim === 'editor' || roleClaim === 'viewer') {
-    return roleClaim;
+  if (provider.trustRoleClaim) {
+    const roleClaim = idToken[claimMap.role ?? 'umbral_role'] as string | undefined;
+    if (roleClaim === 'admin' || roleClaim === 'editor' || roleClaim === 'viewer') {
+      return roleClaim;
+    }
   }
   return existingRole ?? provider.defaultRole ?? 'viewer';
 }
@@ -211,6 +214,16 @@ export function resolveRole(
 /** Genera el cookie de state firmado para el flow OIDC. */
 export function signStateCookie(state: string, codeVerifier: string, nonce: string, providerId: string, redirectUri: string): string {
   const key = crypto.createHash('sha256').update(state).digest('hex');
+  // Barrido de vencidos y tope: `/start` es público, así que sin límite
+  // cada request agregaba una entrada que vivía 10 minutos.
+  const now = Date.now();
+  for (const [k, v] of pendingFlows) {
+    if (v.expires < now) pendingFlows.delete(k);
+  }
+  for (const k of pendingFlows.keys()) {
+    if (pendingFlows.size < MAX_PENDING_FLOWS) break;
+    pendingFlows.delete(k);
+  }
   pendingFlows.set(key, {
     providerId,
     codeVerifier,
@@ -218,11 +231,11 @@ export function signStateCookie(state: string, codeVerifier: string, nonce: stri
     redirectUri,
     expires: Date.now() + STATE_TTL_MS,
   });
-  // Cleanup expired
-  for (const [k, v] of pendingFlows) {
-    if (v.expires < Date.now()) pendingFlows.delete(k);
-  }
-  return `${STATE_COOKIE}=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`;
+  return `${STATE_COOKIE}=${state}; Path=/api/auth/oidc/; HttpOnly; SameSite=Lax; Max-Age=600`;
+}
+
+export function clearStateCookie(): string {
+  return `${STATE_COOKIE}=; Path=/api/auth/oidc/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
 
 /** Recupera y borra el state del flow (one-time use). */
@@ -242,4 +255,30 @@ export async function getActiveOIDCProvider(providerId: string) {
   const providers = cfg.oidc?.providers ?? [];
   const p = providers.find((x) => x.id === providerId && x.enabled);
   return p ?? null;
+}
+/** https obligatorio para el issuer salvo localhost (dev). El id_token se
+ *  confía por venir del token endpoint por TLS: sobre http, cualquiera en el
+ *  medio podía inyectar claims. */
+export function isAllowedIssuer(issuer: string): boolean {
+  try {
+    const u = new URL(issuer);
+    if (u.protocol === 'https:') return true;
+    return u.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** Path local para el redirect post-login. `//evil.com` o una URL absoluta
+ *  convertían el callback en un open redirect. */
+export function safeRedirectPath(p: string | undefined | null): string {
+  if (typeof p !== 'string' || !/^\/(?![/\\])/.test(p)) return '/';
+  return p;
+}
+
+/** Identidad OIDC estable: `<issuer>|<sub>`. */
+export function oidcSubjectOf(provider: OIDCProvider, idToken: Record<string, unknown>): string | null {
+  const sub = idToken.sub;
+  if (typeof sub !== 'string' || !sub) return null;
+  return `${provider.issuer}|${sub}`;
 }

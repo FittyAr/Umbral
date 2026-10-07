@@ -5,9 +5,9 @@
  * Gating: solo admin autenticado y si features.apiTokens está activa.
  */
 import type { APIRoute } from 'astro';
-import bcrypt from 'bcryptjs';
-import { generateApiTokenPlaintext, invalidateApiTokenCache } from '~/lib/api-tokens';
-import { getConfig, saveConfig, audit } from '~/lib/config';
+
+import { generateApiTokenPlaintext, hashApiToken, invalidateApiTokenCache } from '~/lib/api-tokens';
+import { getConfig, updateConfig, audit } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { json, error, readJson } from '~/lib/http';
 import type { ApiToken } from '~/lib/schema';
@@ -32,7 +32,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const scope = body.scope === 'write' ? 'write' : 'read';
   const plainToken = generateApiTokenPlaintext();
-  const tokenHash = await bcrypt.hash(plainToken, 10);
+  const tokenHash = hashApiToken(plainToken);
   const tokenLast4 = plainToken.slice(-4);
   const id = newId('tok');
   const createdAt = new Date().toISOString();
@@ -53,14 +53,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     revoked: false,
   };
 
-  const existingTokens = cfg.apiTokens?.items ?? [];
-  const updatedTokens = [...existingTokens, newToken];
-
-  await saveConfig({
-    apiTokens: {
-      items: updatedTokens,
-    },
-  });
+  await updateConfig((current) => ({
+    apiTokens: { items: [...(current.apiTokens?.items ?? []), newToken] },
+  }));
 
   await audit('api_token_created', `name=${name} scope=${scope} actor=${auth.actor}`);
 
@@ -94,16 +89,12 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
   const id = body.id?.trim();
   if (!id) return error('Falta id del token', 400);
 
-  const existingTokens = cfg.apiTokens?.items ?? [];
-  const found = existingTokens.find((t) => t.id === id);
+  const found = (cfg.apiTokens?.items ?? []).find((t) => t.id === id);
   if (!found) return error('Token no encontrado', 404);
 
-  const updatedTokens = existingTokens.filter((t) => t.id !== id);
-  await saveConfig({
-    apiTokens: {
-      items: updatedTokens,
-    },
-  });
+  await updateConfig((current) => ({
+    apiTokens: { items: (current.apiTokens?.items ?? []).filter((t) => t.id !== id) },
+  }));
   // Sin esto, la memo de verificación (lib/api-tokens.ts) podía seguir
   // aceptando el token hasta un minuto después de revocarlo.
   invalidateApiTokenCache();

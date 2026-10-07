@@ -47,6 +47,34 @@ export function sanitizeConfigForClient(config: Config): Config {
 }
 
 /**
+ * Config para el panel de un admin: lo mismo que `sanitizeConfigForClient`
+ * (sin API keys, client secrets ni hashes de tokens) más la parte de `auth`
+ * que el panel de usuarios edita, sin hashes ni seeds TOTP. `totpSecret`
+ * viaja como `'active'` o `null` para que la UI sepa si el user tiene 2FA.
+ *
+ * Al guardar, el server repone los secretos que el cliente manda vacíos
+ * (ver `saveConfig` con `source: 'client'`).
+ */
+export function sanitizeConfigForAdmin(config: Config): Config {
+  const clone = sanitizeConfigForClient(config) as Record<string, unknown>;
+  clone.auth = {
+    users: (config.auth?.users ?? []).map((u) => ({
+      ...u,
+      passwordHash: SECRET_PLACEHOLDER,
+      totpSecret: u.totpSecret ? 'active' : null,
+      oidcSubject: u.oidcSubject ? 'linked' : null,
+    })),
+    singlePasswordEnabled: config.auth?.singlePasswordEnabled ?? true,
+  };
+  return clone as unknown as Config;
+}
+
+/** Config según el rol: el admin ve lo editable de auth; el resto, nada. */
+export function sanitizeConfigForRole(config: Config, isAdmin: boolean): Config {
+  return isAdmin ? sanitizeConfigForAdmin(config) : sanitizeConfigForClient(config);
+}
+
+/**
  * Script inline de boot compartido por los dos layouts.
  *
  * `__INITIAL_DEMO_CONFIG__` sólo existe para que `public/demo-runtime.js`

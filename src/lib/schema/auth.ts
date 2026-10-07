@@ -35,6 +35,10 @@ export const UserSchema = z.object({
   // lo valida. La función pública es: 'el admin no debería ver los
   // secrets de los 2FA en ningún lado'.)
   totpSecret: z.string().nullable().default(null).optional(),
+  // Identidad OIDC vinculada (`<issuer>|<sub>`). El login OIDC busca por
+  // esto, no por username: el preferred_username suele ser editable en el
+  // IdP, y matchear por nombre dejaba tomar la cuenta local "admin".
+  oidcSubject: z.string().max(500).nullable().default(null).optional(),
 });
 
 export const AuthSchema = z.object({

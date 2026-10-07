@@ -26,6 +26,20 @@ const AUDIT_KEEP_ROTATIONS = 3;
 
 let auditWriteLock: Promise<void> = Promise.resolve();
 
+/** Escapa los separadores del formato (tab, saltos de línea) y el resto de
+ *  los caracteres de control. Parte del detalle viene de requests sin
+ *  autenticar (el username del login): con un salto de línea se podían
+ *  inventar entradas enteras en el log. */
+export function escapeAuditField(value: string): string {
+  return value.replace(/[\u0000-\u001f\u007f\\]/g, (c) => {
+    if (c === '\\') return '\\\\';
+    if (c === '\n') return '\\n';
+    if (c === '\r') return '\\r';
+    if (c === '\t') return '\\t';
+    return `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`;
+  });
+}
+
 export async function audit(action: string, detail?: string) {
   // BUGFIX: serializamos TODAS las escrituras del audit log. Antes dos
   // audit() concurrentes podian ver "needsRotate=false" ambos, los dos
@@ -55,7 +69,7 @@ export async function audit(action: string, detail?: string) {
         }
         try { await fs.rename(AUDIT_LOG_PATH, `${AUDIT_LOG_PATH}.1`); } catch { /* skip */ }
       }
-      const line = `${new Date().toISOString()}\t${action}\t${detail ?? ''}\n`;
+      const line = `${new Date().toISOString()}\t${escapeAuditField(action)}\t${escapeAuditField(detail ?? '')}\n`;
       await fs.appendFile(AUDIT_LOG_PATH, line, 'utf8');
     } catch (err) {
       console.error('[umbral] audit log write failed:', err);

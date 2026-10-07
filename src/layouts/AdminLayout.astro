@@ -116,8 +116,26 @@ const theme = {
       window.umbralAdmin = {
         csrf: csrfToken,
         baseUrl: baseUrl,
-        async api(method, endpoint, body) {
-          const headers = { 'x-csrf-token': this.csrf };
+        // Versión del config (`_meta.updatedAt`) que este panel editó. Se
+        // actualiza con el header `x-config-version` de cada respuesta y se
+        // manda como If-Match al guardar (409 si otra pestaña guardó antes).
+        configVersion: null,
+        /**
+         * fetch de la API: base URL, CSRF, JSON y errores.
+         * opts.raw → devuelve el Response (para SVG/blobs) sin parsear.
+         * opts.headers → headers extra (ej: if-match).
+         */
+        async api(method, endpoint, body, opts = {}) {
+          const targetUrl = new URL(
+            endpoint.startsWith('http')
+              ? endpoint
+              : (this.baseUrl + (endpoint.startsWith('/') ? endpoint.slice(1) : endpoint)),
+            window.location.href,
+          );
+          const headers = { ...(opts.headers || {}) };
+          // El CSRF sólo viaja al propio origen: nunca a un endpoint absoluto
+          // de otro host.
+          if (targetUrl.origin === window.location.origin) headers['x-csrf-token'] = this.csrf;
           let b = undefined;
           if (body && !(body instanceof FormData)) {
             headers['content-type'] = 'application/json';
@@ -125,16 +143,21 @@ const theme = {
           } else if (body) {
             b = body;
           }
-          // Si el endpoint ya es absoluto, lo usamos tal cual. Si es relativo,
-          // le anteponemos el base (respetando el subpath del deploy).
-          const targetUrl = endpoint.startsWith('http')
-            ? endpoint
-            : (this.baseUrl + (endpoint.startsWith('/') ? endpoint.slice(1) : endpoint));
-          const res = await fetch(targetUrl, { method, headers, body: b });
+          const res = await fetch(targetUrl.toString(), { method, headers, body: b });
+          const version = res.headers.get('x-config-version');
+          if (version) this.configVersion = version;
+          if (res.status === 401 && targetUrl.origin === window.location.origin) {
+            // Sesión vencida o revocada: al login, en vez de fallar en silencio.
+            window.location.href = this.baseUrl + 'admin';
+          }
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.error || `HTTP ${res.status}`);
+            const err = new Error(data.error || `HTTP ${res.status}`);
+            err.status = res.status;
+            err.data = data;
+            throw err;
           }
+          if (opts.raw) return res;
           return res.json().catch(() => ({}));
         },
         toast(message, type = 'info') {
@@ -159,7 +182,7 @@ const theme = {
       document.addEventListener('click', async (e) => {
         const target = e.target;
         if (target && target instanceof Element && target.closest('[data-action="logout"]')) {
-          await fetch(window.umbralAdmin.baseUrl + 'api/logout', { method: 'POST', headers: { 'x-csrf-token': window.umbralAdmin.csrf } });
+          await window.umbralAdmin.api('POST', '/api/logout').catch(() => {});
           window.location.href = window.umbralAdmin.baseUrl + 'admin';
         }
       });

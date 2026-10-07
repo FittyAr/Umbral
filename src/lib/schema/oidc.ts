@@ -15,6 +15,8 @@ export const OIDCProviderSchema = z.object({
   name: z.string().min(1).max(60),
   // Issuer URL: el .well-known/openid-configuration se descubre desde acá
   // (ej: https://keycloak.example.com/realms/umbral).
+  // https se exige en runtime (lib/oidc.ts → isAllowedIssuer); acá no, para
+  // que un config viejo con http no deje de cargar.
   issuer: z.string().url().refine((u) => /^https?:\/\//.test(u), 'issuer debe ser http(s)'),
   clientId: z.string().min(1).max(200),
   clientSecret: z.string().min(1).max(500),
@@ -29,7 +31,13 @@ export const OIDCProviderSchema = z.object({
   // con el rol por default. Si false, login falla con "user not provisioned".
   autoProvision: z.boolean().default(false),
   defaultRole: z.enum(['admin', 'editor', 'viewer']).default('viewer'),
+  // Si true, el claim de rol del IdP (claimMap.role) define el rol del user
+  // en cada login. Default false: el rol lo administra Umbral, porque en
+  // muchos IdP el usuario puede editar claims de su propio perfil.
+  trustRoleClaim: z.boolean().default(false),
   enabled: z.boolean().default(true),
+  // Se valida en runtime (lib/oidc.ts → safeRedirectPath) para no romper la
+  // carga de configs viejos.
   redirectPath: z.string().max(100).default('/'),
 });
 export const OIDCSchema = z.object({

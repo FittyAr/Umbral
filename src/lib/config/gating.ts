@@ -93,3 +93,111 @@ export function gateAuth(
       : {}),
   };
 }
+
+const BCRYPT_RE = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
+/** Sentinel de los users creados por OIDC (no pueden entrar con password). */
+export const OIDC_NO_PASSWORD = '!oidc-no-password';
+
+type AuthUser = NonNullable<Config['auth']>['users'][number];
+
+/**
+ * `auth` desde el panel. El panel recibe los users sin hash, sin seed TOTP
+ * y sin vínculo OIDC (ver `sanitizeConfigForAdmin`), así que el merge es por
+ * id y los campos sensibles los decide el server:
+ * - `passwordHash`: se conserva salvo que llegue un hash bcrypt nuevo (de
+ *   /api/auth/hash-password); en ese caso se sube el `userEpoch` y se cierran
+ *   las sesiones de ese user.
+ * - `userEpoch`, `totpSecret`, `oidcSubject`, `createdAt`, `lastLoginAt`: del
+ *   server, nunca del cliente.
+ * Un user nuevo tiene que traer un hash bcrypt válido.
+ */
+export function gateAuthFromClient(
+  current: Config['auth'],
+  incoming: { users?: AuthUser[]; singlePasswordEnabled?: boolean } | undefined,
+  features: FeatureMap,
+): NonNullable<Config['auth']> {
+  const base = current ?? { passwordHash: '', csrfToken: '', authEpoch: 0, users: [], singlePasswordEnabled: true };
+  if (!isOn(features, 'multiUser')) {
+    return { ...base, users: [], singlePasswordEnabled: true };
+  }
+  if (!incoming) return base;
+  let users = base.users;
+  if (incoming.users !== undefined) {
+    const byId = new Map(base.users.map((u) => [u.id, u]));
+    users = incoming.users.map((u) => {
+      const existing = byId.get(u.id);
+      const sentHash = typeof u.passwordHash === 'string' ? u.passwordHash : '';
+      if (!existing) {
+        if (!BCRYPT_RE.test(sentHash)) {
+          throw new Error(`El usuario "${u.username}" no tiene un password válido.`);
+        }
+        return {
+          ...u,
+          passwordHash: sentHash,
+          userEpoch: 0,
+          totpSecret: null,
+          oidcSubject: null,
+          createdAt: new Date().toISOString(),
+          lastLoginAt: null,
+        };
+      }
+      const passwordChanged = BCRYPT_RE.test(sentHash) && sentHash !== existing.passwordHash;
+      return {
+        ...existing,
+        username: u.username,
+        displayName: u.displayName,
+        role: u.role,
+        passwordHash: passwordChanged ? sentHash : existing.passwordHash,
+        userEpoch: passwordChanged ? existing.userEpoch + 1 : existing.userEpoch,
+      };
+    });
+  }
+  return {
+    ...base,
+    users,
+    ...(incoming.singlePasswordEnabled !== undefined
+      ? { singlePasswordEnabled: incoming.singlePasswordEnabled }
+      : {}),
+  };
+}
+
+/**
+ * El panel y los exports reciben los secretos vacíos (ver
+ * `sanitizeConfigForClient`). Al volver, un secreto vacío significa "no
+ * cambió": se repone el del config vigente. Para cambiarlo se manda el
+ * valor nuevo.
+ */
+export function restoreClientSecrets<T extends Record<string, unknown>>(current: Config, update: T): T {
+  const out = structuredClone(update) as Record<string, unknown>;
+
+  const ai = out.ai as { apiKey?: string } | undefined;
+  if (ai && ai.apiKey === '' && current.ai?.apiKey) ai.apiKey = current.ai.apiKey;
+
+  const search = out.externalSearch as { braveApiKey?: string; tavilyApiKey?: string } | undefined;
+  if (search) {
+    if (search.braveApiKey === '' && current.externalSearch?.braveApiKey) {
+      search.braveApiKey = current.externalSearch.braveApiKey;
+    }
+    if (search.tavilyApiKey === '' && current.externalSearch?.tavilyApiKey) {
+      search.tavilyApiKey = current.externalSearch.tavilyApiKey;
+    }
+  }
+
+  const oidc = out.oidc as { providers?: Array<{ id?: string; clientSecret?: string }> } | undefined;
+  for (const p of oidc?.providers ?? []) {
+    if (p.clientSecret === '') {
+      const prev = current.oidc?.providers?.find((x) => x.id === p.id);
+      if (prev?.clientSecret) p.clientSecret = prev.clientSecret;
+    }
+  }
+
+  const tokens = out.apiTokens as { items?: Array<{ id?: string; tokenHash?: string }> } | undefined;
+  for (const t of tokens?.items ?? []) {
+    if (t.tokenHash === '') {
+      const prev = current.apiTokens?.items?.find((x) => x.id === t.id);
+      if (prev?.tokenHash) t.tokenHash = prev.tokenHash;
+    }
+  }
+
+  return out as T;
+}

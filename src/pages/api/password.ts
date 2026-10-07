@@ -2,7 +2,14 @@ import type { APIRoute } from 'astro';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { getConfig, updateAuth, audit } from '~/lib/config';
-import { hashPassword, generateToken } from '~/lib/auth';
+import {
+  hashPassword,
+  generateToken,
+  createSessionToken,
+  buildSessionCookie,
+  csrfForToken,
+  LEGACY_SUBJECT,
+} from '~/lib/auth';
 import { json, error, readJson } from '~/lib/http';
 
 export const prerender = false;
@@ -40,7 +47,14 @@ export const POST: APIRoute = async ({ request }) => {
 
   const newHash = await hashPassword(body.newPassword);
   const newCsrf = generateToken(32);
-  await updateAuth(newHash, newCsrf);
+  const updated = await updateAuth(newHash, newCsrf);
   await audit('password_change');
-  return json({ ok: true, csrfToken: newCsrf });
+  // updateAuth sube el authEpoch y cierra TODAS las sesiones, incluida la
+  // de quien cambió la password: se le emite una nueva. Es el password del
+  // super-admin, así que la sesión nueva es legacy.
+  const token = createSessionToken({ subject: LEGACY_SUBJECT, authEpoch: updated.auth?.authEpoch ?? 0 });
+  return json(
+    { ok: true, csrfToken: csrfForToken(token, updated.auth?.csrfToken ?? '') },
+    { headers: { 'set-cookie': await buildSessionCookie(token) } },
+  );
 };

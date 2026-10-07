@@ -123,12 +123,16 @@ export const HeadersSecuritySchema = z.object({
   hstsPreload: z.boolean().default(false),
 });
 
+// Cada subsección con `.default({})`: un config con `security` pero sin,
+// por ejemplo, `headers` (agregada en una versión posterior) fallaba el
+// parse estricto y también el parcial (`.partial()` no llega a las claves
+// anidadas), y el server no arrancaba.
 export const SecuritySchema = z.object({
-  session: SessionSecuritySchema,
-  auth: AuthSecuritySchema,
-  uploads: UploadSecuritySchema,
-  network: NetworkSecuritySchema,
-  headers: HeadersSecuritySchema,
+  session: SessionSecuritySchema.default({}),
+  auth: AuthSecuritySchema.default({}),
+  uploads: UploadSecuritySchema.default({}),
+  network: NetworkSecuritySchema.default({}),
+  headers: HeadersSecuritySchema.default({}),
 });
 
 export type Security = z.infer<typeof SecuritySchema>;

@@ -12,17 +12,25 @@
  * no está logueado, está intentando loguearse).
  */
 import type { APIRoute } from 'astro';
-import { getActiveOIDCProvider, buildAuthorizationUrl, signStateCookie } from '~/lib/oidc';
+import { getActiveOIDCProvider, buildAuthorizationUrl, signStateCookie, isAllowedIssuer } from '~/lib/oidc';
+import { checkRateLimit } from '~/lib/rate-limit';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ params, request }) => {
+export const GET: APIRoute = async ({ params, request, locals }) => {
   const providerId = String(params.providerId || '');
   if (!providerId) return new Response('Falta el providerId', { status: 400 });
+
+  // Público y con estado en memoria: sin límite se podía llenar pendingFlows.
+  const rl = checkRateLimit(`oidc-start:${locals.clientIp || 'unknown'}`, 20, 60);
+  if (!rl.ok) return new Response('Demasiados intentos. Probá en un minuto.', { status: 429 });
 
   const provider = await getActiveOIDCProvider(providerId);
   if (!provider) {
     return new Response('OIDC provider no encontrado o feature apagada', { status: 404 });
+  }
+  if (!isAllowedIssuer(provider.issuer)) {
+    return new Response('El issuer OIDC tiene que ser https.', { status: 500 });
   }
 
   // redirectUri: el callback debe ser esta misma URL con /callback.
@@ -39,6 +47,7 @@ export const GET: APIRoute = async ({ params, request }) => {
       headers: { Location: url, 'Set-Cookie': cookie },
     });
   } catch (e) {
-    return new Response(`Error iniciando OIDC: ${(e as Error).message}`, { status: 500 });
+    console.error(`[umbral] OIDC start (${providerId}) falló:`, (e as Error).message);
+    return new Response('No se pudo iniciar el login OIDC.', { status: 502 });
   }
 };

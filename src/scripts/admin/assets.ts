@@ -35,14 +35,8 @@ export function createAssetsState(): AdminFragment {
           const fd = new FormData();
           fd.append('file', file);
           fd.append('kind', this.uploadKind);
-          const res = await fetch('/api/upload', {
-            method: 'POST',
-            headers: { 'x-csrf-token': window.umbralAdmin.csrf },
-            body: fd,
-          });
-          if (res.status === 401) { window.location.href = '/admin'; return; }
-          const data = await res.json();
-          if (!res.ok) { window.umbralAdmin.toast(file.name + ': ' + (data.error || 'Error'), 'error'); continue; }
+          // umbralAdmin.api: CSRF, subpath del deploy y redirect en 401.
+          const data = await window.umbralAdmin.api('POST', '/api/upload', fd);
           window.umbralAdmin.toast('Subido: ' + data.storedName + ' (' + (data.bytes/1024).toFixed(1) + ' KB)', 'success');
         } catch (err: unknown) {
           window.umbralAdmin.toast(file.name + ': ' + errMsg(err), 'error');

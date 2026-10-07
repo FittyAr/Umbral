@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { getConfig } from './config';
+import type { Config } from './schema';
 
 export const SESSION_COOKIE = 'umbral_session';
 export const CSRF_HEADER = 'x-csrf-token';
@@ -108,58 +109,220 @@ function getSecret(): string {
   return _secret;
 }
 
+/** Secreto del server (firma de sesiones, cifrado de los seeds TOTP). */
+export function getSessionSecret(): string {
+  return getSecret();
+}
+
 function sign(payload: string): string {
   return crypto.createHmac('sha256', getSecret()).update(payload).digest('hex');
 }
 
-/** Create a signed session token: <id>.<authEpoch>.<userEpoch>.<hmac>.
- *  Para el modo legacy (single password), userEpoch=0. El userEpoch permite
- *  invalidar sesiones de un user específico cuando cambia su password,
- *  sin tocar a los demás. */
-export function createSessionToken(authEpoch: number, userEpoch: number = 0): string {
+// ──────────────────────────────────────────────────────────────────────────
+// Session token
+// ──────────────────────────────────────────────────────────────────────────
+// Formato: v2.<id>.<subject>.<iat>.<authEpoch>.<userEpoch>.<hmac>
+//
+// - subject: `legacy` (password único / super-admin) o `u-<base64url(userId)>`.
+//   El token anterior no decía de qué usuario era: se validaba probando el
+//   userEpoch de cada user, y como todo user nuevo arranca con userEpoch 0
+//   —igual que el token legacy— cualquier usuario recién creado entraba como
+//   super-admin.
+// - iat: segundos epoch de emisión. La expiración la impone el server
+//   (security.session.ttlHours), no sólo el Max-Age de la cookie.
+// - id: identificador aleatorio de la sesión; se usa para derivar el CSRF
+//   por sesión y para revocarla en el logout.
+export const LEGACY_SUBJECT = 'legacy';
+
+export interface SessionClaims {
+  id: string;
+  /** 'legacy' o el id del usuario. */
+  subject: string;
+  iat: number;
+  authEpoch: number;
+  userEpoch: number;
+}
+
+function encodeSubject(subject: string): string {
+  return subject === LEGACY_SUBJECT ? LEGACY_SUBJECT : `u-${Buffer.from(subject, 'utf8').toString('base64url')}`;
+}
+
+function decodeSubject(raw: string): string | null {
+  if (raw === LEGACY_SUBJECT) return LEGACY_SUBJECT;
+  if (!raw.startsWith('u-')) return null;
+  const decoded = Buffer.from(raw.slice(2), 'base64url').toString('utf8');
+  return decoded.length > 0 ? decoded : null;
+}
+
+export function createSessionToken(opts: {
+  subject: string;
+  authEpoch: number;
+  userEpoch?: number;
+  now?: number;
+}): string {
   const id = generateToken(24);
-  const payload = `${id}.${authEpoch}.${userEpoch}`;
+  const iat = Math.floor((opts.now ?? Date.now()) / 1000);
+  const payload = `v2.${id}.${encodeSubject(opts.subject)}.${iat}.${opts.authEpoch}.${opts.userEpoch ?? 0}`;
   return `${payload}.${sign(payload)}`;
 }
 
-export function verifySessionToken(
-  token: string | undefined | null,
-  authEpoch: number,
-  userEpoch: number = 0,
-): boolean {
-  if (!token) return false;
-  // Formato: <id>.<authEpoch>.<userEpoch>.<sig>. Usamos split con límite
-  // para tolerar tokens viejos de 3 partes (los rechazamos, no son válidos).
+/** Verifica la firma y devuelve los claims. No chequea epochs ni expiración:
+ *  eso depende del config y lo hace `resolveSession`. */
+export function parseSessionToken(token: string | undefined | null): SessionClaims | null {
+  if (!token || token.length > 512) return null;
   const parts = token.split('.');
-  if (parts.length !== 4) return false;
-  const [id, tokenAuthEpoch, tokenUserEpoch, sig] = parts;
-  if (tokenAuthEpoch !== String(authEpoch)) return false;
-  if (tokenUserEpoch !== String(userEpoch)) return false;
-  const payload = `${id}.${tokenAuthEpoch}.${tokenUserEpoch}`;
-  const expected = sign(payload);
-  if (sig.length !== expected.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
+  if (parts.length !== 7 || parts[0] !== 'v2') return null;
+  const sig = parts[6];
+  const payload = parts.slice(0, 6).join('.');
+  if (!safeEqual(sig, sign(payload))) return null;
+  const subject = decodeSubject(parts[2]);
+  const iat = Number(parts[3]);
+  const authEpoch = Number(parts[4]);
+  const userEpoch = Number(parts[5]);
+  if (!subject || ![iat, authEpoch, userEpoch].every(Number.isSafeInteger)) return null;
+  return { id: parts[1], subject, iat, authEpoch, userEpoch };
+}
+
+/** Comparación en tiempo constante de dos strings (CSRF, firmas). */
+export function safeEqual(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const ba = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+/** CSRF por sesión: HMAC del id de la sesión y del token CSRF base del
+ *  config. Rotar el base (cambio de password, rotateCsrfOnLogin) invalida
+ *  los CSRF de todas las sesiones; cada sesión tiene el suyo, así que un
+ *  usuario no puede usar el de otro. */
+export function csrfForSession(sessionId: string, baseCsrf: string): string {
+  return crypto.createHmac('sha256', getSecret()).update(`csrf.${sessionId}.${baseCsrf}`).digest('hex');
+}
+
+/** CSRF para el token de sesión recién emitido (login, cambio de password). */
+export function csrfForToken(token: string, baseCsrf: string): string {
+  const claims = parseSessionToken(token);
+  return claims ? csrfForSession(claims.id, baseCsrf) : '';
+}
+
+// Sesiones revocadas por logout: id → vencimiento (ms). En memoria: alcanza
+// porque cada sesión vence sola a las ttlHours; un reinicio sólo deja vivas
+// las cookies cerradas que alguien haya copiado antes del logout.
+declare global {
+  // eslint-disable-next-line no-var
+  var __umbralRevokedSessions: Map<string, number> | undefined;
+}
+const MAX_REVOKED = 10_000;
+
+function revokedSessions(): Map<string, number> {
+  return (globalThis.__umbralRevokedSessions ??= new Map());
+}
+
+export function revokeSession(claims: SessionClaims, ttlHours: number): void {
+  const revoked = revokedSessions();
+  const now = Date.now();
+  if (revoked.size >= MAX_REVOKED) {
+    for (const [id, exp] of revoked) if (exp <= now) revoked.delete(id);
+    // Si sigue lleno, descartamos las más viejas (Map preserva el orden).
+    for (const id of revoked.keys()) {
+      if (revoked.size < MAX_REVOKED) break;
+      revoked.delete(id);
+    }
+  }
+  revoked.set(claims.id, claims.iat * 1000 + ttlHours * 3600_000);
+}
+
+function isRevoked(id: string): boolean {
+  const exp = revokedSessions().get(id);
+  if (exp === undefined) return false;
+  if (exp <= Date.now()) {
+    revokedSessions().delete(id);
+    return false;
+  }
+  return true;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
 // Session middleware helpers
 // ──────────────────────────────────────────────────────────────────────────
+export type Role = 'admin' | 'editor' | 'viewer';
+
 export interface AuthContext {
   isAuthenticated: boolean;
+  /** CSRF de esta sesión (derivado del id de la sesión). Null sin sesión. */
   csrfToken: string | null;
   /** "legacy" si entró con el password único, username si entró con su
-   *  cuenta. Null si no está autenticado. Útil para el audit log. */
+   *  cuenta, `token:<nombre>` con API token. Null si no está autenticado. */
   actor: string | null;
-  /** Rol del user actual ('admin' | 'editor' | 'viewer') o null si no
-   *  está autenticado o es legacy super-admin (que se considera admin). */
-  role: 'admin' | 'editor' | 'viewer' | null;
-  /** true si el user actual tiene permisos de admin (sea user admin o
-   *  legacy super-admin). La UI lo usa para gating. */
+  /** Rol efectivo. El legacy super-admin es 'admin'. */
+  role: Role | null;
+  /** true si el rol es admin (user admin, legacy o token de escritura). */
   isAdmin: boolean;
   /** username del user actual, o null. Útil para el audit log. */
   username: string | null;
+  /** id del user (multi-user), o null. */
+  userId?: string | null;
+  /** Claims de la sesión (para logout/revocación). */
+  session?: SessionClaims | null;
   /** true si la autenticación provino de un Bearer API token. */
   isApiToken?: boolean;
+}
+
+export const ANONYMOUS: AuthContext = Object.freeze({
+  isAuthenticated: false,
+  csrfToken: null,
+  actor: null,
+  role: null,
+  isAdmin: false,
+  username: null,
+  userId: null,
+  session: null,
+}) as AuthContext;
+
+/** Valida los claims contra el config vigente y resuelve el principal. */
+export function resolveSession(
+  claims: SessionClaims | null,
+  cfg: Pick<Config, 'auth' | 'security'>,
+  now: number = Date.now(),
+): AuthContext {
+  if (!claims || !cfg.auth) return ANONYMOUS;
+  if (claims.authEpoch !== (cfg.auth.authEpoch ?? 0)) return ANONYMOUS;
+  const ttlSec = cfg.security.session.ttlHours * 3600;
+  const nowSec = Math.floor(now / 1000);
+  // 60s de tolerancia hacia el futuro por relojes desfasados.
+  if (claims.iat > nowSec + 60 || nowSec - claims.iat > ttlSec) return ANONYMOUS;
+  if (isRevoked(claims.id)) return ANONYMOUS;
+
+  const baseCsrf = cfg.auth.csrfToken;
+  const users = cfg.auth.users ?? [];
+  if (claims.subject === LEGACY_SUBJECT) {
+    // El password único deja de valer si el admin lo deshabilitó.
+    if (users.length > 0 && cfg.auth.singlePasswordEnabled === false) return ANONYMOUS;
+    if (claims.userEpoch !== 0) return ANONYMOUS;
+    return {
+      isAuthenticated: true,
+      csrfToken: csrfForSession(claims.id, baseCsrf),
+      actor: 'legacy',
+      role: 'admin',
+      isAdmin: true,
+      username: null,
+      userId: null,
+      session: claims,
+    };
+  }
+  const user = users.find((u) => u.id === claims.subject);
+  if (!user || user.userEpoch !== claims.userEpoch) return ANONYMOUS;
+  return {
+    isAuthenticated: true,
+    csrfToken: csrfForSession(claims.id, baseCsrf),
+    actor: user.username,
+    role: user.role,
+    isAdmin: user.role === 'admin',
+    username: user.username,
+    userId: user.id,
+    session: claims,
+  };
 }
 
 /** Loads the current config (with auth) and returns the auth state for the request. */
@@ -168,8 +331,8 @@ export async function buildAuthContext(request: Request): Promise<AuthContext> {
   const token = cookie[SESSION_COOKIE];
   const cfg = await getConfig();
 
-  // Si no hay cookie pero hay Authorization header y apiTokens está activo:
-  if (!token && (request.headers.has('authorization') || request.headers.has('Authorization'))) {
+  // Sin cookie pero con Authorization: API token (si la feature está activa).
+  if (!token && request.headers.has('authorization')) {
     const { verifyApiToken } = await import('./api-tokens');
     const apiAuth = await verifyApiToken(request);
     if (apiAuth.valid && apiAuth.token) {
@@ -181,72 +344,14 @@ export async function buildAuthContext(request: Request): Promise<AuthContext> {
         role: isWrite ? 'admin' : 'viewer',
         isAdmin: isWrite,
         username: null,
+        userId: null,
+        session: null,
         isApiToken: true,
       };
     }
   }
 
-  const authEpoch = cfg.auth?.authEpoch ?? 0;
-
-  // Si no hay users[] en config, modo legacy — verificamos sólo con
-  // authEpoch (userEpoch=0).
-  const users = cfg.auth?.users ?? [];
-  if (users.length === 0) {
-    const ok = verifySessionToken(token, authEpoch, 0);
-    return {
-      isAuthenticated: ok,
-      csrfToken: cfg.auth?.csrfToken ?? null,
-      actor: ok ? 'legacy' : null,
-      role: ok ? 'admin' : null,
-      isAdmin: ok,
-      username: null,
-    };
-  }
-
-  // Modo multi-user: el token puede ser legacy (super-admin) o per-user.
-  // Probamos legacy primero.
-  const cfgSingleEnabled = cfg.auth?.singlePasswordEnabled !== false;
-  if (cfgSingleEnabled) {
-    const legacyOk = verifySessionToken(token, authEpoch, 0);
-    if (legacyOk) {
-      return {
-        isAuthenticated: true,
-        csrfToken: cfg.auth?.csrfToken ?? null,
-        actor: 'legacy',
-        role: 'admin',
-        isAdmin: true,
-        username: null,
-      };
-    }
-  }
-
-  // Multi-user: el payload del token no incluye el userId (lo podríamos
-  // agregar pero requeriría DB lookup en cada verify). Como alternativa,
-  // validamos probando contra el userEpoch de CADA user. El que matchee
-  // es el user activo. Esto es O(n) por request pero n es chico (típicamente
-  // <10) y solo se ejecuta cuando hay un token.
-  for (const u of users) {
-    const ok = verifySessionToken(token, authEpoch, u.userEpoch);
-    if (ok) {
-      return {
-        isAuthenticated: true,
-        csrfToken: cfg.auth?.csrfToken ?? null,
-        actor: u.username,
-        role: u.role,
-        isAdmin: u.role === 'admin',
-        username: u.username,
-      };
-    }
-  }
-
-  return {
-    isAuthenticated: false,
-    csrfToken: cfg.auth?.csrfToken ?? null,
-    actor: null,
-    role: null,
-    isAdmin: false,
-    username: null,
-  };
+  return resolveSession(parseSessionToken(token), cfg);
 }
 
 export function parseCookie(header: string): Record<string, string> {

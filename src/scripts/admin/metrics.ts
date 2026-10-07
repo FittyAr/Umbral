@@ -36,8 +36,13 @@ export function createMetricsState(): AdminFragment {
         this.metricsRows = await Promise.all(cards.map(async (row: AdminMetricsRow) => {
           let svg = '';
           try {
-            const svgRes = await fetch(`/api/metrics?id=${encodeURIComponent(row.cardId)}&svg=1&range=${this.metricsRange}&limit=${this.metricsLimit}`, { credentials: 'same-origin' });
-            if (svgRes.ok) svg = await svgRes.text();
+            const svgRes: Response = await window.umbralAdmin.api(
+              'GET',
+              `/api/metrics?id=${encodeURIComponent(row.cardId)}&svg=1&range=${this.metricsRange}&limit=${this.metricsLimit}`,
+              undefined,
+              { raw: true },
+            );
+            svg = await svgRes.text();
           } catch (e) { /* silent */ }
           return { ...row, sparkline: svg };
         }));

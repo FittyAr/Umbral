@@ -11,6 +11,22 @@ interface RateLimitEntry {
   resetAt: number;
 }
 const rateLimitMap = new Map<string, RateLimitEntry>();
+// Tope de claves: sin él, un cliente que varía la clave (IPs falsas,
+// usernames inventados) hacía crecer el Map hasta el próximo barrido.
+const MAX_KEYS = 20_000;
+const MAX_KEY_LENGTH = 200;
+
+function evictIfFull(now: number): void {
+  if (rateLimitMap.size < MAX_KEYS) return;
+  for (const [k, v] of rateLimitMap) {
+    if (v.resetAt < now) rateLimitMap.delete(k);
+  }
+  // Si sigue lleno, se descartan las más viejas (el Map preserva el orden).
+  for (const k of rateLimitMap.keys()) {
+    if (rateLimitMap.size < MAX_KEYS) break;
+    rateLimitMap.delete(k);
+  }
+}
 
 export interface RateLimitResult {
   ok: boolean;
@@ -24,8 +40,10 @@ export function checkRateLimit(
   windowSec: number,
 ): RateLimitResult {
   const now = Date.now();
+  key = key.slice(0, MAX_KEY_LENGTH);
   const entry = rateLimitMap.get(key);
   if (!entry || entry.resetAt < now) {
+    if (!entry) evictIfFull(now);
     rateLimitMap.set(key, { count: 1, resetAt: now + windowSec * 1000 });
     return { ok: true, remaining: max - 1, resetInSec: windowSec };
   }

@@ -690,13 +690,13 @@ export function createCardsState(): AdminFragment {
       if (!params.toString()) return;
       this.autofillBusy = true;
       try {
-        const res = await fetch(`/api/fetch-card-info?${params.toString()}`);
-        if (!res.ok) {
-          const e = await res.json().catch(() => ({}));
-          window.umbralAdmin.toast(e.error || `Error HTTP ${res.status}`, 'error');
+        let data;
+        try {
+          data = await window.umbralAdmin.api('GET', `/api/fetch-card-info?${params.toString()}`);
+        } catch (e: unknown) {
+          window.umbralAdmin.toast(errMsg(e), 'error');
           return;
         }
-        const data = await res.json();
         let filled = 0;
         if (data.title && (!this.editingCard.title || this.editingCard.title === 'Nueva tarjeta' || this.editingCard.title.trim() === '')) {
           this.editingCard.title = data.title; filled++;
@@ -710,26 +710,15 @@ export function createCardsState(): AdminFragment {
         // el ícono — la card queda sin imagen pero con title/description.
         if (data.image) {
           try {
-            const upRes = await fetch('/api/upload-from-url', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json', 'x-csrf-token': window.umbralAdmin.csrf },
-              body: JSON.stringify({ url: data.image, kind: 'icon' }),
-            });
             // BUGFIX (4xx limpio, no más 502 en consola): /api/upload-from-url
-            // ahora devuelve 200 con {ok:false, reason:'not_found'} cuando el
+            // devuelve 200 con {ok:false, reason:'not_found'} cuando el
             // origen responde 4xx (ej: 404 por favicon inexistente, 403 por
-            // hotlink protection). Eso evita que la consola se llene de
-            // "502 Bad Gateway" cada vez que un sitio no expone og:image.
-            if (upRes.ok) {
-              const up = await upRes.json();
-              if (up.ok && up.url) {
-                this.editingCard.icon = up.url; filled++;
-              } else {
-                console.warn('[umbral] upload-from-url skipped:', up.reason || 'unknown');
-              }
+            // hotlink protection).
+            const up = await window.umbralAdmin.api('POST', '/api/upload-from-url', { url: data.image, kind: 'icon' });
+            if (up.ok && up.url) {
+              this.editingCard.icon = up.url; filled++;
             } else {
-              const err = await upRes.json().catch(() => ({}));
-              console.warn('[umbral] upload-from-url failed:', err.error || upRes.status);
+              console.warn('[umbral] upload-from-url skipped:', up.reason || 'unknown');
             }
           } catch (err) {
             console.warn('[umbral] upload-from-url error:', err);

@@ -26,6 +26,7 @@
 
 import * as OTPAuth from 'otpauth';
 import crypto from 'node:crypto';
+import { getSessionSecret } from './auth';
 
 const TOTP_WINDOW = 1; // ±1 step (30s)
 const TOTP_ISSUER = 'Umbral';
@@ -57,10 +58,16 @@ export function getQrCodeUrl(username: string, secret: string): string {
 }
 
 /** Verifica un código TOTP de 6 dígitos contra el secret. Devuelve
- *  true si es válido (dentro del window). */
+ *  true si es válido (dentro del window). No protege contra reuso: para
+ *  login usar `verifyTotpOnce`. */
 export function verifyTotp(secret: string, code: string): boolean {
+  return verifyTotpStep(secret, code) !== null;
+}
+
+/** Como `verifyTotp`, pero devuelve el contador (step) que matcheó. */
+export function verifyTotpStep(secret: string, code: string, now: number = Date.now()): number | null {
   // Validar formato antes de parsear
-  if (!/^\d{6}$/.test(code)) return false;
+  if (!/^\d{6}$/.test(code)) return null;
   try {
     const totp = new OTPAuth.TOTP({
       issuer: TOTP_ISSUER,
@@ -69,11 +76,33 @@ export function verifyTotp(secret: string, code: string): boolean {
       period: 30,
       secret: OTPAuth.Secret.fromBase32(secret),
     });
-    const delta = totp.validate({ token: code, window: TOTP_WINDOW });
-    return delta !== null;
+    const delta = totp.validate({ token: code, window: TOTP_WINDOW, timestamp: now });
+    if (delta === null) return null;
+    return totp.counter({ timestamp: now }) + delta;
   } catch {
-    return false;
+    return null;
   }
+}
+
+// Último step aceptado por usuario. Un código TOTP es válido ~90s (±1
+// step); sin esto, quien lo viera (shoulder surfing, un proxy que loguea
+// bodies) podía reusarlo dentro de esa ventana. En memoria alcanza: tras
+// un reinicio los códigos viejos ya vencieron.
+declare global {
+  // eslint-disable-next-line no-var
+  var __umbralTotpLastStep: Map<string, number> | undefined;
+}
+
+/** Verifica el código y lo marca como usado para ese usuario: el mismo step
+ *  (o uno anterior) no se acepta dos veces. */
+export function verifyTotpOnce(userId: string, secret: string, code: string, now: number = Date.now()): boolean {
+  const step = verifyTotpStep(secret, code, now);
+  if (step === null) return false;
+  const used = (globalThis.__umbralTotpLastStep ??= new Map());
+  const last = used.get(userId);
+  if (last !== undefined && step <= last) return false;
+  used.set(userId, step);
+  return true;
 }
 
 // ── Cifrado simétrico del secret en disco ────────────────────────
@@ -96,14 +125,10 @@ function deriveKey(passphrase: string): Buffer {
 let _key: Buffer | null = null;
 function getKey(): Buffer {
   if (_key) return _key;
-  const secret = process.env.SESSION_SECRET || '';
-  if (!secret) {
-    // En dev sin SESSION_SECRET, derivamos de un fallback (NO usar en
-    // producción — getSecret() en auth.ts ya tiene el mismo fallback).
-    _key = deriveKey('umbral-dev-fallback');
-  } else {
-    _key = deriveKey(secret);
-  }
+  // Mismo secreto que firma las sesiones (getSessionSecret aplica las mismas
+  // reglas: descarta secretos públicos en producción). Antes se leía
+  // SESSION_SECRET crudo, con un fallback fijo distinto del de auth.ts.
+  _key = deriveKey(getSessionSecret());
   return _key;
 }
 

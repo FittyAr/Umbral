@@ -7,7 +7,7 @@
 import type { APIRoute } from 'astro';
 import QRCode from 'qrcode';
 import { generateTotpSecret, getQrCodeUrl, verifyTotp, encryptTotpSecret } from '~/lib/totp';
-import { getConfig, saveConfig, audit } from '~/lib/config';
+import { getConfig, updateConfig, audit } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { json, error, readJson } from '~/lib/http';
 
@@ -54,18 +54,26 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     if (!valid) return error('Código incorrecto. Revisá la hora de tu dispositivo e intentá de nuevo.', 400);
 
     const encryptedSecret = encryptTotpSecret(secret);
-    const updatedUsers = users.map((u) => (u.id === userId ? { ...u, totpSecret: encryptedSecret } : u));
-    await saveConfig({ auth: { ...cfg.auth, users: updatedUsers } });
+    await setUserTotp(userId, encryptedSecret);
     await audit('totp_enabled', `user=${user.username} actor=${auth.actor}`);
     return json({ ok: true });
   }
 
   if (action === 'disable') {
-    const updatedUsers = users.map((u) => (u.id === userId ? { ...u, totpSecret: null } : u));
-    await saveConfig({ auth: { ...cfg.auth, users: updatedUsers } });
+    await setUserTotp(userId, null);
     await audit('totp_disabled', `user=${user.username} actor=${auth.actor}`);
     return json({ ok: true });
   }
 
   return error('Acción no soportada', 400);
 };
+
+/** Read-modify-write bajo el lock del config: sin él, activar 2FA mientras
+ *  otro guardado estaba en curso podía perder uno de los dos cambios. */
+function setUserTotp(userId: string, totpSecret: string | null) {
+  return updateConfig((current) => {
+    if (!current.auth) return null;
+    const users = current.auth.users.map((u) => (u.id === userId ? { ...u, totpSecret } : u));
+    return { auth: { ...current.auth, users } };
+  });
+}

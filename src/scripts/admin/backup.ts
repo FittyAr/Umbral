@@ -53,9 +53,7 @@ export function createBackupState(): AdminFragment {
       if (confirmText !== 'RESET') return;
       try {
         const cfg = await window.umbralAdmin.api('DELETE', '/api/config');
-        this.cfg = JSON.parse(JSON.stringify(cfg));
-        this.original = JSON.parse(JSON.stringify(cfg));
-        this.dirty = false;
+        this.applyServerConfig(cfg);
         window.umbralAdmin.toast('Reseteado', 'success');
         await this.refreshAssets();
       } catch (e: unknown) { window.umbralAdmin.toast(errMsg(e), 'error'); }
