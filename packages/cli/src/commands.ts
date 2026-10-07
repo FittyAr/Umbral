@@ -3,7 +3,8 @@
  * función que toma args y devuelve un exit code (0 = ok, 1 = error).
  */
 
-import type { UmbralClient } from './client.js';
+import { writeFile } from 'node:fs/promises';
+import { HttpError, type UmbralClient } from './client.js';
 import type { Config, Card, ApiToken, Webhook, MaintenanceWindow, User } from './types.js';
 
 export async function cmdConfigGet(client: UmbralClient, args: string[]): Promise<number> {
@@ -25,13 +26,21 @@ export async function cmdConfigGet(client: UmbralClient, args: string[]): Promis
   return 0;
 }
 
-export async function cmdConfigBackup(client: UmbralClient, _args: string[]): Promise<number> {
+/** Guarda el config en un archivo (`--out=<path>`, default con timestamp;
+ *  `--out=-` lo imprime). Antes imprimía el JSON y sugería
+ *  `umbral config get > archivo`, que escribe el resumen legible, no el JSON.
+ *  Los secretos (hashes, API keys) no viajan por la API: el backup no los
+ *  incluye y al importarlo se conservan los del servidor. */
+export async function cmdConfigBackup(client: UmbralClient, args: string[]): Promise<number> {
   const cfg = await client.get<Config>('/api/config');
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `umbral-config-${stamp}.json`;
-  console.log(JSON.stringify(cfg, null, 2));
-  console.error(`\n# Para guardar en archivo, redirigí a:`);
-  console.error(`#   umbral config get > ${filename}`);
+  const out = args.find((a) => a.startsWith('--out='))?.slice('--out='.length) || `umbral-config-${stamp}.json`;
+  if (out === '-') {
+    console.log(JSON.stringify(cfg, null, 2));
+    return 0;
+  }
+  await writeFile(out, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+  console.error(`Backup guardado en ${out}`);
   return 0;
 }
 
@@ -58,28 +67,41 @@ export async function cmdCardsAdd(client: UmbralClient, args: string[]): Promise
     return 1;
   }
   const id = 'card-' + Date.now().toString(36);
-  const cfg = await client.get<Config>('/api/config');
-  const newCard: Card = {
-    id,
-    title: opts.title,
-    kind: 'link',
-    description: opts.description || '',
-    descriptionFormat: 'plain',
-    url: opts.url,
-    icon: opts.icon || 'globe',
-    category: opts.category,
-    openInNewTab: true,
-    color: cfg.theme.accentColor,
-    order: cfg.cards.length,
-    enabled: true,
-    healthCheck: false,
-    latencyThresholdMs: 0,
-    pinned: false,
-    tags: [],
-  };
-  await client.put('/api/config', { cards: [...cfg.cards, newCard] });
-  console.log(`Card creada: ${id} (${newCard.title})`);
-  return 0;
+  // Read-modify-write con If-Match: si alguien guardó entre el GET y el PUT,
+  // el server responde 409 y se reintenta sobre la versión nueva (antes el
+  // PUT pisaba el array de cards entero y se perdían los cambios ajenos).
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const cfg = await client.get<Config>('/api/config');
+    const newCard: Card = {
+      id,
+      title: opts.title,
+      kind: 'link',
+      description: opts.description || '',
+      descriptionFormat: 'plain',
+      url: opts.url,
+      icon: opts.icon || 'globe',
+      category: opts.category,
+      openInNewTab: true,
+      color: cfg.theme.accentColor,
+      order: cfg.cards.length,
+      enabled: true,
+      healthCheck: false,
+      latencyThresholdMs: 0,
+      pinned: false,
+      tags: [],
+    };
+    const version = cfg._meta?.updatedAt;
+    try {
+      await client.put('/api/config', { cards: [...cfg.cards, newCard] }, version ? { 'If-Match': version } : {});
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 409) continue;
+      throw e;
+    }
+    console.log(`Card creada: ${id} (${newCard.title})`);
+    return 0;
+  }
+  console.error('El config cambió varias veces mientras se guardaba. Reintentá.');
+  return 1;
 }
 
 export async function cmdUsersList(client: UmbralClient, args: string[]): Promise<number> {

@@ -35,7 +35,7 @@ Opciones globales:
 
 Comandos:
   config get [--json]            Muestra el config completo
-  config backup                   Dump JSON a stdout (redirigir a archivo)
+  config backup [--out=<file>]    Guarda el config en un archivo (--out=- lo imprime)
   cards list [--category=X] [--json]   Lista cards
   cards add --title=X --url=Y --category=Z [--icon=...] [--description=...]
   users list [--json]             Lista users (multi-user)

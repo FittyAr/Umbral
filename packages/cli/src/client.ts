@@ -5,16 +5,29 @@
  */
 import type { CliConfig } from './config.js';
 
+export class HttpError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
 export class UmbralClient {
   constructor(private cfg: CliConfig) {}
 
-  private async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T = unknown>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders: Record<string, string> = {},
+  ): Promise<T> {
     const url = `${this.cfg.url}${path}`;
     const res = await fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.cfg.token}`,
+        ...extraHeaders,
       },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -22,7 +35,7 @@ export class UmbralClient {
       const text = await res.text().catch(() => '');
       let msg = text;
       try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch { /* */ }
-      throw new Error(`HTTP ${res.status} en ${method} ${path}: ${msg}`);
+      throw new HttpError(res.status, `HTTP ${res.status} en ${method} ${path}: ${msg}`);
     }
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
@@ -30,6 +43,8 @@ export class UmbralClient {
 
   get<T = unknown>(path: string) { return this.request<T>('GET', path); }
   post<T = unknown>(path: string, body?: unknown) { return this.request<T>('POST', path, body); }
-  put<T = unknown>(path: string, body?: unknown) { return this.request<T>('PUT', path, body); }
+  put<T = unknown>(path: string, body?: unknown, headers?: Record<string, string>) {
+    return this.request<T>('PUT', path, body, headers);
+  }
   delete<T = unknown>(path: string) { return this.request<T>('DELETE', path); }
 }
