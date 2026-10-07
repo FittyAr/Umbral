@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { JSDOM } from 'jsdom';
 import { json, error } from '~/lib/http';
 import { getConfig } from '~/lib/config';
 import { safeFetch, SafeFetchError } from '~/lib/safe-fetch';
@@ -102,8 +101,14 @@ async function scrapeUrl(
 
   if (!html || html.length < 50) return null;
 
-  let dom: JSDOM;
-  try { dom = new JSDOM(html); } catch { return null; }
+  // jsdom se carga sólo cuando hay HTML para parsear (es pesado).
+  let dom: import('jsdom').JSDOM;
+  try {
+    const { JSDOM } = await import('jsdom');
+    dom = new JSDOM(html);
+  } catch {
+    return null;
+  }
   const doc = dom.window.document;
 
   const title =

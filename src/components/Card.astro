@@ -61,7 +61,7 @@ const isNote = card.kind === 'note';
 // el costo de JSDOM en cada render de card.
 /** Render seguro de la descripción: HTML sanitizado para markdown, o el
  *  string plano (que Astro escapa) para plain. */
-function renderDescription(desc: string, format: 'plain' | 'markdown' | undefined): string {
+async function renderDescription(desc: string, format: 'plain' | 'markdown' | undefined): Promise<string> {
   if (!desc) return '';
   // En una card link la descripción vive dentro del <a> de la card: sin
   // links propios (un <a> anidado rompe el layout y el click).
@@ -79,7 +79,11 @@ const baseClass = isNote ? 'card card-note' : 'card';
 // reglas `.grid>[data-span="N"]` recortadas a las columnas configuradas.
 const spanAttr = card.span && card.span > 1 ? String(card.span) : undefined;
 
-const descriptionHtml = renderDescription(card.description, card.descriptionFormat);
+// Sólo HTML sanitizado va a set:html: con la feature markdown apagada,
+// renderDescription devuelve el texto crudo, que antes también terminaba en
+// set:html si la card seguía marcada como markdown (por ejemplo, tras un
+// import).
+const descriptionHtml = await renderDescription(card.description, card.descriptionFormat);
 ---
 {isNote ? (
   <div
@@ -140,7 +144,7 @@ const descriptionHtml = renderDescription(card.description, card.descriptionForm
       {card.title}
     </h3>
     {layout.showDescriptions && card.description && (
-      card.descriptionFormat === 'markdown' && descriptionHtml
+      card.descriptionFormat === 'markdown' && markdownEnabled && descriptionHtml
         ? <div class="card-desc card-desc-md" set:html={descriptionHtml} />
         : <p class="card-desc">{card.description}</p>
     )}
@@ -206,7 +210,7 @@ const descriptionHtml = renderDescription(card.description, card.descriptionForm
       {card.title}
     </h3>
     {layout.showDescriptions && card.description && (
-      card.descriptionFormat === 'markdown' && descriptionHtml
+      card.descriptionFormat === 'markdown' && markdownEnabled && descriptionHtml
         ? <div class="card-desc card-desc-md" set:html={descriptionHtml} />
         : <p class="card-desc">{card.description}</p>
     )}

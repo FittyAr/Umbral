@@ -242,6 +242,9 @@ export function importConfig(newConfig: Config): Promise<Config> {
     const withSecrets = restoreClientSecrets(current, parsed) as Config;
     const result = ConfigSchema.parse({
       ...withSecrets,
+      // Mismo gating que un guardado normal (formato markdown sólo con la
+      // feature activa, tags, pinned).
+      cards: gateCards(withSecrets.cards, mergeFeatures({}, withSecrets.features)),
       auth: current.auth,
       apiTokens: current.apiTokens,
       _meta: { ...parsed._meta, updatedAt: nextVersion(current._meta?.updatedAt) },
