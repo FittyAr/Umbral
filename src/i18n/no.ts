@@ -16,6 +16,8 @@ export const no = {
   "common.success": "Vellykket",
   "common.yes": "Ja",
   "common.no": "Nei",
+  'admin.cardEditor.title': 'Rediger kort',
+  'admin.cardEditor.save': 'Lagre',
   "home.searchPlaceholder": "Søk… (trykk /)",
   "home.searchAria": "Søk etter app",
   "home.refresh": "Last inn konfigurasjon på nytt",

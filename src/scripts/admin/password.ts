@@ -23,6 +23,8 @@ export function createPasswordState(): AdminFragment {
         if (data && data.csrfToken) {
           window.umbralAdmin.csrf = data.csrfToken;
           document.body.dataset.csrf = data.csrfToken;
+          // El panel de Seguridad muestra el token desde el estado de Alpine.
+          this.csrfToken = data.csrfToken;
         }
         this.pwForm = { current: '', next: '', confirm: '' };
         window.umbralAdmin.toast('Contraseña cambiada', 'success');

@@ -49,14 +49,25 @@ const {
 
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 const labelText = labelKey ? t(labelKey, labelFallback) : labelFallback;
+
+// Nombre accesible del control: el <label> no lo envuelve ni tiene `for`, así
+// que los lectores de pantalla anunciaban los campos sin nombre. Se vincula
+// el primer input/select/textarea del slot al texto del label con
+// aria-labelledby (si el control no trae ya su propio nombre).
+const labelId = `fg-${Math.random().toString(36).slice(2, 10)}`;
+const slotHtml = Astro.slots.has('default') ? await Astro.slots.render('default') : '';
+const controlHtml = slotHtml.replace(
+  /<(input|select|textarea)(?![^>]*\baria-label(?:ledby)?=)/i,
+  `<$1 aria-labelledby="${labelId}"`,
+);
 ---
 
 <div class:list={['form-group', extraClass]} x-show={show} style={style}>
   <label>
-    <span x-text={labelExpr}>{labelText}</span>
+    <span id={labelId} x-text={labelExpr}>{labelText}</span>
     {valueExpr && <Fragment>(<span x-text={valueExpr}></span>{valueUnit})</Fragment>}
     {helpKey && <HelpIcon helpKey={helpKey} />}
     <slot name="label-extra" />
   </label>
-  <slot />
+  <Fragment set:html={controlHtml} />
 </div>

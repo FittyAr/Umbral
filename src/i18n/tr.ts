@@ -16,6 +16,8 @@ export const tr = {
   "common.success": "Başarılı",
   "common.yes": "Evet",
   "common.no": "Hayır",
+  'admin.cardEditor.title': 'Kartı düzenle',
+  'admin.cardEditor.save': 'Kaydet',
   "home.searchPlaceholder": "Ara… (/ tuşuna basın)",
   "home.searchAria": "Uygulama ara",
   "home.refresh": "Yapılandırmayı yenile",

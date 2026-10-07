@@ -229,7 +229,7 @@ describe('FormGroup', () => {
       },
     });
 
-    expect(html).toContain('<span x-text="themeAccentLabel()">Color de acento</span>');
+    expect(html).toMatch(/<span id="(fg-[a-z0-9]+)" x-text="themeAccentLabel\(\)">Color de acento<\/span>/);
   });
 
   it('usa la traduccion cuando useI18n esta prendido', async () => {
@@ -276,6 +276,16 @@ describe('FormGroup', () => {
     });
 
     expect(html.indexOf('</label>')).toBeLessThan(html.indexOf('id="probe"'));
+  });
+
+  it('vincula el control al texto del label (nombre accesible)', async () => {
+    const html = await render(FormGroup, {
+      props: { ...noI18n, labelFallback: 'X' },
+      slots: { default: '<input id="probe" />' },
+    });
+    const id = /<span id="(fg-[a-z0-9]+)"/.exec(html)?.[1];
+    expect(id).toBeTruthy();
+    expect(html).toContain(`<input aria-labelledby="${id}" id="probe"`);
   });
 });
 
@@ -390,7 +400,7 @@ describe('Modal', () => {
     expect(html).toContain('<template x-if="showPresetsModal">');
     expect(html).toContain('class="modal-backdrop"');
     expect(html).toContain('@click.self="showPresetsModal = false"');
-    expect(html).toContain('@keydown.escape.window="showPresetsModal = false"');
+    expect(html).toContain('@keydown.escape.stop="showPresetsModal = false"');
     expect(html).toContain('Plantillas');
   });
 

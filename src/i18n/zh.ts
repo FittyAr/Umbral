@@ -16,6 +16,8 @@ export const zh = {
   "common.success": "成功",
   "common.yes": "是",
   "common.no": "否",
+  'admin.cardEditor.title': '编辑卡片',
+  'admin.cardEditor.save': '保存',
   "home.searchPlaceholder": "搜索… (按 / 键)",
   "home.searchAria": "搜索应用",
   "home.refresh": "重新加载配置",

@@ -16,6 +16,8 @@ export const pt = {
   "common.success": "Sucesso",
   "common.yes": "Sim",
   "common.no": "Não",
+  'admin.cardEditor.title': 'Editar cartão',
+  'admin.cardEditor.save': 'Salvar',
   "home.searchPlaceholder": "Buscar… (pressione /)",
   "home.searchAria": "Buscar aplicativo",
   "home.refresh": "Recarregar configuração",

@@ -23,7 +23,7 @@ const PUBLIC_API_PREFIXES = ['/api/assets/', '/api/icons/', '/api/qr/', '/api/au
 function isPublicApiPath(pathname: string): boolean {
   return PUBLIC_API_EXACT.has(pathname) || PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p));
 }
-const PUBLIC_PAGE_PATHS = new Set(['/', '/404', '/500', '/manifest.webmanifest', '/sw.js']);
+const PUBLIC_PAGE_PATHS = new Set(['/', '/404', '/500', '/manifest.webmanifest']);
 // Prefijos que matchean cualquier URL que EMPIEZA con ellos.
 // `_image` se matchea como exact (es un archivo estático, no un prefijo de
 // assets dinámicos — antes matcheaba `/_image-foo` también, lo cual era un
@@ -67,6 +67,28 @@ function detectHttps(request: Request, trustForwarded: boolean): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Con Google Fonts activado, la CSP tiene que permitir la hoja de estilos
+ * (fonts.googleapis.com) y los archivos de fuente (fonts.gstatic.com); con
+ * la CSP default (`style-src 'self'`, `font-src 'self'`) el navegador los
+ * bloqueaba y la fuente elegida nunca cargaba.
+ */
+function withGoogleFonts(csp: string | null | undefined, enabled: boolean): string | null | undefined {
+  if (!csp || !enabled) return csp;
+  const directives = csp
+    .split(';')
+    .map((d) => d.trim())
+    .filter(Boolean);
+  const add = (name: string, source: string) => {
+    const i = directives.findIndex((d) => d.toLowerCase().startsWith(`${name} `) || d.toLowerCase() === name);
+    if (i < 0) directives.push(`${name} 'self' ${source}`);
+    else if (!directives[i].split(' ').includes(source)) directives[i] = `${directives[i]} ${source}`;
+  };
+  add('style-src', 'https://fonts.googleapis.com');
+  add('font-src', 'https://fonts.gstatic.com');
+  return directives.join('; ');
 }
 
 /** Cap en bytes para requests que mutan el config. Evita que un admin (o
@@ -198,7 +220,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const ct = response.headers.get('content-type') || '';
   if (ct.includes('text/html') || isPublic(pathname)) {
     applySecurityHeaders(response.headers, {
-      csp: headersCfg.csp,
+      csp: withGoogleFonts(headersCfg.csp, cfg.theme.useGoogleFonts === true && !!cfg.theme.fontUrl),
       xFrameOptions: headersCfg.xFrameOptions,
       referrerPolicy: headersCfg.referrerPolicy,
       permissionsPolicy: headersCfg.permissionsPolicy,

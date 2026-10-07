@@ -16,6 +16,8 @@ export const hu = {
   "common.success": "Sikeres",
   "common.yes": "Igen",
   "common.no": "Nem",
+  'admin.cardEditor.title': 'Kártya szerkesztése',
+  'admin.cardEditor.save': 'Mentés',
   "home.searchPlaceholder": "Keresés… (/ gomb)",
   "home.searchAria": "Alkalmazás keresése",
   "home.refresh": "Konfiguráció újratöltése",

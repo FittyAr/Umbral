@@ -42,7 +42,12 @@ describe('modales del admin', () => {
       expect(html).toContain(modal.show);
       expect(html).toContain('class="modal-backdrop"');
       expect(html).toContain(`@click.self="${modal.close}"`);
-      expect(html).toContain(`@keydown.escape.window="${modal.close}"`);
+      // Escape en el backdrop con .stop (no en window): con modales apilados
+      // sólo se cierra el de arriba.
+      expect(html).toContain(`@keydown.escape.stop="${modal.close}"`);
+      expect(html).not.toContain('@keydown.escape.window');
+      expect(html).toContain('role="dialog"');
+      expect(html).toContain('aria-modal="true"');
     });
   }
 });
@@ -90,7 +95,7 @@ describe('modales migrados al Modal generico', () => {
     const html = await render(HelpModal);
 
     expect(html).toContain('class="modal help-modal"');
-    expect(html).toContain('<h2 x-text="currentHelp().title">');
+    expect(html).toMatch(/<h2 id="modal-title-[a-z0-9]+" x-text="currentHelp\(\)\.title">/);
     expect(html).toContain('x-html="currentHelp().bodyHtml"');
     expect(html).toContain('class="modal-header"');
     expect(html).toContain('class="modal-footer"');

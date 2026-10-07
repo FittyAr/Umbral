@@ -16,6 +16,8 @@ export const uk = {
   "common.success": "Успішно",
   "common.yes": "Так",
   "common.no": "Ні",
+  'admin.cardEditor.title': 'Редагувати картку',
+  'admin.cardEditor.save': 'Зберегти',
   "home.searchPlaceholder": "Пошук… (натисніть /)",
   "home.searchAria": "Пошук додатків",
   "home.refresh": "Перезавантажити конфігурацію",

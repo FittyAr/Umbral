@@ -16,6 +16,8 @@ export const ja = {
   "common.success": "成功",
   "common.yes": "はい",
   "common.no": "いいえ",
+  'admin.cardEditor.title': 'カードを編集',
+  'admin.cardEditor.save': '保存',
   "home.searchPlaceholder": "検索… (/ を押す)",
   "home.searchAria": "アプリを検索",
   "home.refresh": "設定を再読み込み",

@@ -60,7 +60,6 @@ Astro tiene HMR (hot module reload) — los cambios en `.astro`, `.ts`, `.css` s
 ├── public/                 # Assets estáticos servidos directo
 │   ├── favicon.svg
 │   ├── manifest.webmanifest
-│   ├── sw.js               # Service worker (PWA)
 │   ├── icons/              # Íconos Lucide predefinidos
 │   └── _astro/             # Output de Vite (cache-busted)
 ├── src/

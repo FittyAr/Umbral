@@ -16,6 +16,8 @@ export const nl = {
   "common.success": "Succes",
   "common.yes": "Ja",
   "common.no": "Nee",
+  'admin.cardEditor.title': 'Kaart bewerken',
+  'admin.cardEditor.save': 'Opslaan',
   "home.searchPlaceholder": "Zoeken… (druk op /)",
   "home.searchAria": "Zoek app",
   "home.refresh": "Configuratie herladen",

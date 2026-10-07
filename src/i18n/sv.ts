@@ -16,6 +16,8 @@ export const sv = {
   "common.success": "Klart",
   "common.yes": "Ja",
   "common.no": "Nej",
+  'admin.cardEditor.title': 'Redigera kort',
+  'admin.cardEditor.save': 'Spara',
   "home.searchPlaceholder": "Sök… (tryck /)",
   "home.searchAria": "Sök app",
   "home.refresh": "Ladda om konfiguration",

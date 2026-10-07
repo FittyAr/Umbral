@@ -33,6 +33,8 @@ export const es = {
   'common.success': 'Éxito',
   'common.yes': 'Sí',
   'common.no': 'No',
+  'admin.cardEditor.title': 'Editar tarjeta',
+  'admin.cardEditor.save': 'Guardar',
 
   // ── Home (portada pública) ───────────────────────────────────────
   'home.searchPlaceholder': 'Buscar… (presioná /)',

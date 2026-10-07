@@ -16,6 +16,8 @@ export const cs = {
   "common.success": "Úspěch",
   "common.yes": "Ano",
   "common.no": "Ne",
+  'admin.cardEditor.title': 'Upravit kartu',
+  'admin.cardEditor.save': 'Uložit',
   "home.searchPlaceholder": "Hledat… (stiskněte /)",
   "home.searchAria": "Hledat aplikaci",
   "home.refresh": "Obnovit konfiguraci",

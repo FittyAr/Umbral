@@ -16,6 +16,8 @@ export const ro = {
   "common.success": "Succes",
   "common.yes": "Da",
   "common.no": "Nu",
+  'admin.cardEditor.title': 'Editează cardul',
+  'admin.cardEditor.save': 'Salvează',
   "home.searchPlaceholder": "Caută… (apasă /)",
   "home.searchAria": "Caută aplicație",
   "home.refresh": "Reîncarcă configurația",

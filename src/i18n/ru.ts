@@ -16,6 +16,8 @@ export const ru = {
   "common.success": "Успешно",
   "common.yes": "Да",
   "common.no": "Нет",
+  'admin.cardEditor.title': 'Редактировать карточку',
+  'admin.cardEditor.save': 'Сохранить',
   "home.searchPlaceholder": "Поиск… (нажмите /)",
   "home.searchAria": "Поиск приложения",
   "home.refresh": "Перезагрузить конфигурацию",

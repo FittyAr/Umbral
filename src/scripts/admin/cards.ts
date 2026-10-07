@@ -670,7 +670,9 @@ export function createCardsState(): AdminFragment {
         this.markdownPreview = res.html || '';
         this.markdownPreviewDirty = false;
       } catch (e: unknown) {
-        this.markdownPreview = '<em style="color:#fca5a5">Error al renderizar preview: ' + errMsg(e) + '</em>';
+        // El preview se pinta con x-html: el mensaje (que viene del server o
+        // de la red) se escapa en vez de concatenarse como HTML.
+        this.markdownPreview = '<em style="color:#fca5a5">Error al renderizar preview: ' + escapeHtml(errMsg(e)) + '</em>';
       }
     },
     // Auto-completar el form desde la URL o el nombre. Pide a
@@ -837,4 +839,8 @@ export function createCardsState(): AdminFragment {
       return '';
     },
   };
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 }

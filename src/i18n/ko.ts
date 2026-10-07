@@ -16,6 +16,8 @@ export const ko = {
   "common.success": "성공",
   "common.yes": "예",
   "common.no": "아니요",
+  'admin.cardEditor.title': '카드 편집',
+  'admin.cardEditor.save': '저장',
   "home.searchPlaceholder": "검색… (/ 키 누름)",
   "home.searchAria": "앱 검색",
   "home.refresh": "설정 새로고침",

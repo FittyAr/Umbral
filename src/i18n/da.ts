@@ -16,6 +16,8 @@ export const da = {
   "common.success": "Fuldført",
   "common.yes": "Ja",
   "common.no": "Nej",
+  'admin.cardEditor.title': 'Rediger kort',
+  'admin.cardEditor.save': 'Gem',
   "home.searchPlaceholder": "Søg… (tryk /)",
   "home.searchAria": "Søg app",
   "home.refresh": "Genindlæs konfiguration",

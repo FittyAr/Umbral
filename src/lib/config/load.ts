@@ -150,7 +150,10 @@ export async function loadFresh(): Promise<Config> {
     }
     // Si fontUrl quedó apuntando al Google Fonts default de versiones anteriores,
     // limpiarlo a '' para que el render sea 100% local y no bloquee en redes aisladas.
-    if (data.theme?.fontUrl?.includes('fonts.googleapis.com')) {
+    // Sólo si el admin no eligió Google Fonts: con useGoogleFonts prendido
+    // la URL es intencional (antes se borraba en cada relectura y la opción
+    // no hacía nada).
+    if (data.theme?.fontUrl?.includes('fonts.googleapis.com') && !data.theme.useGoogleFonts) {
       data = { ...data, theme: { ...data.theme, fontUrl: '' } };
       await writeJsonAtomic(portalCfg, data);
       console.log('[umbral] fontUrl de Google Fonts migrado a fuente local (offline-safe).');

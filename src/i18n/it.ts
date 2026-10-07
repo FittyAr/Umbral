@@ -16,6 +16,8 @@ export const it = {
   "common.success": "Successo",
   "common.yes": "Sì",
   "common.no": "No",
+  'admin.cardEditor.title': 'Modifica scheda',
+  'admin.cardEditor.save': 'Salva',
   "home.searchPlaceholder": "Cerca… (premi /)",
   "home.searchAria": "Cerca applicazione",
   "home.refresh": "Ricarica configurazione",

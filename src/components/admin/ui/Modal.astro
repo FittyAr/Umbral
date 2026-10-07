@@ -38,13 +38,25 @@ const {
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 const titleText = titleKey ? t(titleKey, titleFallback) : titleFallback;
 const hasFooter = Astro.slots.has('footer');
+const titleId = `modal-title-${Math.random().toString(36).slice(2, 10)}`;
 ---
 
 <template x-if={show}>
-  <div class="modal-backdrop" @click.self={close} @keydown.escape.window={close}>
-    <div class:list={['modal', modalClass]} style={modalStyle}>
+  <!-- Escape en el backdrop (con .stop) y no en window: con modales
+       apilados (el selector de íconos dentro del editor, la ayuda arriba)
+       se cerraban todos a la vez. El foco queda atrapado adentro mientras
+       está abierto y vuelve al elemento anterior al cerrar. -->
+  <div class="modal-backdrop" @click.self={close} @keydown.escape.stop={close}>
+    <div
+      class:list={['modal', modalClass]}
+      style={modalStyle}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      x-init="$nextTick(() => window.umbralAdmin.trapFocus($el))"
+    >
       <div class="modal-header">
-        <h2 x-text={titleExpr}>{titleText}</h2>
+        <h2 id={titleId} x-text={titleExpr}>{titleText}</h2>
         <button type="button" class="btn btn-ghost btn-sm" @click={close} aria-label={closeLabel}>✕</button>
       </div>
       <slot />

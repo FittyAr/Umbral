@@ -160,6 +160,40 @@ const theme = {
           if (opts.raw) return res;
           return res.json().catch(() => ({}));
         },
+        /**
+         * Atrapa el foco dentro de un modal: foco inicial en el primer
+         * control, Tab/Shift+Tab ciclan adentro, y al sacar el modal del DOM
+         * el foco vuelve a donde estaba.
+         */
+        trapFocus(el) {
+          if (!el) return;
+          const previous = document.activeElement;
+          const selector = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+          const focusables = () => Array.from(el.querySelectorAll(selector)).filter((n) => n.offsetParent !== null);
+          const first = focusables()[0];
+          (first || el).focus({ preventScroll: true });
+          if (!first) el.setAttribute('tabindex', '-1');
+          el.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab') return;
+            const items = focusables();
+            if (items.length === 0) return;
+            const head = items[0];
+            const tail = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === head) {
+              e.preventDefault();
+              tail.focus();
+            } else if (!e.shiftKey && document.activeElement === tail) {
+              e.preventDefault();
+              head.focus();
+            }
+          });
+          const observer = new MutationObserver(() => {
+            if (el.isConnected) return;
+            observer.disconnect();
+            if (previous && previous.isConnected && typeof previous.focus === 'function') previous.focus();
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+        },
         toast(message, type = 'info') {
           let host = document.getElementById('toast-host');
           if (!host) {

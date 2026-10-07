@@ -16,6 +16,8 @@ export const fi = {
   "common.success": "Onnistui",
   "common.yes": "Kyllä",
   "common.no": "Ei",
+  'admin.cardEditor.title': 'Muokkaa korttia',
+  'admin.cardEditor.save': 'Tallenna',
   "home.searchPlaceholder": "Hae… (paina /)",
   "home.searchAria": "Hae sovellusta",
   "home.refresh": "Lataa asetukset uudelleen",

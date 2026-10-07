@@ -16,6 +16,8 @@ export const fr = {
   "common.success": "Succès",
   "common.yes": "Oui",
   "common.no": "Non",
+  'admin.cardEditor.title': 'Modifier la carte',
+  'admin.cardEditor.save': 'Enregistrer',
   "home.searchPlaceholder": "Rechercher… (appuyez sur /)",
   "home.searchAria": "Rechercher une application",
   "home.refresh": "Recharger la configuration",
