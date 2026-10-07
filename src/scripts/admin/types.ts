@@ -53,6 +53,7 @@ export interface AdminApiToken {
 export interface AdminWebhook {
   id: string;
   url: string;
+  preset?: string;
 }
 
 /** Ventana de mantenimiento de `cfg.maintenanceWindows.items[]`. */

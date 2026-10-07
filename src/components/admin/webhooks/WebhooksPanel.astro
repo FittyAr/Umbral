@@ -29,7 +29,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             <div style="font-size:0.78rem;color:var(--text-subtle);font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all" x-text="wh.url"></div>
             <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
               <span x-text="`Eventos: ${wh.events.join(', ')}`"></span>
-              <span x-text="` · threshold: ${wh.minFailures} · cooldown: ${wh.cooldownMin}min`"></span>
+              <span x-text="` · threshold: ${wh.minFailures} · cooldown: ${wh.cooldownMin}min · ${wh.preset || 'custom'}`"></span>
               <span :style="`color: ${wh.enabled ? 'var(--status-ok)' : 'var(--text-subtle)'}`" x-text="` · ${wh.enabled ? 'activo' : 'inactivo'}`"></span>
             </div>
           </div>
@@ -56,6 +56,17 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <input type="url" x-model="newWebhook.url" placeholder="https://hooks.slack.com/..." maxlength="500" />
       <small style="color:var(--text-faint);font-size:0.72rem">http(s) only. SSRF guard bloquea loopback y private IPs.</small>
     </FormGroup>
+    <div class="form-group">
+      <label for="webhook-preset">Formato</label>
+      <select id="webhook-preset" x-model="newWebhook.preset">
+        <option value="custom">JSON genérico</option>
+        <option value="slack">Slack</option>
+        <option value="discord">Discord</option>
+        <option value="mattermost">Mattermost</option>
+        <option value="ntfy">ntfy</option>
+        <option value="gotify">Gotify</option>
+      </select>
+    </div>
     <div class="form-row">
       <div class="form-group" style="flex:1">
         <label>Eventos</label>

@@ -110,7 +110,11 @@ function buildPayload(result: CheckResult, event: WebhookEvent, consecutive: num
  *
  *  Esta función es PURA — sólo transforma el body. La decisión de
  *  cuál preset usar se hace en otro lado. */
-export function adaptPayload(preset: string, payload: WebhookPayload): { body: string; contentType: string; headers: Record<string, string> } {
+export function adaptPayload(
+  preset: string,
+  payload: WebhookPayload,
+  url?: string,
+): { body: string; contentType: string; headers: Record<string, string>; url?: string } {
   const baseHeaders: Record<string, string> = {
     'X-Umbral-Event': payload.event,
     'X-Umbral-Card': payload.card.id,
@@ -141,15 +145,32 @@ export function adaptPayload(preset: string, payload: WebhookPayload): { body: s
     return { body: JSON.stringify({ text }), contentType: 'application/json', headers: baseHeaders };
   }
   if (preset === 'ntfy') {
-    // ntfy: POST raw text o JSON, headers ntfy-* para metadata.
+    // ntfy publica JSON en la raíz del server con el topic en el body: la URL
+    // del webhook es la del topic (https://ntfy.sh/mi-topic), así que se
+    // separan. El título va en el body y no en un header: los headers no
+    // aceptan emojis ni acentos y el envío fallaba.
     const title = payload.event === 'health_fail' ? `❌ ${payload.card.title} falló` : `✅ ${payload.card.title} OK`;
     const body = payload.event === 'health_fail'
       ? `HTTP ${payload.status.code ?? '?'} · ${payload.consecutiveFailures}/${payload.threshold} checks · ${payload.card.url}`
       : `Recuperado · HTTP ${payload.status.code ?? '?'} · ${payload.card.url}`;
+    let topic = 'umbral';
+    let target = url;
+    if (url) {
+      try {
+        const u = new URL(url);
+        const segments = u.pathname.split('/').filter(Boolean);
+        if (segments.length > 0) topic = segments.pop()!;
+        u.pathname = `/${segments.join('/')}`;
+        target = u.toString();
+      } catch {
+        // URL inválida: la valida el schema; se manda tal cual
+      }
+    }
     return {
-      body: JSON.stringify({ topic: 'umbral', title, message: body, tags: ['umbral', payload.event === 'health_fail' ? 'warning' : 'white_check_mark'], priority: payload.event === 'health_fail' ? 4 : 2 }),
+      body: JSON.stringify({ topic, title, message: body, tags: ['umbral', payload.event === 'health_fail' ? 'warning' : 'white_check_mark'], priority: payload.event === 'health_fail' ? 4 : 2 }),
       contentType: 'application/json',
-      headers: { ...baseHeaders, 'X-Title': title },
+      headers: baseHeaders,
+      url: target,
     };
   }
   if (preset === 'gotify') {
@@ -245,10 +266,8 @@ export async function processHealthResults(results: CheckResult[]): Promise<{ fi
       if (last && Date.now() - last.ts < wh.cooldownMin * 60_000) continue;
 
       const payload = buildPayload(result, event, newCount, wh.minFailures, cfg.branding.companyName);
-      // El server manda formato custom (JSON crudo); para adaptarlo a otros
-      // servicios se usa un proxy como matterbridge o n8n.
-      const adapted = adaptPayload('custom', payload);
-      const sent = await postWebhook(wh.url, adapted.body, adapted.contentType, adapted.headers, allowInternal);
+      const adapted = adaptPayload(wh.preset ?? 'custom', payload, wh.url);
+      const sent = await postWebhook(adapted.url ?? wh.url, adapted.body, adapted.contentType, adapted.headers, allowInternal);
       lastFired.set(cooldownKey, { ts: Date.now(), event, cardId: result.cardId });
       if (sent.ok) {
         fired++;
@@ -263,7 +282,7 @@ export async function processHealthResults(results: CheckResult[]): Promise<{ fi
 
 /** Para el endpoint /api/webhooks/test: manda un payload de ejemplo al
  *  webhook (sin pasar por el state machine). */
-export async function testWebhook(url: string): Promise<{ ok: boolean; status?: number; error?: string }> {
+export async function testWebhook(url: string, preset = 'custom'): Promise<{ ok: boolean; status?: number; error?: string }> {
   const cfg = await getConfig();
   const allowInternal = cfg.security.network.allowInternalHosts !== false;
   const samplePayload: WebhookPayload = {
@@ -275,6 +294,6 @@ export async function testWebhook(url: string): Promise<{ ok: boolean; status?: 
     timestamp: new Date().toISOString(),
     portal: { name: 'Umbral' },
   };
-  const adapted = adaptPayload('custom', samplePayload);
-  return postWebhook(url, adapted.body, adapted.contentType, adapted.headers, allowInternal);
+  const adapted = adaptPayload(preset, samplePayload, url);
+  return postWebhook(adapted.url ?? url, adapted.body, adapted.contentType, adapted.headers, allowInternal);
 }

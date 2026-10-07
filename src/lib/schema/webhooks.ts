@@ -35,6 +35,9 @@ export const WebhookSchema = z.object({
   minFailures: z.number().int().min(1).max(20).default(3),
   cooldownMin: z.number().int().min(0).max(1440).default(30),
   enabled: z.boolean().default(true),
+  // Formato del payload. 'custom' manda el JSON genérico; el resto lo adapta
+  // al formato que espera cada servicio (ver adaptPayload en lib/webhooks).
+  preset: z.enum(['custom', 'slack', 'discord', 'mattermost', 'ntfy', 'gotify']).default('custom'),
 });
 
 export const WebhooksSchema = z.object({

@@ -18,7 +18,16 @@ Los chequeos los hace `/api/status` (el que usa la portada). Sólo cuentan los c
 ### 2. Formato del Payload y Destinos
 Umbral manda un `POST` con un JSON genérico: `event`, `card` (`id`, `title`, `url`), `status` (`ok`, `code`, `latencyMs`, `error`), `consecutiveFailures`, `threshold`, `timestamp` y `portal`, con los headers `X-Umbral-Event`, `X-Umbral-Card` y `User-Agent: Umbral-Webhook/1.0`.
 
-Ese JSON sirve tal cual para endpoints propios, n8n, Node-RED, Home Assistant o cualquier receptor que acepte JSON arbitrario. Para Slack, Discord, Mattermost o Gotify, que esperan su propio formato, poné en el medio un puente (n8n, matterbridge) que lo traduzca.
+Ese es el formato **JSON genérico** (preset `custom`), que sirve tal cual para endpoints propios, n8n, Node-RED, Home Assistant o cualquier receptor que acepte JSON arbitrario. Para los servicios que esperan su propio formato, elegí el **Formato** al crear el webhook:
+
+| Formato | Qué manda |
+|---|---|
+| `slack` / `mattermost` | `{ "text": "…" }` (incoming webhook) |
+| `discord` | `{ "content": "…" }` |
+| `gotify` | `{ "title", "message", "priority" }` (URL con `?token=`) |
+| `ntfy` | Publicación JSON: la URL del webhook es la del topic (`https://ntfy.sh/mi-topic`); Umbral publica en la raíz del server con `topic`, `title`, `message`, `tags` y `priority` |
+
+El botón **Probar** usa el formato elegido.
 
 **Destinos en la red interna:** los envíos pasan por `safeFetch` (sin seguir redirects) y **respetan `security.network.allowInternalHosts`**. Con el default (`true`) podés apuntar a un ntfy o Gotify en la LAN (`http://192.168.1.10:8080/...`); con `false`, las IPs privadas se bloquean. La metadata de la nube (`169.254.169.254` y compañía) queda bloqueada siempre.
 

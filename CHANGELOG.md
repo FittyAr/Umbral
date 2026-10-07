@@ -44,6 +44,7 @@ Leé esto antes de actualizar. Varios cambios de seguridad cambian comportamient
 - **`SESSION_SECRET`:** el compose lo exige, `.env.example` sin valor público, y en producción un secreto conocido se ignora.
 
 ### Fixed
+- **Formatos de webhook:** los adaptadores de Slack, Discord, Mattermost, ntfy y Gotify existían pero nunca se usaban (todo salía como JSON genérico). Cada webhook tiene ahora un campo `preset` que se elige en el panel; el de ntfy publica en la raíz del server con el topic de la URL (antes iba fijo a `umbral` y con un header que no aceptaba emojis).
 - **Webhooks que nunca disparaban:** con `minFailures >= 2`, `health_fail` no salía nunca. Ahora el umbral es por webhook, `health_recover` sale sólo después de un fail, el cooldown es por webhook+card y los envíos respetan `allowInternalHosts` (Gotify/ntfy en la LAN).
 - **`/api/status`** chequeaba todas las cards y era público sin cache: cada visitante disparaba hasta 50 `HEAD`. Ahora sólo cards con `healthCheck`, cache por card, rate limit por IP, y las métricas y webhooks ven sólo chequeos nuevos. Un `3xx` cuenta como servicio arriba.
 - **`upload-from-url`** usa los límites de Hardening y devuelve `ok: true` (el autocompletar nunca seteaba el ícono).

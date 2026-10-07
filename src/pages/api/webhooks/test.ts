@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request }) => {
     return error('Webhooks no habilitados. Activalos en Admin → Avanzado → Features.', 404);
   }
 
-  let body: { url?: string } = {};
+  let body: { url?: string; preset?: string } = {};
   try {
     body = await readJson(request);
   } catch {
@@ -49,7 +49,10 @@ export const POST: APIRoute = async ({ request }) => {
     return error('URL demasiado larga (max 500 chars)', 400);
   }
 
-  const result = await testWebhook(url);
+  const preset = ['custom', 'slack', 'discord', 'mattermost', 'ntfy', 'gotify'].includes(body.preset ?? '')
+    ? (body.preset as string)
+    : 'custom';
+  const result = await testWebhook(url, preset);
   if (result.ok) {
     return json({ ok: true, status: result.status });
   }

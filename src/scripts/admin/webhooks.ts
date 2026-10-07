@@ -15,7 +15,7 @@ export function createWebhooksState(): AdminFragment {
     webhooksEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'webhooks')?.enabled === true,
     // webhooksTitle(), webhooksIntro(), webhooksAddLabel() y
     // webhookTestNewLabel() salen de ADMIN_LABELS (src/lib/admin-labels.ts).
-    newWebhook: { name: '', url: '', eventFail: true, eventRecover: false, minFailures: 3, cooldownMin: 30 },
+    newWebhook: { name: '', url: '', preset: 'custom', eventFail: true, eventRecover: false, minFailures: 3, cooldownMin: 30 },
     webhookTesting: null,
     // ── Webhooks helpers (opt-in: features.webhooks) ─────────────
     // La lista vive en cfg.webhooks.items. La UI la muestra directamente
@@ -45,9 +45,10 @@ export function createWebhooksState(): AdminFragment {
         minFailures: w.minFailures,
         cooldownMin: w.cooldownMin,
         enabled: true,
+        preset: w.preset || 'custom',
       });
       // Reset form
-      this.newWebhook = { name: '', url: '', eventFail: true, eventRecover: false, minFailures: 3, cooldownMin: 30 };
+      this.newWebhook = { name: '', url: '', preset: 'custom', eventFail: true, eventRecover: false, minFailures: 3, cooldownMin: 30 };
       this.markDirty();
     },
     removeWebhook(idx: number) {
@@ -59,7 +60,7 @@ export function createWebhooksState(): AdminFragment {
     async testWebhook(wh: AdminWebhook) {
       this.webhookTesting = wh.id;
       try {
-        const r = await window.umbralAdmin.api('POST', '/api/webhooks/test', { url: wh.url });
+        const r = await window.umbralAdmin.api('POST', '/api/webhooks/test', { url: wh.url, preset: wh.preset || 'custom' });
         window.umbralAdmin.toast(
           r.ok
             ? this.l('msgWebhooksTestOk', { status: r.status })
@@ -75,7 +76,7 @@ export function createWebhooksState(): AdminFragment {
     async testNewWebhook() {
       this.webhookTesting = 'new';
       try {
-        const r = await window.umbralAdmin.api('POST', '/api/webhooks/test', { url: this.newWebhook.url });
+        const r = await window.umbralAdmin.api('POST', '/api/webhooks/test', { url: this.newWebhook.url, preset: this.newWebhook.preset || 'custom' });
         window.umbralAdmin.toast(
           r.ok
             ? this.l('msgWebhooksTestOk', { status: r.status })

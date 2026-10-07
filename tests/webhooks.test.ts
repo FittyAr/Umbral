@@ -36,6 +36,26 @@ describe('webhooks de health check', () => {
     await fs.rm(dataDir, { recursive: true, force: true });
   });
 
+  it('adapta el payload al preset (ntfy publica en la raíz con el topic de la URL)', async () => {
+    const { adaptPayload } = await import('~/lib/webhooks');
+    const payload = {
+      event: 'health_fail' as const,
+      card: { id: 'c1', title: 'Grafana ñ', url: 'https://g' },
+      status: { ok: false, code: 503, latencyMs: 1, error: 'HTTP 503' },
+      consecutiveFailures: 3,
+      threshold: 3,
+      timestamp: new Date().toISOString(),
+      portal: { name: 'Umbral' },
+    };
+    const slack = adaptPayload('slack', payload);
+    expect(JSON.parse(slack.body).text).toContain('Grafana');
+    const ntfy = adaptPayload('ntfy', payload, 'https://ntfy.example/alertas');
+    expect(ntfy.url).toBe('https://ntfy.example/');
+    expect(JSON.parse(ntfy.body).topic).toBe('alertas');
+    // Headers sólo ASCII: undici rechaza el resto.
+    for (const v of Object.values(ntfy.headers)) expect(/^[\x20-\x7e]*$/.test(v)).toBe(true);
+  });
+
   it('dispara health_fail al llegar al umbral y health_recover una sola vez', async () => {
     const { saveConfig } = await import('~/lib/config');
     const { processHealthResults, clearWebhookState } = await import('~/lib/webhooks');
