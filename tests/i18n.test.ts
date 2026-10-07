@@ -27,25 +27,7 @@ import { ro } from '../src/i18n/ro.ts';
 import { helpEs } from '../src/i18n/help/es.ts';
 import { helpEn } from '../src/i18n/help/en.ts';
 import { helpPt } from '../src/i18n/help/pt.ts';
-import { helpFr } from '../src/i18n/help/fr.ts';
-import { helpDe } from '../src/i18n/help/de.ts';
-import { helpIt } from '../src/i18n/help/it.ts';
-import { helpZh } from '../src/i18n/help/zh.ts';
-import { helpJa } from '../src/i18n/help/ja.ts';
-import { helpRu } from '../src/i18n/help/ru.ts';
-import { helpNl } from '../src/i18n/help/nl.ts';
-import { helpPl } from '../src/i18n/help/pl.ts';
-import { helpKo } from '../src/i18n/help/ko.ts';
-import { helpTr } from '../src/i18n/help/tr.ts';
-import { helpUk } from '../src/i18n/help/uk.ts';
-import { helpSv } from '../src/i18n/help/sv.ts';
-import { helpCs } from '../src/i18n/help/cs.ts';
-import { helpDa } from '../src/i18n/help/da.ts';
-import { helpFi } from '../src/i18n/help/fi.ts';
-import { helpNo } from '../src/i18n/help/no.ts';
-import { helpHu } from '../src/i18n/help/hu.ts';
-import { helpRo } from '../src/i18n/help/ro.ts';
-import { HELP_CATALOG_KEYS } from '../src/i18n/help/index.ts';
+import { HELP_CATALOG_KEYS, getHelpTexts } from '../src/i18n/help/index.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -75,12 +57,19 @@ describe('help catalog parity', () => {
   test('all help catalogs have all keys from helpEs', () => {
     const esKeys = keysOf(helpEs);
     assert.equal(HELP_CATALOG_KEYS.length, esKeys.length);
-    const catalogs: Record<string, Record<string, unknown>> = {
-      helpEn, helpPt, helpFr, helpDe, helpIt, helpZh, helpJa, helpRu, helpNl, helpPl, helpKo, helpTr, helpUk, helpSv, helpCs, helpDa, helpFi, helpNo, helpHu, helpRo
-    };
+    const catalogs: Record<string, Record<string, unknown>> = { helpEn, helpPt };
     for (const [name, cat] of Object.entries(catalogs)) {
       const missing = diff(esKeys, keysOf(cat));
       assert.deepEqual(missing, [], `${name} missing help keys: ${missing.join(', ')}`);
+    }
+  });
+});
+
+describe('help fallback', () => {
+  test('locales sin catálogo propio caen al inglés', () => {
+    const fr = getHelpTexts('fr');
+    for (const key of HELP_CATALOG_KEYS) {
+      assert.deepEqual(fr[key], helpEn[key as keyof typeof helpEn], `fr/${String(key)}`);
     }
   });
 });

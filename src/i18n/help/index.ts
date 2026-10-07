@@ -2,58 +2,30 @@ import type { Locale } from '../index.ts';
 import { helpEs, type HelpCatalog, type HelpText } from './es.ts';
 import { helpEn } from './en.ts';
 import { helpPt } from './pt.ts';
-import { helpFr } from './fr.ts';
-import { helpDe } from './de.ts';
-import { helpIt } from './it.ts';
-import { helpZh } from './zh.ts';
-import { helpJa } from './ja.ts';
-import { helpRu } from './ru.ts';
-import { helpNl } from './nl.ts';
-import { helpPl } from './pl.ts';
-import { helpKo } from './ko.ts';
-import { helpTr } from './tr.ts';
-import { helpUk } from './uk.ts';
-import { helpSv } from './sv.ts';
-import { helpCs } from './cs.ts';
-import { helpDa } from './da.ts';
-import { helpFi } from './fi.ts';
-import { helpNo } from './no.ts';
-import { helpHu } from './hu.ts';
-import { helpRo } from './ro.ts';
-
 export type { HelpCatalog, HelpText };
 
-const CATALOGS: Record<Locale, HelpCatalog> = {
+/**
+ * Catálogos traducidos. Los idiomas sin catálogo propio usan el inglés: había
+ * 18 archivos que eran copias idénticas de `en.ts` (~14.000 líneas) y que
+ * había que mantener sincronizados a mano. Para traducir un idioma, se crea
+ * `help/<locale>.ts` y se lo agrega acá; las claves que falten caen al
+ * inglés y, en último término, al español.
+ */
+const CATALOGS: Partial<Record<Locale, Partial<HelpCatalog>>> = {
   es: helpEs,
   en: helpEn,
   pt: helpPt,
-  fr: helpFr,
-  de: helpDe,
-  it: helpIt,
-  zh: helpZh,
-  ja: helpJa,
-  ru: helpRu,
-  nl: helpNl,
-  pl: helpPl,
-  ko: helpKo,
-  tr: helpTr,
-  uk: helpUk,
-  sv: helpSv,
-  cs: helpCs,
-  da: helpDa,
-  fi: helpFi,
-  no: helpNo,
-  hu: helpHu,
-  ro: helpRo,
 };
 
-export function getHelpTexts(locale: Locale): HelpCatalog {
-  const primary = CATALOGS[locale] ?? helpEs;
-  if (locale === 'es') return primary;
+/** Idiomas con catálogo de ayuda propio (el resto usa inglés). */
+export const TRANSLATED_HELP_LOCALES = Object.keys(CATALOGS) as Locale[];
 
+export function getHelpTexts(locale: Locale): HelpCatalog {
+  if (locale === 'es') return helpEs;
+  const primary = CATALOGS[locale] ?? {};
   const merged = { ...helpEs } as HelpCatalog;
   for (const key of Object.keys(helpEs) as Array<keyof HelpCatalog>) {
-    const translated = primary[key];
+    const translated = primary[key] ?? helpEn[key];
     if (translated) merged[key] = translated;
   }
   return merged;
