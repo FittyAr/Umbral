@@ -236,6 +236,10 @@ const THEME_PRESET_I18N = {
         ...createAuditState(),
         cfg: window.__initialConfig || null,
         original: null,
+        // Serialización del config guardado, calculada una vez por carga: el
+        // dirty check comparaba dos JSON.stringify del config entero en cada
+        // tecla.
+        originalJson: '',
         dirty: false,
         busy: false,
         ...createAssetsState(),
@@ -252,14 +256,16 @@ const THEME_PRESET_I18N = {
           const cfg = window.__hydrateAdminCfg(JSON.parse(JSON.stringify(raw)));
           if (cfg && cfg._meta && cfg._meta.updatedAt) window.umbralAdmin.configVersion = cfg._meta.updatedAt;
           this.cfg = cfg;
-          this.original = JSON.parse(JSON.stringify(cfg));
+          this.originalJson = JSON.stringify(cfg);
+          this.original = JSON.parse(this.originalJson);
           this.dirty = false;
         },
 
         async init() {
           if (!window.umbralAdmin.configVersion) window.umbralAdmin.configVersion = window.__initialConfigVersion;
           this.cfg = JSON.parse(JSON.stringify(window.__initialConfig));
-          this.original = JSON.parse(JSON.stringify(window.__initialConfig));
+          this.originalJson = JSON.stringify(window.__initialConfig);
+          this.original = JSON.parse(this.originalJson);
           // Aviso al salir con cambios sin guardar.
           window.addEventListener('beforeunload', (e) => {
             if (this.dirty) {
@@ -326,8 +332,9 @@ const THEME_PRESET_I18N = {
           // Auto-mark dirty on any cfg change. x-model alone doesn't fire markDirty,
           // so we deep-watch cfg and re-check after each mutation. Cheap because
           // we only stringify when something actually changes.
-          this.$watch(() => JSON.stringify(this.cfg), () => {
-            this.markDirty();
+          this.$watch(() => JSON.stringify(this.cfg), (json) => {
+            // El watcher ya serializó el config: se compara ese valor.
+            this.dirty = json !== this.originalJson;
             this.syncThemePreviewStorage();
           });
           this.$watch('themePreviewMode', () => {
@@ -394,7 +401,7 @@ const THEME_PRESET_I18N = {
           setInterval(() => { this.themePreviewClockTick++; }, 1000);
         },
 
-        markDirty() { this.dirty = JSON.stringify(this.cfg) !== JSON.stringify(this.original); },
+        markDirty() { this.dirty = JSON.stringify(this.cfg) !== this.originalJson; },
 
         async saveAll() {
           this.busy = true;
