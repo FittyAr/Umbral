@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
-import { json, error } from '~/lib/http';
+import { json, error, readJson } from '~/lib/http';
 import { getConfig } from '~/lib/config';
 import { processAndStore, UploadError } from '~/lib/upload';
-import { isCloudMetadataHost, resolveAndCheckUrl } from '~/lib/ssrf';
+import { safeFetch, SafeFetchError } from '~/lib/safe-fetch';
 
 export const prerender = false;
 
@@ -34,7 +34,7 @@ const ASSET_KINDS: readonly AssetKind[] = ['icon', 'logo', 'favicon', 'backgroun
 export const POST: APIRoute = async ({ request }) => {
   let body: { url?: string; kind?: string };
   try {
-    body = await request.json();
+    body = await readJson(request);
   } catch {
     return error('JSON inválido', 400);
   }
@@ -44,42 +44,28 @@ export const POST: APIRoute = async ({ request }) => {
   const kind: AssetKind = (ASSET_KINDS as readonly string[]).includes(body.kind || 'icon')
     ? (body.kind as AssetKind)
     : 'icon';
+  // Mismos topes que /api/upload (security.uploads.maxBytes*): estaban
+  // hardcodeados acá y no seguían lo que el admin configura en Hardening.
+  const cfg = await getConfig();
+  const up = cfg.security.uploads;
   const limits: Record<AssetKind, number> = {
-    icon: 512 * 1024,
-    logo: 1 * 1024 * 1024,
-    favicon: 256 * 1024,
-    background: 5 * 1024 * 1024,
+    icon: up.maxBytesIcon,
+    logo: up.maxBytesLogo,
+    favicon: up.maxBytesFavicon,
+    background: up.maxBytesBackground,
   };
   const maxBytes = limits[kind];
 
-  // Validar la URL
-  let parsed: URL;
-  try { parsed = new URL(body.url); } catch { return error('URL inválida', 400); }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return error(`Protocolo ${parsed.protocol} no permitido (sólo http/https)`, 400);
-  }
-
-  // SSRF guard
-  const cfg = await getConfig();
+  // Download: safeFetch valida la URL, cada redirect y la IP de conexión
+  // (SSRF), y el timeout y el tope cubren también el body.
   const allowInternal = cfg.security.network.allowInternalHosts !== false;
-  if (!allowInternal) {
-    const check = await resolveAndCheckUrl(body.url);
-    if (!check.ok) {
-      return error(check.reason || 'Host bloqueado por SSRF. Si es deploy interno, activá "Permitir hosts internos" en Hardening.', 400);
-    }
-  } else if (isCloudMetadataHost(parsed.hostname)) {
-    return error('Cloud metadata bloqueado por seguridad', 400);
-  }
-
-  // Download con timeout y cap
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
   let buf: Buffer;
   let contentType: string;
   try {
-    const res = await fetch(body.url, {
-      signal: controller.signal,
-      redirect: 'follow',
+    const res = await safeFetch(body.url, {
+      allowInternal,
+      timeoutMs: 10_000,
+      maxBytes,
       headers: {
         // User-agent genérico (Wikipedia, Google favicons, etc. a veces
         // bloquean user-agents raros o sirven HTML de error)
@@ -87,19 +73,9 @@ export const POST: APIRoute = async ({ request }) => {
         'Accept': 'image/*,*/*;q=0.8',
       },
     });
-    // BUGFIX (console flooded with 502 reportado por el user): cuando el
-    // scraper del /api/fetch-card-info encuentra una og:image o favicon que
-    // apunta a un recurso que NO existe (ej: Wikipedia thumbnail con .svg
-    // renombrado a .png, favicon de IP interna que no tiene /favicon, etc.),
-    // el origen devuelve 4xx. Antes respondíamos 502 Bad Gateway acá, que
-    // técnicamente es correcto pero ensucia la consola del admin con
-    // errores que en realidad significan "el ícono no está, seguí sin él".
-    //
-    // Diferenciamos 4xx (recurso no existe → soft fail, no es culpa del
-    // proxy) de 5xx (el origen está roto → sí es culpa del proxy). 4xx
-    // devuelve 200 con {ok:false, reason:'not_found'}; el cliente
-    // simplemente no setea el ícono y sigue con el resto del autofill
-    // (title/description). 5xx y errores de red siguen siendo 502/504.
+    // 4xx del origen (og:image o favicon inexistente) → 200 con
+    // {ok:false, reason:'not_found'}: el cliente sigue sin ícono y la
+    // consola no se llena de 502. 5xx sí es error del origen.
     if (!res.ok) {
       if (res.status >= 400 && res.status < 500) {
         return json({ ok: false, reason: 'not_found', status: res.status });
@@ -110,29 +86,18 @@ export const POST: APIRoute = async ({ request }) => {
     if (!contentType.startsWith('image/')) {
       return error(`El origen devolvió content-type "${contentType}", se esperaba image/*`, 415);
     }
-    const reader = res.body?.getReader();
-    if (!reader) return error('Sin body en la respuesta', 502);
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      received += value.byteLength;
-      if (received > maxBytes) {
-        await reader.cancel();
-        return error(`Imagen demasiado grande (${Math.round(received / 1024)} KB, máx ${Math.round(maxBytes / 1024)} KB para ${kind})`, 413);
-      }
-      chunks.push(value);
-    }
-    buf = Buffer.concat(chunks);
+    buf = res.body;
   } catch (err) {
-    clearTimeout(timer);
-    if ((err as Error).name === 'AbortError') {
-      return error('Timeout (10s) descargando la imagen', 504);
+    if (err instanceof SafeFetchError) {
+      if (err.code === 'blocked' || err.code === 'bad_url') {
+        return error(`${err.message}. Si es deploy interno, activá "Permitir hosts internos" en Hardening.`, 400);
+      }
+      if (err.code === 'too_large') {
+        return error(`Imagen demasiado grande (máx ${Math.round(maxBytes / 1024)} KB para ${kind})`, 413);
+      }
+      if (err.code === 'timeout') return error('Timeout (10s) descargando la imagen', 504);
     }
-    return error(`No se pudo descargar: ${(err as Error).message}`, 502);
-  } finally {
-    clearTimeout(timer);
+    return error('No se pudo descargar la imagen', 502);
   }
 
   // Guardado por el mismo camino que /api/upload.
@@ -150,6 +115,7 @@ export const POST: APIRoute = async ({ request }) => {
       kind,
     );
     return json({
+      ok: true,
       url: stored.publicUrl,
       name: stored.storedName,
       bytes: stored.bytes,

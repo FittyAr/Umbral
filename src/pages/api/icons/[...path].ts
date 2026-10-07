@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { applySecurityHeaders } from '~/lib/http';
+import { SVG_RESPONSE_CSP } from '~/lib/svg-sanitize';
 
 export const prerender = false;
 
@@ -27,8 +28,13 @@ export const GET: APIRoute = async ({ params }) => {
     const content = await fs.readFile(filePath, 'utf8');
     const headers = new Headers();
     headers.set('content-type', 'image/svg+xml; charset=utf-8');
-    headers.set('cache-control', 'public, max-age=31536000, immutable');
+    // Un día, no "immutable": reinstalar un pack cambia el contenido con el
+    // mismo nombre.
+    headers.set('cache-control', 'public, max-age=86400');
     headers.set('x-content-type-options', 'nosniff');
+    // Abierto como documento, el SVG queda aislado: sin scripts y sin acceso
+    // al origen (cubre también packs instalados antes de sanitizar).
+    headers.set('content-security-policy', SVG_RESPONSE_CSP);
     applySecurityHeaders(headers);
 
     return new Response(content, { headers });

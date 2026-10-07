@@ -17,6 +17,7 @@ import {
   saveInstalledPacks,
 } from './registry.ts';
 import { type ExtractedSvg, sanitizeIconFileName } from './svg.ts';
+import { sanitizeSvgMarkup } from '../svg-sanitize.ts';
 import { extractSvgsFromZip } from './zip.ts';
 import { extractSvgsFromGit } from './git.ts';
 import { validateBranch, validatePrefix, validateRepoUrl, validateSubpath } from './validate.ts';
@@ -98,32 +99,31 @@ export async function installIconPack(options: {
   const packDir = path.join(getIconPacksDir(), packId);
   await fs.mkdir(getIconPacksDir(), { recursive: true });
 
-  // Reinstall: limpiar carpeta previa antes de escribir de nuevo
-  try {
-    await fs.rm(packDir, { recursive: true, force: true });
-  } catch (err) {
-    console.error('[umbral] failed to wipe pack dir before reinstall:', err);
-    throw new Error(`No se pudo preparar la carpeta del paquete (${packDir}). Verificá permisos de escritura.`);
-  }
-  await fs.mkdir(packDir, { recursive: true });
-
+  // Primero se descarga y se escribe en una carpeta temporal; recién al
+  // final se reemplaza la del pack. Antes la carpeta se borraba antes de
+  // descargar: un error de red dejaba el pack registrado y sin íconos.
   const svgs = await collectSvgsFromRepo(repoUrl, branch, subpath);
 
   const installedFiles: string[] = [];
+  const seen = new Set<string>();
   const namePrefix = prefix ? `${prefix}-` : '';
 
-  const writeTasks: Array<{ destPath: string; content: string; fileName: string }> = [];
+  const writeTasks: Array<{ fileName: string; content: string }> = [];
   for (const item of svgs) {
     const baseFileName = sanitizeIconFileName(item.name);
-    const finalFileName = namePrefix + baseFileName;
-
+    let finalFileName = namePrefix + baseFileName;
     if (PROTECTED_FILES.has(finalFileName)) continue;
-
-    writeTasks.push({
-      destPath: path.join(packDir, finalFileName),
-      content: item.content,
-      fileName: finalFileName,
-    });
+    // Nombres que colisionan tras sanitizar (Foo.svg / foo.svg): antes se
+    // pisaban en silencio y el contador de íconos quedaba inflado.
+    for (let n = 2; seen.has(finalFileName); n++) {
+      finalFileName = `${namePrefix}${baseFileName.replace(/\.svg$/, '')}-${n}.svg`;
+    }
+    // Los íconos se sirven desde nuestro origen: se sanitizan igual que
+    // las subidas.
+    const content = sanitizeSvgMarkup(item.content);
+    if (!content) continue;
+    seen.add(finalFileName);
+    writeTasks.push({ fileName: finalFileName, content });
     installedFiles.push(finalFileName);
   }
 
@@ -131,21 +131,37 @@ export async function installIconPack(options: {
     throw new Error('No se pudo procesar ningún ícono SVG válido del paquete.');
   }
 
-  const BATCH_SIZE = 50;
-  for (let i = 0; i < writeTasks.length; i += BATCH_SIZE) {
-    const batch = writeTasks.slice(i, i + BATCH_SIZE);
-    await Promise.all(
-      batch.map(async (task) => {
-        try {
-          await fs.writeFile(task.destPath, task.content, 'utf8');
-        } catch (err) {
-          console.error('[umbral] failed to write icon file:', task.destPath, err);
-          throw new Error(
-            `No se pudo escribir el ícono ${task.fileName} en ${packDir}. Verificá permisos de ${getDataDir()}.`,
-          );
-        }
-      }),
-    );
+  const stagingDir = `${packDir}.staging-${process.pid}-${Date.now().toString(36)}`;
+  await fs.mkdir(stagingDir, { recursive: true });
+  try {
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < writeTasks.length; i += BATCH_SIZE) {
+      const batch = writeTasks.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (task) => {
+          try {
+            await fs.writeFile(path.join(stagingDir, task.fileName), task.content, 'utf8');
+          } catch (err) {
+            console.error('[umbral] failed to write icon file:', task.fileName, err);
+            throw new Error(`No se pudo escribir el ícono ${task.fileName}. Verificá permisos de ${getDataDir()}.`);
+          }
+        }),
+      );
+    }
+    // Swap: la carpeta vieja se aparta, la nueva toma su lugar y recién
+    // entonces se borra la vieja.
+    const oldDir = `${packDir}.old-${process.pid}-${Date.now().toString(36)}`;
+    const hadOld = await fs.rename(packDir, oldDir).then(() => true, () => false);
+    try {
+      await fs.rename(stagingDir, packDir);
+    } catch (err) {
+      if (hadOld) await fs.rename(oldDir, packDir).catch(() => {});
+      throw err;
+    }
+    if (hadOld) await fs.rm(oldDir, { recursive: true, force: true }).catch(() => {});
+  } catch (err) {
+    await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
+    throw err;
   }
 
   const records = await getInstalledPacks();
@@ -175,15 +191,28 @@ export async function uninstallIconPack(packId: string): Promise<{
   iconsRemoved: number;
   message: string;
 }> {
+  // El id va a un `fs.rm` recursivo: sin validar, `".."` borraba todo
+  // `data/` (config, secretos, uploads). Tiene que ser un id con formato de
+  // pack y estar registrado o en el catálogo.
+  if (typeof packId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(packId)) {
+    throw new Error('packId inválido.');
+  }
   const records = await getInstalledPacks();
   const record = records[packId];
+  if (!record && !PREDEFINED_ICON_PACKS.some((p) => p.id === packId)) {
+    throw new Error('El paquete no está instalado.');
+  }
 
-  const packDir = path.join(getIconPacksDir(), packId);
+  const packsRoot = path.resolve(getIconPacksDir());
+  const packDir = path.resolve(packsRoot, packId);
+  if (path.dirname(packDir) !== packsRoot) {
+    throw new Error('packId inválido.');
+  }
   try {
     await fs.rm(packDir, { recursive: true, force: true });
   } catch (err) {
     console.error('[umbral] failed to remove pack dir:', packDir, err);
-    throw new Error(`No se pudo eliminar la carpeta del paquete (${packDir}). Verificá permisos.`);
+    throw new Error('No se pudo eliminar la carpeta del paquete. Verificá permisos.');
   }
 
   if (record?.files) {

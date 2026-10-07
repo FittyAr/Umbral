@@ -13,8 +13,8 @@ describe('validateRepoUrl', () => {
     assert.equal(validateRepoUrl('https://github.com/user/repo'), 'https://github.com/user/repo');
   });
 
-  it('accepts http', () => {
-    assert.equal(validateRepoUrl('http://example.com/repo'), 'http://example.com/repo');
+  it('rejects http (only https)', () => {
+    assert.throws(() => validateRepoUrl('http://example.com/repo'), IconPackInputError);
   });
 
   it('rejects URLs starting with --', () => {

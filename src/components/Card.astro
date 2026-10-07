@@ -63,7 +63,9 @@ const isNote = card.kind === 'note';
  *  string plano (que Astro escapa) para plain. */
 function renderDescription(desc: string, format: 'plain' | 'markdown' | undefined): string {
   if (!desc) return '';
-  if (format === 'markdown' && markdownEnabled) return renderMarkdown(desc);
+  // En una card link la descripción vive dentro del <a> de la card: sin
+  // links propios (un <a> anidado rompe el layout y el click).
+  if (format === 'markdown' && markdownEnabled) return renderMarkdown(desc, { noLinks: !isNote });
   return desc;
 }
 

@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { JSDOM } from 'jsdom';
 import { json, error } from '~/lib/http';
 import { getConfig } from '~/lib/config';
-import { isCloudMetadataHost, resolveAndCheckUrl } from '~/lib/ssrf';
+import { safeFetch, SafeFetchError } from '~/lib/safe-fetch';
 
 export const prerender = false;
 
@@ -38,19 +38,17 @@ export const GET: APIRoute = async ({ url }) => {
     const cfg = await getConfig();
     const allowInternal = cfg.security.network.allowInternalHosts !== false;
 
-    if (!allowInternal) {
-      const dnsCheck = await resolveAndCheckUrl(target);
-      if (!dnsCheck.ok) {
-        return error(dnsCheck.reason || 'Host bloqueado. Activá "Permitir hosts internos" si es deploy interno.', 400);
+    let scraped: Awaited<ReturnType<typeof scrapeUrl>>;
+    try {
+      scraped = await scrapeUrl(target, allowInternal);
+    } catch (err) {
+      // Bloqueo SSRF (host privado o metadata, también tras un redirect):
+      // se informa, no se cae al fallback de búsqueda.
+      if (err instanceof SafeFetchError && (err.code === 'blocked' || err.code === 'bad_url')) {
+        return error(`${err.message}. Activá "Permitir hosts internos" si es deploy interno.`, 400);
       }
-    } else {
-      // Aún en modo permisivo, bloqueamos cloud metadata (169.254/16) por seguridad.
-      if (isCloudMetadataHost(parsed.hostname)) {
-        return error('Cloud metadata bloqueado por seguridad', 400);
-      }
+      scraped = null;
     }
-
-    const scraped = await scrapeUrl(target);
     if (scraped) {
       return json({ ...scraped, source: 'scrape' });
     }
@@ -77,40 +75,29 @@ export const GET: APIRoute = async ({ url }) => {
 // Scrape directo
 // ──────────────────────────────────────────────────────────────────────
 
-async function scrapeUrl(target: string): Promise<{ title: string; description: string; image: string } | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+async function scrapeUrl(
+  target: string,
+  allowInternal: boolean,
+): Promise<{ title: string; description: string; image: string } | null> {
+  // safeFetch valida cada redirect y la IP de conexión; los errores de red
+  // devuelven null (fallback a búsqueda), los bloqueos SSRF se propagan.
   let html = '';
   try {
-    const res = await fetch(target, {
-      signal: controller.signal,
-      redirect: 'follow',
+    const res = await safeFetch(target, {
+      allowInternal,
+      timeoutMs: 8000,
+      maxBytes: 2 * 1024 * 1024,
+      truncate: true,
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; UmbralBot/1.0; +https://github.com/FittyAr/Umbral)',
         'Accept': 'text/html,application/xhtml+xml',
       },
     });
     if (!res.ok) return null;
-    const reader = res.body?.getReader();
-    if (!reader) return null;
-    const decoder = new TextDecoder('utf-8', { fatal: false });
-    let received = 0;
-    const MAX = 2 * 1024 * 1024;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      received += value.byteLength;
-      if (received > MAX) {
-        await reader.cancel();
-        break;
-      }
-      html += decoder.decode(value, { stream: true });
-    }
-    html += decoder.decode();
-  } catch {
+    html = res.text();
+  } catch (err) {
+    if (err instanceof SafeFetchError && (err.code === 'blocked' || err.code === 'bad_url')) throw err;
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 
   if (!html || html.length < 50) return null;

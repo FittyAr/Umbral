@@ -34,8 +34,10 @@ export function validateRepoUrl(raw: string): string {
   } catch {
     throw new IconPackInputError('URL de repositorio inválida. Usá una URL https completa.');
   }
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new IconPackInputError(`Protocolo ${parsed.protocol} no permitido: sólo http o https.`);
+  // Sólo https: los SVG del pack terminan servidos desde nuestro origen, y
+  // sobre http cualquiera en el medio podía reemplazarlos.
+  if (parsed.protocol !== 'https:') {
+    throw new IconPackInputError(`Protocolo ${parsed.protocol} no permitido: sólo https.`);
   }
   if (!parsed.hostname) {
     throw new IconPackInputError('La URL del repositorio no tiene host.');

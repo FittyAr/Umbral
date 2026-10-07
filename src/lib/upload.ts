@@ -2,8 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileTypeFromBuffer } from 'file-type';
 import sharp from 'sharp';
-import createDOMPurify from 'dompurify';
-import { JSDOM } from 'jsdom';
+import { sanitizeSvgMarkup } from './svg-sanitize';
 import crypto from 'node:crypto';
 import { UPLOADS_DIR, getConfig } from './config';
 import type { UploadSecurity } from './schema';
@@ -36,10 +35,6 @@ function maxBytesFor(kind: AssetKind, sec: UploadSecurity): number {
   }
 }
 
-// DOMPurify singleton (jsdom is heavy; reuse)
-const jsdomWindow = new JSDOM('').window;
-const purify = createDOMPurify(jsdomWindow);
-
 export interface ProcessedAsset {
   /** Stored filename (no path), relative to uploads dir. */
   storedName: string;
@@ -63,20 +58,6 @@ function newStoredName(ext: string): string {
   return `${crypto.randomUUID()}.${ext}`;
 }
 
-async function sanitizeSvg(input: string): Promise<string> {
-  return purify.sanitize(input, {
-    USE_PROFILES: { svg: true, svgFilters: true },
-    FORBID_TAGS: ['script', 'foreignObject'],
-    FORBID_ATTR: ['onload', 'onclick', 'onerror', 'onmouseover', 'onfocus'],
-  });
-}
-
-/** Minimal script/event removal for the no-sanitize path. */
-function svgNoScripts(input: string): string {
-  return input
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
-}
 
 export async function processAndStore(
   file: File,
@@ -146,9 +127,11 @@ export async function processAndStore(
   let sanitized = false;
 
   if (mime === 'image/svg+xml') {
-    const cleaned = sec.sanitizeSvg
-      ? await sanitizeSvg(buf.toString('utf8'))
-      : svgNoScripts(buf.toString('utf8'));
+    // Siempre DOMPurify: el camino "sin sanitizar" usaba un regex que dejaba
+    // pasar `<svg/onload=…>`, `javascript:` en href y foreignObject. Con
+    // `sanitizeSvg` apagado el SVG igual se sanitiza.
+    const cleaned = sanitizeSvgMarkup(buf.toString('utf8'));
+    if (!cleaned) throw new UploadError('El SVG no es válido o quedó vacío al sanitizarlo', 400);
     outBuffer = Buffer.from(cleaned, 'utf8');
     storedExt = 'svg';
     sanitized = true;

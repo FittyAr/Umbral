@@ -1,7 +1,10 @@
 import type { APIRoute } from 'astro';
 import { processAndStore, UploadError, type AssetKind } from '~/lib/upload';
 import { audit } from '~/lib/config';
-import { json, error } from '~/lib/http';
+import { json, error, readFormData } from '~/lib/http';
+
+/** Tope del multipart: el mayor asset permitido (5 MB de fondo) + overhead. */
+const MAX_UPLOAD_BODY_BYTES = 10 * 1024 * 1024;
 
 export const prerender = false;
 
@@ -15,8 +18,9 @@ export const POST: APIRoute = async ({ request }) => {
 
   let form: FormData;
   try {
-    form = await request.formData();
-  } catch {
+    form = await readFormData(request, MAX_UPLOAD_BODY_BYTES);
+  } catch (err) {
+    if (err instanceof Error && err.name === 'BodyTooLargeError') return error(err.message, 413);
     return error('No se pudo parsear el formulario', 400);
   }
 

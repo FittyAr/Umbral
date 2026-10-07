@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { readAsset } from '~/lib/upload';
 import { applySecurityHeaders } from '~/lib/http';
+import { SVG_RESPONSE_CSP } from '~/lib/svg-sanitize';
 
 export const prerender = false;
 
@@ -13,8 +14,10 @@ export const GET: APIRoute = async ({ params }) => {
   const headers = new Headers();
   headers.set('content-type', result.mime);
   headers.set('cache-control', 'public, max-age=3600');
+  // Los SVG subidos se sanitizan, pero abiertos como documento además van
+  // aislados (sin scripts, sin acceso al origen).
+  if (result.mime === 'image/svg+xml') headers.set('content-security-policy', SVG_RESPONSE_CSP);
   applySecurityHeaders(headers);
-  // Allow inline SVG only for trusted (own) origin
   headers.set('x-content-type-options', 'nosniff');
   // Cast Buffer → BodyInit. Node's Buffer extends Uint8Array which is a
   // valid BodyInit; the type mismatch is from lib.dom's narrower BodyInit

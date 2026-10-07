@@ -46,7 +46,9 @@ const cards = config.cards
 
 const cardMaintenance = await getActiveWindowsForCards(cards.map((c) => c.id));
 const qrEnabled = isFeatureEnabled(config, 'qr');
-const metricsEnabled = isFeatureEnabled(config, 'metrics');
+// Las sparklines salen de /api/metrics, que requiere sesión: para un
+// visitante anónimo cada card disparaba un request que volvía 401.
+const metricsEnabled = isFeatureEnabled(config, 'metrics') && Astro.locals.auth?.isAuthenticated === true;
 const markdownEnabled = isFeatureEnabled(config, 'markdown');
 const iconTint = t.iconTint ?? 'original';
 const noteBadge = trf('home.card.noteBadge');

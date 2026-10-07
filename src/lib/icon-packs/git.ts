@@ -10,7 +10,14 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { type ExtractedSvg, formatExecError, isValidSvg } from './svg.ts';
+import {
+  type ExtractedSvg,
+  formatExecError,
+  isValidSvg,
+  MAX_SVG_BYTES,
+  MAX_SVG_FILES,
+  MAX_TOTAL_SVG_BYTES,
+} from './svg.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -65,7 +72,16 @@ export async function extractSvgsFromGit(
     }
 
     const searchRoot = targetSubpath ? path.join(tempDir, targetSubpath) : tempDir;
+    // El subpath puede ser un symlink dentro del repo (`icons -> /`):
+    // readdir lo sigue y el recorrido salía del clone hacia el filesystem del
+    // host. Se resuelve y se exige que quede dentro del clone.
+    const realTemp = await fs.realpath(tempDir);
+    const realRoot = await fs.realpath(searchRoot).catch(() => null);
+    if (!realRoot || (realRoot !== realTemp && !realRoot.startsWith(realTemp + path.sep))) {
+      throw new Error(`La subcarpeta "${targetSubpath}" no existe dentro del repositorio.`);
+    }
     const results: ExtractedSvg[] = [];
+    let totalBytes = 0;
 
     async function walk(dir: string) {
       const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -75,6 +91,13 @@ export async function extractSvgsFromGit(
         if (entry.isDirectory()) {
           await walk(fullPath);
         } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.svg')) {
+          // Mismos topes que la extracción del ZIP.
+          const st = await fs.stat(fullPath);
+          if (st.size > MAX_SVG_BYTES) continue;
+          totalBytes += st.size;
+          if (totalBytes > MAX_TOTAL_SVG_BYTES || results.length >= MAX_SVG_FILES) {
+            throw new Error('El repositorio supera el tamaño máximo permitido para un pack de íconos.');
+          }
           const content = await fs.readFile(fullPath, 'utf8');
           if (isValidSvg(content)) {
             results.push({ name: entry.name, content });
@@ -83,7 +106,7 @@ export async function extractSvgsFromGit(
       }
     }
 
-    await walk(searchRoot);
+    await walk(realRoot);
     if (results.length === 0) {
       // El cast mantiene el tipo declarado: el análisis de flujo cree que acá
       // sólo puede ser null, pero el clone sparse pudo haberlo seteado antes

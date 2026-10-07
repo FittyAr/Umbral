@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { readJson, readFormData } from '~/lib/http';
 import { isFeatureEnabled } from '~/lib/features';
 import { isLocale, LOCALES, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '~/i18n';
 import { getConfig } from '~/lib/config';
@@ -25,11 +26,11 @@ export const POST: APIRoute = async ({ request, redirect, cookies }) => {
   const contentType = request.headers.get('content-type') || '';
   try {
     if (contentType.includes('application/json')) {
-      const body = await request.json();
+      const body = await readJson<{ locale?: unknown }>(request, 64 * 1024);
       locale = typeof body?.locale === 'string' ? body.locale : undefined;
     } else {
       // form-urlencoded (default del <form method="post">).
-      const form = await request.formData();
+      const form = await readFormData(request, 64 * 1024);
       const v = form.get('locale');
       locale = typeof v === 'string' ? v : undefined;
     }

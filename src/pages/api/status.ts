@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getConfig } from '~/lib/config';
-import { json, error } from '~/lib/http';
-import { isPrivateOrLoopback, resolveAndCheckUrl } from '~/lib/ssrf';
+import { json, error, readJson } from '~/lib/http';
 import { processHealthResults } from '~/lib/webhooks';
 import { recordSample } from '~/lib/metrics';
-import { fetchWithTimeout } from '~/lib/fetch-timeout';
+import { safeFetch } from '~/lib/safe-fetch';
+import { checkRateLimit } from '~/lib/rate-limit';
 
 export const prerender = false;
 
@@ -17,10 +17,25 @@ interface StatusResult {
   error?: string;
 }
 
-export const POST: APIRoute = async ({ request }) => {
+// Resultados recientes por card. El endpoint es público (lo usa la portada),
+// así que sin cache cada visitante —o un script— disparaba hasta 50 HEAD
+// salientes por request y alimentaba los contadores de los webhooks. Una
+// card se vuelve a chequear como mucho una vez por ventana; las métricas y
+// los webhooks sólo ven chequeos nuevos.
+const recent = new Map<string, { result: StatusResult; at: number }>();
+const inflight = new Map<string, Promise<StatusResult>>();
+
+function freshnessMs(intervalSec: number): number {
+  return Math.max(10, Math.min(intervalSec, 300)) * 500; // la mitad del intervalo
+}
+
+export const POST: APIRoute = async ({ request, locals }) => {
+  const rl = checkRateLimit(`status:${locals.clientIp || 'unknown'}`, 30, 60);
+  if (!rl.ok) return error(`Demasiados pedidos. Probá en ${rl.resetInSec}s.`, 429);
+
   let body: unknown;
   try {
-    body = await request.json();
+    body = await readJson(request);
   } catch {
     return error('JSON inválido', 400);
   }
@@ -38,62 +53,72 @@ export const POST: APIRoute = async ({ request }) => {
   // se setea a false y la guard SSRF vuelve a activar — el atacante no
   // puede usar /api/status para enumerar 169.254.169.254 u otros.
   const allowInternal = cfg.security.network.allowInternalHosts !== false;
-  const targets = cfg.cards.filter((c) => c.enabled && (!idSet || idSet.has(c.id)));
+  // Sólo las cards con health check: el resto no tiene por qué recibir
+  // tráfico de Umbral.
+  const targets = cfg.cards.filter((c) => c.enabled && c.healthCheck && (!idSet || idSet.has(c.id)));
 
   // Cap total a 50 chequeos para evitar abuso si alguien carga miles de cards.
   const capped = targets.slice(0, 50);
+  const maxAge = freshnessMs(cfg.layout.healthCheckInterval);
+  const fresh: Array<{ result: StatusResult; title: string }> = [];
+
+  const runCheck = async (c: (typeof capped)[number]): Promise<StatusResult> => {
+    const t0 = Date.now();
+    let result: StatusResult;
+    try {
+      // safeFetch: guarda SSRF sobre la IP real de conexión (también con
+      // allowInternal la metadata de la nube queda bloqueada) y sin seguir
+      // redirects — el admin debería apuntar al destino final.
+      const res = await safeFetch(c.url, {
+        method: 'HEAD',
+        allowInternal,
+        maxRedirects: 0,
+        timeoutMs: 5000,
+        maxBytes: 64 * 1024,
+      });
+      // Un 3xx (p.ej. redirect al login) es un servicio que responde.
+      result = { id: c.id, url: c.url, ok: res.status < 400, status: res.status, latencyMs: Date.now() - t0 };
+    } catch (err) {
+      result = { id: c.id, url: c.url, ok: false, error: (err as Error).message, latencyMs: Date.now() - t0 };
+    }
+    recordSample(c.id, { ts: new Date().toISOString(), latencyMs: result.latencyMs ?? 0, ok: result.ok });
+    recent.set(c.id, { result, at: Date.now() });
+    fresh.push({ result, title: c.title });
+    return result;
+  };
 
   const checks: StatusResult[] = await Promise.all(
-    capped.map(async (c): Promise<StatusResult> => {
-      const t0 = Date.now();
-      // Bloqueo SSRF: rechaza URLs a infra interna / metadata / loopback.
-      // Skip si el admin permite hosts internos (deploy típico en LAN).
-      const guard = allowInternal ? { ok: true } : await resolveAndCheckUrl(c.url);
-      if (!guard.ok) {
-        const result: StatusResult = { id: c.id, url: c.url, ok: false, error: guard.reason, latencyMs: Date.now() - t0 };
-        // Registrar muestra de latencia (opt-in: features.metrics).
-        if (c.healthCheck) {
-          recordSample(c.id, { ts: new Date().toISOString(), latencyMs: result.latencyMs ?? 0, ok: result.ok });
-        }
-        return result;
+    capped.map((c) => {
+      const cached = recent.get(c.id);
+      if (cached && cached.result.url === c.url && Date.now() - cached.at < maxAge) {
+        return Promise.resolve(cached.result);
       }
-      try {
-        // redirect: 'manual' — NO seguimos redirects. Si la URL apunta a
-        // attacker.com y redirige a 127.0.0.1, no nos interesa: el admin
-        // debería apuntar al destino final. Esto cierra el bypass clásico
-        // de SSRF por redirección.
-        const res = await fetchWithTimeout(c.url, { method: 'HEAD', redirect: 'manual' }, 5000);
-        const result: StatusResult = { id: c.id, url: c.url, ok: res.ok, status: res.status, latencyMs: Date.now() - t0 };
-        if (c.healthCheck) {
-          recordSample(c.id, { ts: new Date().toISOString(), latencyMs: result.latencyMs ?? 0, ok: result.ok });
-        }
-        return result;
-      } catch (err) {
-        const result: StatusResult = { id: c.id, url: c.url, ok: false, error: (err as Error).message, latencyMs: Date.now() - t0 };
-        if (c.healthCheck) {
-          recordSample(c.id, { ts: new Date().toISOString(), latencyMs: result.latencyMs ?? 0, ok: result.ok });
-        }
-        return result;
+      let p = inflight.get(c.id);
+      if (!p) {
+        p = runCheck(c).finally(() => inflight.delete(c.id));
+        inflight.set(c.id, p);
       }
+      return p;
     }),
   );
 
-  // Disparar webhooks si la feature está activa. No bloqueamos la response
-  // del endpoint: los webhooks se procesan en background. Si fallan, el
-  // error queda en audit.log para debugging.
-  // Convertimos el shape al que espera el engine (necesita title).
-  processHealthResults(
-    checks.map((c, i) => ({
-      cardId: c.id,
-      ok: c.ok,
-      status: c.status,
-      latencyMs: c.latencyMs,
-      url: c.url,
-      title: capped[i]?.title ?? '',
-    })),
-  ).catch((e) => {
-    console.error('[umbral] webhook engine failed:', e);
-  });
+  // Disparar webhooks si la feature está activa, sólo con los chequeos
+  // nuevos. No bloqueamos la response: los webhooks se procesan en
+  // background y si fallan el error queda en audit.log.
+  if (fresh.length > 0) {
+    processHealthResults(
+      fresh.map(({ result, title }) => ({
+        cardId: result.id,
+        ok: result.ok,
+        status: result.status,
+        latencyMs: result.latencyMs,
+        url: result.url,
+        title,
+      })),
+    ).catch((e) => {
+      console.error('[umbral] webhook engine failed:', e);
+    });
+  }
 
   return json({ results: checks });
 };

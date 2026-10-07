@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { json, error } from '~/lib/http';
+import { json, error, readJson } from '~/lib/http';
+import { safeFetch, SafeFetchError } from '~/lib/safe-fetch';
 import { getConfig } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { getDefaultSystemPrompt } from '~/lib/ai-prompts';
@@ -31,7 +32,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   let body: { title?: string; description?: string; url?: string; instruction?: string };
   try {
-    body = await request.json();
+    body = await readJson(request);
   } catch {
     return error('JSON inválido', 400);
   }
@@ -52,13 +53,18 @@ Devolvé únicamente el JSON con el title y description mejorados.`;
   // Fetch al provider (OpenAI-compatible). Soporta http(s) y localhost.
   // El baseUrl puede ser cualquier endpoint que respete /v1/chat/completions.
   const endpoint = `${ai.baseUrl.replace(/\/+$/, '')}/chat/completions`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000); // 30s — la IA puede tardar
-  let res: Response;
+  // safeFetch: el timeout de 30s y el tope de 2 MB cubren también la
+  // lectura del body (antes el timer se cancelaba al llegar los headers y un
+  // provider lento colgaba el request). El provider puede ser local
+  // (Ollama), así que se permite la LAN; la metadata de la nube no.
+  let res: Awaited<ReturnType<typeof safeFetch>>;
   try {
-    res = await fetch(endpoint, {
+    res = await safeFetch(endpoint, {
       method: 'POST',
-      signal: controller.signal,
+      allowInternal: true,
+      timeoutMs: 30_000,
+      maxBytes: 2 * 1024 * 1024,
+      maxRedirects: 0,
       headers: {
         'Content-Type': 'application/json',
         ...(ai.apiKey ? { Authorization: `Bearer ${ai.apiKey}` } : {}),
@@ -77,21 +83,22 @@ Devolvé únicamente el JSON con el title y description mejorados.`;
       }),
     });
   } catch (err) {
-    clearTimeout(timer);
-    if ((err as Error).name === 'AbortError') {
+    if (err instanceof SafeFetchError && err.code === 'timeout') {
       return error('Timeout (30s) llamando a la IA', 504);
     }
     return error(`No se pudo contactar la IA: ${(err as Error).message}`, 502);
-  } finally {
-    clearTimeout(timer);
   }
 
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    return error(`IA respondió HTTP ${res.status}: ${errText.slice(0, 200)}`, 502);
+    return error(`IA respondió HTTP ${res.status}: ${res.text().slice(0, 200)}`, 502);
   }
 
-  const data = await res.json().catch(() => null);
+  let data: { choices?: Array<{ message?: { content?: unknown } }> } | null = null;
+  try {
+    data = res.json();
+  } catch {
+    data = null;
+  }
   const content = data?.choices?.[0]?.message?.content;
   if (typeof content !== 'string') {
     return error('IA no devolvió contenido', 502);

@@ -27,7 +27,7 @@ export const prerender = false;
  * NO requiere auth (es público, como el home). La URL del QR es la misma
  * URL pública de la card, no hay info sensible.
  */
-export const GET: APIRoute = async ({ params, url }) => {
+export const GET: APIRoute = async ({ params, url, locals }) => {
   const cardId = String(params.cardId || '').replace(/\.png$/i, '');
   if (!cardId) {
     return new Response('Falta el cardId', { status: 400 });
@@ -38,7 +38,11 @@ export const GET: APIRoute = async ({ params, url }) => {
     return new Response('QR codes no habilitados. Activalos en Admin → Avanzado → Features.', { status: 404 });
   }
 
-  let targetUrl = url.searchParams.get('text') || '';
+  // `?text=` (texto arbitrario) sólo con sesión: público, convertía el
+  // endpoint en un generador de QR con nuestro dominio para cualquier link
+  // de phishing.
+  let targetUrl = locals.auth?.isAuthenticated ? url.searchParams.get('text') || '' : '';
+  if (targetUrl.length > 2000) return new Response('Texto demasiado largo', { status: 400 });
   if (!targetUrl) {
     const card = cfg.cards.find((c) => c.id === cardId);
     if (!card) {
@@ -76,6 +80,7 @@ export const GET: APIRoute = async ({ params, url }) => {
       headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=300' },
     });
   } catch (err) {
-    return new Response(`Error generando QR: ${(err as Error).message}`, { status: 500 });
+    console.error('[umbral] QR generation failed:', (err as Error).message);
+    return new Response('Error generando QR', { status: 500 });
   }
 };

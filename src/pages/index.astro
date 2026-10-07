@@ -47,7 +47,9 @@ const enabledCards = config.cards
 // Maintenance windows (opt-in: features.maintenanceWindows): resolvemos
 // una sola vez qué cards están en mantenimiento AHORA y lo pasamos a
 // Card.astro vía prop. O(n) sobre windows × cardIds — ver src/lib/maintenance.ts
-const metricsEnabled = isFeatureEnabled(config, 'metrics');
+// Las sparklines salen de /api/metrics, que requiere sesión: para un
+// visitante anónimo cada card disparaba un request que volvía 401.
+const metricsEnabled = isFeatureEnabled(config, 'metrics') && Astro.locals.auth?.isAuthenticated === true;
 const qrEnabled = isFeatureEnabled(config, 'qr');
 // Se resuelven acá y bajan por props: antes cada Card.astro pedía el config
 // dos veces para averiguar lo mismo.

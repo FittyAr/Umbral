@@ -8,7 +8,14 @@ import os from 'node:os';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import AdmZip from 'adm-zip';
-import { type ExtractedSvg, isValidSvg } from './svg.ts';
+import {
+  type ExtractedSvg,
+  isValidSvg,
+  MAX_ARCHIVE_BYTES,
+  MAX_SVG_BYTES,
+  MAX_SVG_FILES,
+  MAX_TOTAL_SVG_BYTES,
+} from './svg.ts';
 
 const ZIP_DOWNLOAD_TIMEOUT_MS = 180_000;
 
@@ -43,8 +50,27 @@ async function downloadToTempFile(url: string, destPath: string): Promise<void> 
   if (!res.body) {
     throw new Error(`Respuesta ZIP vacía desde ${url}`);
   }
+  const declared = Number(res.headers.get('content-length') || 0);
+  if (declared > MAX_ARCHIVE_BYTES) {
+    await res.body.cancel().catch(() => {});
+    throw new Error('El archivo ZIP supera el tamaño máximo permitido.');
+  }
 
-  await pipeline(Readable.fromWeb(res.body as import('node:stream/web').ReadableStream), createWriteStream(destPath));
+  // Tope de bytes mientras se escribe: sin Content-Length (o mintiendo) la
+  // descarga no tenía límite.
+  let received = 0;
+  async function* capped(source: AsyncIterable<Uint8Array>) {
+    for await (const chunk of source) {
+      received += chunk.byteLength;
+      if (received > MAX_ARCHIVE_BYTES) throw new Error('El archivo ZIP supera el tamaño máximo permitido.');
+      yield chunk;
+    }
+  }
+  await pipeline(
+    Readable.fromWeb(res.body as import('node:stream/web').ReadableStream),
+    capped,
+    createWriteStream(destPath),
+  );
 }
 
 function parseSvgsFromZipFile(zipPath: string, targetSubpath?: string): ExtractedSvg[] {
@@ -53,13 +79,24 @@ function parseSvgsFromZipFile(zipPath: string, targetSubpath?: string): Extracte
   const normSubpath = targetSubpath ? targetSubpath.toLowerCase().replace(/^[/\\]+|[/\\]+$/g, '') : '';
 
   const results: ExtractedSvg[] = [];
+  let totalBytes = 0;
   for (const entry of entries) {
     if (entry.isDirectory) continue;
     const entryName = entry.entryName.toLowerCase();
     if (!entryName.endsWith('.svg')) continue;
     if (normSubpath && !entryName.includes(normSubpath)) continue;
 
-    const content = entry.getData().toString('utf8');
+    // Tamaño declarado ANTES de descomprimir (zip bomb): una entrada de
+    // pocos KB comprimidos puede inflarse a GB en memoria.
+    const size = entry.header.size;
+    if (size > MAX_SVG_BYTES) continue;
+    totalBytes += size;
+    if (totalBytes > MAX_TOTAL_SVG_BYTES || results.length >= MAX_SVG_FILES) {
+      throw new Error('El paquete supera el tamaño máximo permitido.');
+    }
+    const data = entry.getData();
+    if (data.length > MAX_SVG_BYTES) continue; // header mentiroso
+    const content = data.toString('utf8');
     if (isValidSvg(content)) {
       results.push({
         name: path.basename(entry.entryName),

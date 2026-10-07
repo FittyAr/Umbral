@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { json, error } from '~/lib/http';
+import { json, error, readJson } from '~/lib/http';
 import { isFeatureEnabled } from '~/lib/features';
 import { testWebhook } from '~/lib/webhooks';
 import { getConfig } from '~/lib/config';
@@ -33,7 +33,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   let body: { url?: string } = {};
   try {
-    body = await request.json();
+    body = await readJson(request);
   } catch {
     return error('JSON inválido', 400);
   }

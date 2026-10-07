@@ -3,7 +3,7 @@ import { getConfig, audit } from '~/lib/config';
 import { isFeatureEnabled } from '~/lib/features';
 import { listIconPacksWithStatus, installIconPack } from '~/lib/icon-packs';
 import { getAvailableIconNames, invalidateIconsCache } from '~/lib/icon-pack-names.ts';
-import { json, error } from '~/lib/http';
+import { json, error, readJson } from '~/lib/http';
 
 export const prerender = false;
 
@@ -30,7 +30,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   let body: unknown;
   try {
-    body = await request.json();
+    body = await readJson(request);
   } catch {
     return error('JSON inválido', 400);
   }

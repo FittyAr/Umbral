@@ -16,19 +16,19 @@
  * la alerta — la falla probablemente sigue.
  *
  * Seguridad:
- * - SSRF: bloqueamos loopback y private IPs antes de fetch (re-usa
- *   `resolveAndCheckUrl` de src/lib/ssrf).
+ * - SSRF: los POST van por `safeFetch` (valida la IP de conexión, sin seguir
+ *   redirects). Respeta `allowInternalHosts` (Gotify/ntfy en la LAN); la
+ *   metadata de la nube queda bloqueada siempre.
  * - Sin secretos en logs: sólo logueamos el resultado del POST (status
  *   code) y el webhook id, no la URL completa ni el payload.
  */
 
 import { isFeatureEnabled } from '~/lib/features';
 import { getConfig } from '~/lib/config';
-import { resolveAndCheckUrl } from '~/lib/ssrf';
 import { audit } from '~/lib/config';
 import { getActiveWindowsForCard } from '~/lib/maintenance';
 import type { Config, Webhook, WebhookEvent } from '~/lib/schema';
-import { fetchWithTimeout } from './fetch-timeout.ts';
+import { safeFetch } from './safe-fetch.ts';
 
 export interface CheckResult {
   cardId: string;
@@ -42,16 +42,21 @@ export interface CheckResult {
 /** Estado por card: cuántas fallas consecutivas lleva. */
 const failureCounters = new Map<string, { count: number; lastFailing: boolean; lastCheckTs: number }>();
 
-/** Estado por webhook: cuándo fue la última notificación (para cooldown). */
+/** Última notificación por webhook+card+evento (para el cooldown). */
 const lastFired = new Map<string, { ts: number; event: WebhookEvent; cardId: string }>();
+
+/** Webhook+card que ya notificaron la falla y esperan el recover. */
+const notifiedFailing = new Set<string>();
 
 /** Limpia estado de una card. Usado al borrar la card o reiniciar config. */
 export function clearWebhookState(cardId?: string) {
   if (cardId) {
     failureCounters.delete(cardId);
+    for (const key of notifiedFailing) if (key.endsWith(`:${cardId}`)) notifiedFailing.delete(key);
   } else {
     failureCounters.clear();
     lastFired.clear();
+    notifiedFailing.clear();
   }
 }
 
@@ -164,19 +169,26 @@ export function adaptPayload(preset: string, payload: WebhookPayload): { body: s
 }
 
 /** POST al webhook con timeout corto. Devuelve { ok, status, error }. */
-async function postWebhook(url: string, body: string, contentType: string, extraHeaders: Record<string, string>): Promise<{ ok: boolean; status?: number; error?: string }> {
+async function postWebhook(
+  url: string,
+  body: string,
+  contentType: string,
+  extraHeaders: Record<string, string>,
+  allowInternal: boolean,
+): Promise<{ ok: boolean; status?: number; error?: string }> {
   try {
-    const res = await fetchWithTimeout(
-      url,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': contentType, ...extraHeaders },
-        body,
-        // No seguir redirects para evitar bypass de SSRF
-        redirect: 'manual',
-      },
-      8000, // 8s — más que suficiente para webhooks
-    );
+    const res = await safeFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': contentType, ...extraHeaders },
+      body,
+      allowInternal,
+      // No seguir redirects: un 3xx no es una entrega.
+      maxRedirects: 0,
+      timeoutMs: 8000,
+      // La respuesta no se usa: se lee poco y se descarta.
+      maxBytes: 64 * 1024,
+      truncate: true,
+    });
     return { ok: res.ok, status: res.status };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
@@ -187,6 +199,12 @@ async function postWebhook(url: string, body: string, contentType: string, extra
  *  dispara webhooks si corresponde. Llamado desde /api/status después
  *  de hacer los checks.
  *
+ *  Máquina de estados por webhook y card:
+ *  - `health_fail` cuando las fallas consecutivas llegan al `minFailures` de
+ *    ESE webhook (antes se miraba `wasHealthy`, que desde la segunda falla
+ *    era false, así que con el default de 3 la alerta nunca salía).
+ *  - `health_recover` sólo si antes se notificó la falla.
+ *
  *  Side effects: actualiza failureCounters + lastFired, puede hacer fetch
  *  salientes a los webhooks del admin. */
 export async function processHealthResults(results: CheckResult[]): Promise<{ fired: number }> {
@@ -194,76 +212,49 @@ export async function processHealthResults(results: CheckResult[]): Promise<{ fi
   if (!isFeatureEnabled(cfg, 'webhooks')) return { fired: 0 };
   const webhooks = (cfg.webhooks?.items ?? []).filter((w) => w.enabled);
   if (webhooks.length === 0) return { fired: 0 };
+  const allowInternal = cfg.security.network.allowInternalHosts !== false;
 
   let fired = 0;
   for (const result of results) {
-    // Si la card está en una maintenance window activa, NO disparamos
-    // webhooks — el admin sabe que va a fallar, no necesita notificaciones.
-    // health_recover se sigue disparando para confirmar que volvió a OK.
+    // En una ventana de mantenimiento no se manda health_fail (el admin sabe
+    // que va a fallar); health_recover sí, para confirmar que volvió.
     const inMaintenance = (await getActiveWindowsForCard(result.cardId)).length > 0;
     const prev = failureCounters.get(result.cardId);
-    const wasFailing = prev?.lastFailing ?? false;
-    const prevCount = prev?.count ?? 0;
-    const newCount = result.ok ? 0 : (wasFailing ? prevCount + 1 : 1);
+    const newCount = result.ok ? 0 : (prev?.lastFailing ? prev.count + 1 : 1);
     failureCounters.set(result.cardId, { count: newCount, lastFailing: !result.ok, lastCheckTs: Date.now() });
 
-    // Determinar si hay cambio de estado
-    const wasHealthy = !wasFailing;
-    const isHealthy = result.ok;
-    let event: WebhookEvent | null = null;
-    if (!wasHealthy && isHealthy) event = 'health_recover';
-    else if (wasHealthy && !isHealthy && newCount >= (webhooks[0]?.minFailures ?? 3)) {
-      // Recién cruzado el threshold. Sólo disparamos la primera vez que
-      // cruzamos (no en cada check fallido después). El cooldown evita spam.
-      event = 'health_fail';
-    } else if (wasHealthy && !isHealthy) {
-      // Sigue acumulando, todavía no llegó al threshold. Sin evento.
-    }
-
-    if (!event) continue;
-    // Suprimir health_fail si la card está en mantenimiento (no spam durante deploys).
-    // health_recover siempre se dispara — es la señal de "OK, volvimos".
-    if (event === 'health_fail' && inMaintenance) {
-      continue;
-    }
-
-    // Filtrar webhooks que listen a este evento
-    const matching = webhooks.filter((w) => w.events.includes(event!));
-    if (matching.length === 0) continue;
-
-    // Threshold del primer webhook (asumimos mismo threshold para todos,
-    // simplificación MVP). Si tienen thresholds distintos, podríamos
-    // ajustar pero agrega complejidad.
-    const threshold = matching[0].minFailures;
-
-    for (const wh of matching) {
-      // Cooldown
-      const last = lastFired.get(wh.id);
-      if (last && (Date.now() - last.ts) < wh.cooldownMin * 60_000) {
-        continue; // todavía en cooldown
+    for (const wh of webhooks) {
+      const key = `${wh.id}:${result.cardId}`;
+      let event: WebhookEvent | null = null;
+      if (!result.ok) {
+        if (newCount >= wh.minFailures && !notifiedFailing.has(key)) {
+          // Cruzó el umbral de este webhook: se marca aunque no esté
+          // suscripto a health_fail, para que el recover tenga sentido.
+          notifiedFailing.add(key);
+          if (!inMaintenance) event = 'health_fail';
+        }
+      } else if (notifiedFailing.has(key)) {
+        notifiedFailing.delete(key);
+        event = 'health_recover';
       }
-      // SSRF guard
-      const guard = await resolveAndCheckUrl(wh.url);
-      if (!guard.ok) {
-        // No se puede llegar al webhook (loopback, private IP, etc). Loguear.
-        console.warn(`[umbral] webhook ${wh.id} blocked by SSRF guard: ${guard.reason}`);
-        continue;
-      }
-      const payload = buildPayload(result, event, newCount, threshold, cfg.branding.companyName);
-      // Para MVP: no guardamos qué preset usó el admin — el server manda
-      // formato custom (JSON crudo) y el admin documenta que puede usar
-      // un proxy como matterbridge o n8n para adaptar. Más simple que
-      // pedirle al admin que seleccione el preset.
-      // Si en el futuro queremos presets, agregamos un campo `preset` al
-      // schema y lo usamos acá.
+      if (!event || !wh.events.includes(event)) continue;
+
+      // Cooldown por webhook+card+evento.
+      const cooldownKey = `${key}:${event}`;
+      const last = lastFired.get(cooldownKey);
+      if (last && Date.now() - last.ts < wh.cooldownMin * 60_000) continue;
+
+      const payload = buildPayload(result, event, newCount, wh.minFailures, cfg.branding.companyName);
+      // El server manda formato custom (JSON crudo); para adaptarlo a otros
+      // servicios se usa un proxy como matterbridge o n8n.
       const adapted = adaptPayload('custom', payload);
-      const result2 = await postWebhook(wh.url, adapted.body, adapted.contentType, adapted.headers);
-      lastFired.set(wh.id, { ts: Date.now(), event, cardId: result.cardId });
-      if (result2.ok) {
+      const sent = await postWebhook(wh.url, adapted.body, adapted.contentType, adapted.headers, allowInternal);
+      lastFired.set(cooldownKey, { ts: Date.now(), event, cardId: result.cardId });
+      if (sent.ok) {
         fired++;
-        await audit('webhook_fired', `${wh.id} ${event} card=${result.cardId} status=${result2.status ?? '?'}`);
+        await audit('webhook_fired', `${wh.id} ${event} card=${result.cardId} status=${sent.status ?? '?'}`);
       } else {
-        await audit('webhook_failed', `${wh.id} ${event} card=${result.cardId} error=${result2.error || `HTTP ${result2.status}`}`);
+        await audit('webhook_failed', `${wh.id} ${event} card=${result.cardId} error=${sent.error || `HTTP ${sent.status}`}`);
       }
     }
   }
@@ -273,11 +264,8 @@ export async function processHealthResults(results: CheckResult[]): Promise<{ fi
 /** Para el endpoint /api/webhooks/test: manda un payload de ejemplo al
  *  webhook (sin pasar por el state machine). */
 export async function testWebhook(url: string): Promise<{ ok: boolean; status?: number; error?: string }> {
-  // SSRF guard
-  const guard = await resolveAndCheckUrl(url);
-  if (!guard.ok) {
-    return { ok: false, error: `URL bloqueada por SSRF guard: ${guard.reason}` };
-  }
+  const cfg = await getConfig();
+  const allowInternal = cfg.security.network.allowInternalHosts !== false;
   const samplePayload: WebhookPayload = {
     event: 'health_fail',
     card: { id: 'test-card-id', title: 'Tarjeta de prueba', url: 'https://example.com' },
@@ -288,5 +276,5 @@ export async function testWebhook(url: string): Promise<{ ok: boolean; status?: 
     portal: { name: 'Umbral' },
   };
   const adapted = adaptPayload('custom', samplePayload);
-  return postWebhook(url, adapted.body, adapted.contentType, adapted.headers);
+  return postWebhook(url, adapted.body, adapted.contentType, adapted.headers, allowInternal);
 }

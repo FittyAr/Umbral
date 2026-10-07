@@ -4,6 +4,13 @@
  */
 import path from 'node:path';
 
+/** Topes de un pack: un repo enorme (o un zip bomb) no puede llenar la
+ *  memoria ni el disco. Los packs reales del catálogo están muy por debajo. */
+export const MAX_SVG_BYTES = 1024 * 1024; // por archivo
+export const MAX_TOTAL_SVG_BYTES = 200 * 1024 * 1024; // suma extraída
+export const MAX_SVG_FILES = 50_000;
+export const MAX_ARCHIVE_BYTES = 300 * 1024 * 1024; // ZIP descargado
+
 /** Sanitiza el nombre de archivo a kebab-case válido para ícono */
 export function sanitizeIconFileName(filename: string): string {
   const base = path.basename(filename, '.svg');

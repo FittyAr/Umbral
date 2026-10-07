@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { json, error } from '~/lib/http';
+import { json, error, readJson } from '~/lib/http';
 import { renderMarkdown } from '~/lib/markdown';
 
 export const prerender = false;
@@ -11,7 +11,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   let body: { text?: string };
   try {
-    body = await request.json();
+    body = await readJson(request);
   } catch {
     return error('Invalid JSON', 400);
   }

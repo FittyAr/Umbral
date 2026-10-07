@@ -93,10 +93,29 @@ export function initHealthDots(): void {
   };
 
   const period = Math.max(10, intervalSec) * 1000;
-  void tick();
-  setInterval(tick, period);
+  everyWhileVisible(tick, period);
 
   if (metrics) initSparklines(cards, Math.max(30, intervalSec) * 1000);
+}
+
+/**
+ * Corre `fn` ya y cada `period` ms, pero sólo con la pestaña visible: una
+ * pestaña en segundo plano seguía haciendo que el server pingueara todos
+ * los servicios. Al volver a estar visible, refresca de inmediato.
+ */
+function everyWhileVisible(fn: () => void | Promise<void>, period: number): void {
+  let timer: ReturnType<typeof setInterval> | null = null;
+  const start = () => {
+    if (timer) return;
+    void fn();
+    timer = setInterval(fn, period);
+  };
+  const stop = () => {
+    if (timer) clearInterval(timer);
+    timer = null;
+  };
+  document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+  if (!document.hidden) start();
 }
 
 function initSparklines(cards: HTMLElement[], period: number): void {
@@ -120,6 +139,5 @@ function initSparklines(cards: HTMLElement[], period: number): void {
       } catch { /* la feature puede estar apagada: el endpoint da 404 */ }
     }
   };
-  void load();
-  setInterval(load, period);
+  everyWhileVisible(load, period);
 }

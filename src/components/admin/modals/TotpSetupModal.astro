@@ -25,7 +25,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       </p>
 
       <div style="display:flex;justify-content:center;margin:1rem 0;background:white;padding:1rem;border-radius:8px">
-        <img :src="totpSetupData.qrDataUrl || (`/api/qr/custom.png?text=${encodeURIComponent(totpSetupData.otpauthUrl)}&size=200`)" alt="QR Code 2FA" style="width:200px;height:200px" />
+        <img :src="totpSetupData.qrDataUrl" alt="QR Code 2FA" style="width:200px;height:200px" />
       </div>
 
       <div style="margin-bottom:1rem;text-align:center">

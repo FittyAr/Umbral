@@ -73,10 +73,53 @@ export function applySecurityHeaders(headers: Headers, opts: SecurityHeaderOptio
   }
 }
 
-export async function readJson<T = unknown>(request: Request): Promise<T> {
+export class BodyTooLargeError extends Error {
+  constructor(public readonly maxBytes: number) {
+    super(`Body demasiado grande (máx ${maxBytes} bytes)`);
+    this.name = 'BodyTooLargeError';
+  }
+}
+
+/** Default para bodies JSON (el config entero entra holgado). */
+export const MAX_JSON_BODY_BYTES = 1024 * 1024;
+
+/**
+ * Lee el body contando bytes y corta al pasar `maxBytes`. El middleware ya
+ * rechaza un Content-Length grande, pero un request chunked no lo manda y
+ * `request.json()`/`formData()` lo bufferizaban entero.
+ */
+export async function readBodyCapped(request: Request, maxBytes: number): Promise<Buffer> {
+  const declared = Number(request.headers.get('content-length') || 0);
+  if (declared > maxBytes) throw new BodyTooLargeError(maxBytes);
+  if (!request.body) return Buffer.alloc(0);
+  const chunks: Buffer[] = [];
+  let total = 0;
+  const reader = request.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new BodyTooLargeError(maxBytes);
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks);
+}
+
+export async function readJson<T = unknown>(request: Request, maxBytes = MAX_JSON_BODY_BYTES): Promise<T> {
+  const buf = await readBodyCapped(request, maxBytes);
   try {
-    return (await request.json()) as T;
+    return JSON.parse(buf.toString('utf8')) as T;
   } catch {
     throw new Error('JSON inválido');
   }
+}
+
+/** `formData()` con el mismo tope de bytes que `readBodyCapped`. */
+export async function readFormData(request: Request, maxBytes: number): Promise<FormData> {
+  const buf = await readBodyCapped(request, maxBytes);
+  const contentType = request.headers.get('content-type') || '';
+  return new Response(new Uint8Array(buf), { headers: { 'content-type': contentType } }).formData();
 }

@@ -3,6 +3,7 @@
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { writeJsonAtomic } from '../config/paths.ts';
 import { PREDEFINED_ICON_PACKS, type IconPackStatus, type InstalledPackRecord } from './catalog.ts';
 
 export function getDataDir(): string {
@@ -47,7 +48,9 @@ export async function getInstalledPacks(): Promise<Record<string, InstalledPackR
 /** Guarda el registro de packs instalados */
 export async function saveInstalledPacks(records: Record<string, InstalledPackRecord>): Promise<void> {
   await fs.mkdir(getIconPacksDir(), { recursive: true });
-  await fs.writeFile(getPrimaryInstalledPacksFile(), JSON.stringify(records, null, 2), 'utf8');
+  // Atómico: un corte a mitad de escritura dejaba el registro truncado y
+  // todos los packs "desinstalados".
+  await writeJsonAtomic(getPrimaryInstalledPacksFile(), records);
 }
 
 /** Obtiene el listado completo de packs con su estado de instalación */
