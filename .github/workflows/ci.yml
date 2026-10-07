@@ -39,6 +39,9 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      - name: Astro check (.astro + scripts de las páginas)
+        run: npx astro check
+
       - name: Tests
         run: npm test
 
