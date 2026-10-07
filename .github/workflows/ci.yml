@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit (dependencias de producción)
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Generate icons
         run: npm run gen:icons
 
