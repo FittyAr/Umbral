@@ -5,6 +5,14 @@ versionado con [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Multi-portal completo.** Cada portal tiene su portada (branding, tema, layout, categorías, tarjetas, ventanas de mantenimiento) en `data/portals/<id>/config.json`; auth, seguridad, features y el resto son globales. Ruteo por host (con o sin puerto, `*.dominio`), prefijo de ruta (con rewrite) o selección explícita (`x-umbral-portal`, `?portal=`). Selector de portal en el panel, panel de Portales con validación y "Editar portada". El portal activo viaja en un `AsyncLocalStorage` (antes era global al proceso). Ver `docs/usage/multi-portal-sso.md`.
+- **Panel admin traducido entero**: además de toasts y confirmaciones, los textos del markup de paneles y modales (302 claves nuevas en los 21 idiomas).
+
+### Internal
+- `src/scripts/admin/cards.ts` partido en 8 módulos (`src/scripts/admin/cards/`).
+- `astro check` en CI y release (0 errores).
+
 ### Notas de actualización
 Leé esto antes de actualizar. Varios cambios de seguridad cambian comportamiento visible:
 
