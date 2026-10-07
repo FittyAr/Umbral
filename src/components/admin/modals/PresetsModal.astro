@@ -8,6 +8,7 @@ interface Props {
 }
 
 const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <Modal
@@ -15,11 +16,11 @@ const { useI18n, tr } = Astro.props;
   tr={tr}
   show="showPresetsModal"
   close="showPresetsModal = false"
-  titleFallback="Agregar desde plantilla"
+  titleKey="admin.presets.title" titleFallback="Agregar desde plantilla"
   modalStyle="max-width:820px;max-height:88vh;display:flex;flex-direction:column"
 >
   <p style="color:var(--text-subtle);font-size:0.85rem;margin:0 0 0.75rem">
-    Elegí una plantilla de las aplicaciones más populares autohospedadas. Pre-rellena título, ícono, categoría y descripción.
+    {t('admin.presets.intro', 'Elegí una plantilla de las aplicaciones más populares autohospedadas. Pre-rellena título, ícono, categoría y descripción.')}
   </p>
 
   <!-- Filtros de búsqueda y categorías -->
@@ -28,7 +29,7 @@ const { useI18n, tr } = Astro.props;
       <input
         type="text"
         x-model="presetFilter"
-        placeholder="Buscar app (Grafana, Ollama, Nextcloud, GitLab...)"
+        placeholder={t('admin.presets.searchPlaceholder', 'Buscar app (Grafana, Ollama, Nextcloud, GitLab...)')}
         style="width:100%"
         x-init="$nextTick(() => $el.focus())"
       />
@@ -40,7 +41,7 @@ const { useI18n, tr } = Astro.props;
         style="white-space:nowrap"
         x-cloak
       >
-        Limpiar filtros
+        {t('admin.presets.clearFilters', 'Limpiar filtros')}
       </button>
     </div>
 
@@ -53,7 +54,7 @@ const { useI18n, tr } = Astro.props;
         style="padding:0.2rem 0.6rem;font-size:0.78rem;border-radius:12px"
         @click="presetCategoryFilter = ''"
       >
-        Todas (<span x-text="appPresets.length"></span>)
+        {t('admin.presets.all', 'Todas')} (<span x-text="appPresets.length"></span>)
       </button>
       <template x-for="cat in presetCategories()" :key="cat.id">
         <button
@@ -96,14 +97,14 @@ const { useI18n, tr } = Astro.props;
     {/* El catálogo se pide al abrir el modal, así que el primer render puede
         no tener plantillas todavía. */}
     <template x-if="presetsLoading">
-      <EmptyState useI18n={useI18n} tr={tr} messageFallback="Cargando plantillas…" fullWidth />
+      <EmptyState useI18n={useI18n} tr={tr} messageKey="admin.presets.loading" messageFallback="Cargando plantillas…" fullWidth />
     </template>
 
     <template x-if="!presetsLoading && filteredAppPresets().length === 0">
       <EmptyState
         useI18n={useI18n}
         tr={tr}
-        messageFallback="No se encontraron plantillas para los filtros seleccionados."
+        messageKey="admin.presets.empty" messageFallback="No se encontraron plantillas para los filtros seleccionados."
         fullWidth
       />
     </template>

@@ -11,13 +11,13 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 
 <div class="panel" :class="tab==='cards' && 'active'">
   <h2 style="margin-top:0;display:flex;align-items:center;gap:0.35rem">
-    <span x-text="tabCards()">Tarjetas</span>
+    <span x-text="tabCards()">{t('admin.tab.cards', 'Tarjetas')}</span>
     <HelpIcon helpKey="cards.grouping" />
   </h2>
   <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;align-items:center;flex-wrap:wrap">
     <input type="text" x-model="cardFilter" :placeholder="cardsFilterPlaceholder()" style="max-width:280px" />
-    <button class="btn btn-primary" @click="addCard()">+ <span x-text="cardsNewLabel()">Nueva tarjeta</span></button>
-    <button type="button" class="btn btn-ghost" x-show="presetsEnabled" @click="openPresetsModal()" x-cloak>+ <span x-text="cardsFromPresetLabel()">Desde plantilla</span></button>
+    <button class="btn btn-primary" @click="addCard()">+ <span x-text="cardsNewLabel()">{t('admin.cards.new', 'Nueva tarjeta')}</span></button>
+    <button type="button" class="btn btn-ghost" x-show="presetsEnabled" @click="openPresetsModal()" x-cloak>+ <span x-text="cardsFromPresetLabel()">{t('admin.cards.fromPreset', 'Desde plantilla')}</span></button>
   </div>
   <p class="cards-filter-notice" x-show="cardFilter.trim()" x-cloak x-text="cardsFilterDragDisabled()"></p>
   <div class="cards-groups-wrap" id="cards-groups-container">
@@ -50,7 +50,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
               class="btn btn-sm btn-ghost"
               x-show="item.type === 'group' && !item.group.isOrphan"
               @click="addCardToCategory(item.group.categoryId)"
-            >+ <span x-text="cardsAddToGroupLabel()">Agregar</span></button>
+            >+ <span x-text="cardsAddToGroupLabel()">{t('admin.cards.addToGroup', 'Agregar')}</span></button>
           </div>
         </div>
         <div
@@ -80,8 +80,8 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
                 </div>
                 <div class="info">
                   <div class="title">
-                    <span x-show="pinnedEnabled && card.pinned" x-cloak class="pinned-badge" :title="pinnedLabel()" aria-label="Fijada">📌</span>
-                    <span x-show="card.kind === 'note'" class="note-kind-badge" x-text="cardsNoteBadgeLabel()">Nota</span>
+                    <span x-show="pinnedEnabled && card.pinned" x-cloak class="pinned-badge" :title="pinnedLabel()" aria-label={t('admin.card.pinned', 'Fijada')}>📌</span>
+                    <span x-show="card.kind === 'note'" class="note-kind-badge" x-text="cardsNoteBadgeLabel()">{t('admin.cards.noteBadge', 'Nota')}</span>
                     <span x-show="(card.span || 1) > 1" x-cloak class="span-badge" x-text="cardSpanBadgeLabel(card)"></span>
                     <span x-text="card.title || cardsUntitledLabel()"></span>
                   </div>
@@ -107,17 +107,17 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
                 <span class="color-dot" :style="`background:${card.color}`"></span>
                 <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;color:var(--text-subtle)">
                   <input type="checkbox" x-model="card.enabled" @change="markDirty()" />
-                  <span x-text="cardsEnabledLabel()">Activa</span>
+                  <span x-text="cardsEnabledLabel()">{t('admin.cards.enabled', 'Activa')}</span>
                 </label>
                 <div class="actions">
                   <template x-if="!isSystemCard(card)">
                     <span style="display:flex;gap:0.25rem">
-                      <button class="btn btn-sm btn-ghost" @click="editCardById(card.id)" x-text="cardsEditLabel()">Editar</button>
+                      <button class="btn btn-sm btn-ghost" @click="editCardById(card.id)" x-text="cardsEditLabel()">{t('admin.cards.edit', 'Editar')}</button>
                       <button class="btn btn-sm btn-ghost" @click="removeCardById(card.id)" :title="cardsDeleteLabel()">×</button>
                     </span>
                   </template>
                   <template x-if="isSystemCard(card)">
-                    <span class="system-badge" :title="cardsSystemBadgeTitle()" x-text="cardsSystemBadgeLabel()">🔒 Sistema</span>
+                    <span class="system-badge" :title="cardsSystemBadgeTitle()" x-text="cardsSystemBadgeLabel()">{t('admin.cards.systemBadge', '🔒 Sistema')}</span>
                   </template>
                 </div>
               </div>
@@ -132,5 +132,5 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       </section>
     </template>
   </div>
-  <p x-show="cfg.cards.length===0" class="empty-state" x-text="cardsEmptyStateLabel()">No hay tarjetas. Agregá la primera con "+ Nueva tarjeta".</p>
+  <p x-show="cfg.cards.length===0" class="empty-state" x-text="cardsEmptyStateLabel()">{t('admin.cards.emptyState', 'No hay tarjetas. Agregá la primera con "+ Nueva tarjeta".')}</p>
 </div>

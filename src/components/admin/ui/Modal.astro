@@ -32,11 +32,12 @@ const {
   titleExpr,
   modalClass,
   modalStyle,
-  closeLabel = 'Cerrar',
+  closeLabel,
 } = Astro.props;
 
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 const titleText = titleKey ? t(titleKey, titleFallback) : titleFallback;
+const closeText = closeLabel ?? t('common.close', 'Cerrar');
 const hasFooter = Astro.slots.has('footer');
 const titleId = `modal-title-${Math.random().toString(36).slice(2, 10)}`;
 ---
@@ -57,7 +58,7 @@ const titleId = `modal-title-${Math.random().toString(36).slice(2, 10)}`;
     >
       <div class="modal-header">
         <h2 id={titleId} x-text={titleExpr}>{titleText}</h2>
-        <button type="button" class="btn btn-ghost btn-sm" @click={close} aria-label={closeLabel}>✕</button>
+        <button type="button" class="btn btn-ghost btn-sm" @click={close} aria-label={closeText}>✕</button>
       </div>
       <slot />
       {

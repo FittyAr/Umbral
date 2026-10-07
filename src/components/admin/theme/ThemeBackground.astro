@@ -62,7 +62,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
           <input type="color" class="color-swatch" x-model="stop.color" @input="syncGradientToBackground()" />
           <input type="range" min="0" max="100" x-model.number="stop.pos" @input="syncGradientToBackground()" />
           <span x-text="stop.pos + '%'" style="font-size:0.75rem;color:var(--text-subtle)"></span>
-          <button type="button" class="btn btn-sm btn-ghost" x-show="themeGradientStops.length > 2" @click="themeGradientStops.splice(idx, 1); syncGradientToBackground()" title="Eliminar stop">×</button>
+          <button type="button" class="btn btn-sm btn-ghost" x-show="themeGradientStops.length > 2" @click="themeGradientStops.splice(idx, 1); syncGradientToBackground()" title={t('admin.theme.background.removeStop', 'Eliminar stop')}>×</button>
         </div>
       </template>
     </div>

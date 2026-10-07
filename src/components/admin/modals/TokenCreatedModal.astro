@@ -8,6 +8,9 @@ interface Props {
 }
 
 const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+/** Literal JS entre comillas simples, para inyectar texto traducido en expresiones Alpine. */
+const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 const kit = { useI18n, tr };
 ---
 
@@ -15,13 +18,13 @@ const kit = { useI18n, tr };
   {...kit}
   show="showTokenModal && generatedTokenPlain"
   close="showTokenModal = false"
-  titleFallback="Token API Generado"
+  titleKey="admin.tokenModal.title" titleFallback="Token API Generado"
   modalStyle="max-width:500px"
 >
   <div class="login-warning" style="margin-bottom:1rem">
-    ⚠ Copiá este token ahora. Por seguridad, no se guardará en texto plano y no vas a poder verlo de nuevo.
+    {t('admin.tokenModal.warning', '⚠ Copiá este token ahora. Por seguridad, no se guardará en texto plano y no vas a poder verlo de nuevo.')}
   </div>
-  <FormGroup {...kit} labelFallback="Token Bearer">
+  <FormGroup {...kit} labelKey="admin.tokenModal.token" labelFallback="Token Bearer">
     <div style="display:flex;gap:0.5rem">
       <input
         type="text"
@@ -34,9 +37,9 @@ const kit = { useI18n, tr };
       <button
         type="button"
         class="btn btn-primary"
-        @click="navigator.clipboard.writeText(generatedTokenPlain); window.umbralAdmin.toast('Token copiado al portapapeles', 'info')"
-      >Copiar</button>
+        @click={`navigator.clipboard.writeText(generatedTokenPlain); window.umbralAdmin.toast(${q(t('admin.tokenModal.copied', 'Token copiado al portapapeles'))}, 'info')`}
+      >{t('admin.tokenModal.copy', 'Copiar')}</button>
     </div>
   </FormGroup>
-  <button slot="footer" type="button" class="btn btn-ghost" @click="showTokenModal = false">Cerrar</button>
+  <button slot="footer" type="button" class="btn btn-ghost" @click="showTokenModal = false">{t('common.close', 'Cerrar')}</button>
 </Modal>

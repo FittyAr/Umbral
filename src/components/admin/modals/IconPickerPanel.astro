@@ -7,12 +7,14 @@ interface Props {
 
 const { useI18n, tr } = Astro.props;
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+/** Literal JS entre comillas simples, para inyectar texto traducido en expresiones Alpine. */
+const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 ---
 
 <div class="icon-picker-panel">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
     <label style="margin:0;font-weight:600;display:flex;align-items:center;gap:0.35rem">
-      <span>Ícono</span>
+      <span>{t('admin.card.icon', 'Ícono')}</span>
       <HelpIcon helpKey="card.iconPicker" />
     </label>
     <button
@@ -23,7 +25,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       x-show="isFeatureOn('iconPacks')"
       x-cloak
     >
-      Gestionar packs
+      {t('admin.iconPicker.managePacks', 'Gestionar packs')}
     </button>
   </div>
 
@@ -36,35 +38,35 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <span style="font-size:1.5rem">🚫</span>
       </template>
     </span>
-    <span class="icon-picker-preview-name" x-text="editingCard.icon || 'Sin ícono'"></span>
+    <span class="icon-picker-preview-name" x-text={`editingCard.icon || ${q(t('admin.iconPicker.noIcon', 'Sin ícono'))}`}></span>
   </div>
 
   <div class="icon-picker-toolbar">
     <div class="icon-picker-toolbar-row">
       <div class="icon-picker-tabs">
-        <button type="button" class="icon-picker-tab" :class="iconPickerTab === 'icons' && 'active'" @click="iconPickerTab = 'icons'">Íconos</button>
-        <button type="button" class="icon-picker-tab" :class="iconPickerTab === 'assets' && 'active'" @click="iconPickerTab = 'assets'">Assets</button>
+        <button type="button" class="icon-picker-tab" :class="iconPickerTab === 'icons' && 'active'" @click="iconPickerTab = 'icons'">{t('admin.iconPicker.tabIcons', 'Íconos')}</button>
+        <button type="button" class="icon-picker-tab" :class="iconPickerTab === 'assets' && 'active'" @click="iconPickerTab = 'assets'">{t('admin.iconPicker.tabAssets', 'Assets')}</button>
       </div>
       <input
         type="text"
         class="icon-picker-search"
         x-model="iconPickerSearch"
         @input="iconPickerLimit = 120"
-        placeholder="Buscar por nombre…"
+        placeholder={t('admin.iconPicker.searchPlaceholder', 'Buscar por nombre…')}
         x-show="iconPickerTab === 'icons'"
         x-cloak
       />
     </div>
     <div class="icon-picker-toolbar-row" x-show="iconPickerTab === 'icons'" x-cloak>
       <select class="icon-picker-pack-select" x-model="iconPickerPack" @change="iconPickerLimit = 120">
-        <option value="all">Todos los packs</option>
+        <option value="all">{t('admin.iconPicker.allPacks', 'Todos los packs')}</option>
         <template x-for="pack in iconPickerPackOptions()" :key="pack">
           <option :value="pack" x-text="pack"></option>
         </template>
       </select>
     </div>
     <div class="icon-picker-meta" x-show="iconPickerTab === 'icons'" x-cloak>
-      <span x-text="'Mostrando ' + visibleIconPickerIcons().length + ' de ' + filteredIconPickerIcons().length"></span>
+      <span x-text={`${q(t('admin.iconPicker.showing', 'Mostrando {shown} de {total}'))}.replace('{shown}', visibleIconPickerIcons().length).replace('{total}', filteredIconPickerIcons().length)`}></span>
       <span class="icon-picker-badge" x-show="iconPickerPack !== 'all'" x-text="iconPickerPack"></span>
     </div>
   </div>
@@ -80,7 +82,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       class="icon-picker-tile"
       :class="!editingCard.icon && 'selected'"
       @click="editingCard.icon=''; markDirty()"
-      title="Sin ícono"
+      title={t('admin.iconPicker.noIcon', 'Sin ícono')}
     >
       <span class="icon-picker-tile-none" aria-hidden="true">🚫</span>
     </button>
@@ -98,12 +100,12 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   </div>
 
   <div class="icon-picker-load-more" x-show="iconPickerTab === 'icons' && iconPickerHasMore()" x-cloak>
-    <button type="button" class="btn btn-sm btn-ghost" @click="loadMoreIcons()">Cargar más (120)</button>
+    <button type="button" class="btn btn-sm btn-ghost" @click="loadMoreIcons()">{t('admin.iconPicker.loadMore', 'Cargar más (120)')}</button>
   </div>
 
   <div class="icon-picker-grid" x-show="iconPickerTab === 'assets'" x-cloak>
     <template x-if="iconPickerAssets().length === 0">
-      <p style="grid-column:1/-1;font-size:0.78rem;color:var(--text-faint);margin:0.5rem 0">No hay assets subidos. Subilos en la pestaña Assets.</p>
+      <p style="grid-column:1/-1;font-size:0.78rem;color:var(--text-faint);margin:0.5rem 0">{t('admin.iconPicker.noAssets', 'No hay assets subidos. Subilos en la pestaña Assets.')}</p>
     </template>
     <template x-for="a in iconPickerAssets()" :key="a.name">
       <button
@@ -119,18 +121,18 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   </div>
 
   <details class="icon-picker-custom">
-    <summary>¿Usar un asset subido o un nombre custom?</summary>
+    <summary>{t('admin.iconPicker.customSummary', '¿Usar un asset subido o un nombre custom?')}</summary>
     <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.4rem">
       <input
         type="text"
         x-model="editingCard.icon"
-        placeholder="/api/assets/mi-logo.png o simple-icons/docker"
+        placeholder={t('admin.iconPicker.customPlaceholder', '/api/assets/mi-logo.png o simple-icons/docker')}
         style="flex:1"
       />
-      <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">Limpiar</button>
+      <button type="button" class="btn btn-sm btn-ghost" @click="editingCard.icon=''">{t('admin.iconPicker.clear', 'Limpiar')}</button>
     </div>
     <small class="field-hint">
-      Pegá la URL de un asset (<code>/api/assets/mi-logo.png</code>) o un id de ícono (<code>simple-icons/docker</code>).
+      <Fragment set:html={t('admin.iconPicker.customHint', 'Pegá la URL de un asset (<code>/api/assets/mi-logo.png</code>) o un id de ícono (<code>simple-icons/docker</code>).')} />
     </small>
   </details>
 </div>

@@ -10,12 +10,14 @@ interface Props {
 const { useI18n, tr } = Astro.props;
 const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+/** Literal JS entre comillas simples, para inyectar texto traducido en expresiones Alpine. */
+const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 ---
 
 <div class="panel" :class="tab==='maintenance' && 'active'">
-  <PanelHeader {...kit} titleExpr="maintenanceTitle()" titleFallback="Mantenimiento" helpKey="advanced.maintenance" introExpr="maintenanceIntro()">
+  <PanelHeader {...kit} titleExpr="maintenanceTitle()" titleKey="admin.maintenance.title" titleFallback="Mantenimiento" helpKey="advanced.maintenance" introExpr="maintenanceIntro()">
     <Fragment slot="intro">
-    Programa ventanas donde una (o todas) las cards están en mantenimiento. Durante la ventana, las cards muestran badge ámbar y NO disparan webhooks de health_fail.
+    {t('admin.maintenance.intro', 'Programa ventanas donde una (o todas) las cards están en mantenimiento. Durante la ventana, las cards muestran badge ámbar y NO disparan webhooks de health_fail.')}
     </Fragment>
   </PanelHeader>
 
@@ -23,14 +25,14 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <template x-for="(mw, idx) in (cfg?.maintenanceWindows?.items || [])" :key="mw.id">
       <div class="maintenance-item" :class="isMaintenanceActive(mw) && 'maintenance-active'">
         <div style="flex:1;min-width:0">
-          <div style="font-weight:600" x-text="mw.reason || '(sin razón)'"></div>
+          <div style="font-weight:600" x-text={`mw.reason || ${q(t('admin.maintenance.noReason', '(sin razón)'))}`}></div>
           <div style="font-size:0.78rem;color:var(--text-subtle)">
             <span x-text="formatMwTime(mw.startsAt)"></span> → <span x-text="formatMwTime(mw.endsAt)"></span>
             <span x-show="isMaintenanceActive(mw)" style="color:#fbbf24;margin-left:0.4rem">⏱ <span x-text="formatMwRemaining(mw.endsAt)"></span></span>
           </div>
           <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
-            Cards: <span x-text="mw.cardIds.join(', ')"></span>
-            <span :style="`color: ${mw.enabled ? 'var(--status-ok)' : 'var(--text-subtle)'}`" x-text="` · ${mw.enabled ? 'activa' : 'deshabilitada'}`"></span>
+            {t('admin.maintenance.cards', 'Cards:')} <span x-text="mw.cardIds.join(', ')"></span>
+            <span :style="`color: ${mw.enabled ? 'var(--status-ok)' : 'var(--text-subtle)'}`" x-text={`' · ' + (mw.enabled ? ${q(t('admin.maintenance.statusActive', 'activa'))} : ${q(t('admin.maintenance.statusDisabled', 'deshabilitada'))})`}></span>
           </div>
         </div>
         <div style="display:flex;gap:0.4rem;flex-shrink:0">
@@ -39,40 +41,40 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       </div>
     </template>
     <p x-show="!cfg?.maintenanceWindows?.items || cfg.maintenanceWindows.items.length === 0" class="muted" style="padding:0.5rem 0">
-      No hay ventanas programadas.
+      {t('admin.maintenance.empty', 'No hay ventanas programadas.')}
     </p>
   </div>
 
   <details style="margin-top:1rem;background:var(--surface);padding:1rem;border-radius:8px;border:1px solid var(--border)">
-    <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">+ Programar ventana</summary>
+    <summary style="cursor:pointer;color:var(--text);font-weight:500;font-size:0.9rem">{t('admin.maintenance.addSummary', '+ Programar ventana')}</summary>
     <div class="form-row" style="margin-top:0.75rem">
       <div class="form-group" style="flex:1">
-        <label>Cards afectadas</label>
+        <label>{t('admin.maintenance.affectedCards', 'Cards afectadas')}</label>
         <select x-model="newMaintenance.cardMode" @change="newMaintenance.cardIds = []" style="margin-bottom:0.3rem">
-          <option value="all">Todas las cards (*)</option>
-          <option value="specific">Cards específicas</option>
+          <option value="all">{t('admin.maintenance.allCards', 'Todas las cards (*)')}</option>
+          <option value="specific">{t('admin.maintenance.specificCards', 'Cards específicas')}</option>
         </select>
         <select x-show="newMaintenance.cardMode === 'specific'" x-model="newMaintenance.cardIds" multiple size="4" style="min-height:5rem">
           <template x-for="c in cfg?.cards || []" :key="c.id">
             <option :value="c.id" x-text="c.title || c.id"></option>
           </template>
         </select>
-        <small x-show="newMaintenance.cardMode === 'all'" style="color:var(--text-faint);font-size:0.72rem">Aplica a todas las cards activas.</small>
+        <small x-show="newMaintenance.cardMode === 'all'" style="color:var(--text-faint);font-size:0.72rem">{t('admin.maintenance.allCardsHint', 'Aplica a todas las cards activas.')}</small>
       </div>
     </div>
     <div class="form-row">
       <div class="form-group" style="flex:1">
-        <label>Inicio (UTC)</label>
+        <label>{t('admin.maintenance.start', 'Inicio (UTC)')}</label>
         <input type="datetime-local" x-model="newMaintenance.startsAt" />
       </div>
       <div class="form-group" style="flex:1">
-        <label>Fin (UTC)</label>
+        <label>{t('admin.maintenance.end', 'Fin (UTC)')}</label>
         <input type="datetime-local" x-model="newMaintenance.endsAt" />
       </div>
     </div>
-    <FormGroup {...kit} labelFallback="Razón">
-      <input type="text" x-model="newMaintenance.reason" placeholder="Deploy v2.1, migración DB, etc." maxlength="120" />
+    <FormGroup {...kit} labelKey="admin.maintenance.reason" labelFallback="Razón">
+      <input type="text" x-model="newMaintenance.reason" placeholder={t('admin.maintenance.reasonPlaceholder', 'Deploy v2.1, migración DB, etc.')} maxlength="120" />
     </FormGroup>
-    <button type="button" class="btn btn-primary" @click="addMaintenance()" style="margin-top:0.5rem" x-text="maintenanceAddLabel()">Programar</button>
+    <button type="button" class="btn btn-primary" @click="addMaintenance()" style="margin-top:0.5rem" x-text="maintenanceAddLabel()">{t('admin.maintenance.add', 'Programar')}</button>
   </details>
 </div>

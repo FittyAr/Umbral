@@ -11,6 +11,7 @@ interface Props {
 }
 
 const { useI18n, tr } = Astro.props;
+const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 const kit = { useI18n, tr };
 
 /** Los caps de upload se guardan en bytes pero se editan en KB. */
@@ -21,69 +22,68 @@ const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'max
 ---
 
 <div class="panel" :class="tab==='hardening' && 'active'">
-  <h2 style="margin-top:0">Hardening</h2>
+  <h2 style="margin-top:0">{t('admin.tab.hardening', 'Hardening')}</h2>
   <p class="muted panel-intro">
-    Defaults permisivos: la app funciona recién salida de la caja.
-    Endurecé lo que necesites. Los cambios se aplican al guardar.
+    {t('admin.hardening.intro', 'Defaults permisivos: la app funciona recién salida de la caja. Endurecé lo que necesites. Los cambios se aplican al guardar.')}
   </p>
 
-  <h3 style="margin-top:1.5rem">Sesión y cookies</h3>
+  <h3 style="margin-top:1.5rem">{t('admin.hardening.section.session', 'Sesión y cookies')}</h3>
   <div class="form-row">
     <NumberField
       {...kit}
       model="cfg.security.session.ttlHours"
       min={1}
       max={720}
-      labelFallback="Duración (horas)"
+      labelKey="admin.hardening.session.ttlHours" labelFallback="Duración (horas)"
       helpKey="session.ttlHours"
     />
     <SelectField
       {...kit}
       model="cfg.security.session.cookieSameSite"
-      labelFallback="SameSite"
+      labelKey="admin.hardening.session.sameSite" labelFallback="SameSite"
       helpKey="session.cookieSameSite"
       options={[
-        { value: 'Lax', label: 'Lax (permisivo, default)' },
-        { value: 'Strict', label: 'Strict (más seguro)' },
-        { value: 'None', label: 'None (requiere Secure)' },
+        { value: 'Lax', key: 'admin.hardening.opt.sameSiteLax', label: 'Lax (permisivo, default)' },
+        { value: 'Strict', key: 'admin.hardening.opt.sameSiteStrict', label: 'Strict (más seguro)' },
+        { value: 'None', key: 'admin.hardening.opt.sameSiteNone', label: 'None (requiere Secure)' },
       ]}
     />
     <SelectField
       {...kit}
       model="cfg.security.session.cookieSecure"
-      labelFallback="Secure flag"
+      labelKey="admin.hardening.session.secure" labelFallback="Secure flag"
       helpKey="session.cookieSecure"
       options={[
-        { value: 'auto', label: 'Auto (recomendado)' },
-        { value: 'always', label: 'Siempre' },
-        { value: 'never', label: 'Nunca' },
+        { value: 'auto', key: 'admin.hardening.opt.secureAuto', label: 'Auto (recomendado)' },
+        { value: 'always', key: 'admin.hardening.opt.secureAlways', label: 'Siempre' },
+        { value: 'never', key: 'admin.hardening.opt.never', label: 'Nunca' },
       ]}
     />
     <ToggleField
       {...kit}
       model="cfg.security.session.rotateCsrfOnLogin"
-      labelFallback="Rotar CSRF en cada login"
+      labelKey="admin.hardening.session.rotateCsrf" labelFallback="Rotar CSRF en cada login"
       helpKey="session.rotateCsrfOnLogin"
     />
   </div>
 
-  <h3 style="margin-top:1.5rem">Login y CSRF</h3>
+  <h3 style="margin-top:1.5rem">{t('admin.hardening.section.auth', 'Login y CSRF')}</h3>
   <div class="form-row">
     <NumberField
       {...kit}
       model="cfg.security.auth.minPasswordLength"
       min={0}
       max={128}
-      labelFallback="Largo mínimo del password"
+      labelKey="admin.hardening.auth.minPasswordLength" labelFallback="Largo mínimo del password"
       helpKey="auth.minPasswordLength"
-      hint="0 = sin mínimo (permite passwords cortos legados)"
+      hint={t('admin.hardening.auth.minPasswordLengthHint', '0 = sin mínimo (permite passwords cortos legados)')}
     />
     <NumberField
       {...kit}
       model="cfg.security.auth.rateLimitMax"
       min={1}
       max={10000}
-      labelFallback="Rate limit (intentos)"
+      labelKey="admin.hardening.auth.rateLimitMax" labelFallback="Rate limit (intentos)"
       helpKey="auth.rateLimitMax"
     />
     <NumberField
@@ -91,63 +91,63 @@ const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'max
       model="cfg.security.auth.rateLimitWindowSec"
       min={1}
       max={3600}
-      labelFallback="Rate limit (ventana, seg)"
+      labelKey="admin.hardening.auth.rateLimitWindow" labelFallback="Rate limit (ventana, seg)"
       helpKey="auth.rateLimitWindowSec"
     />
     <SelectField
       {...kit}
       model="cfg.security.auth.csrfPolicy"
-      labelFallback="Política CSRF"
+      labelKey="admin.hardening.auth.csrfPolicy" labelFallback="Política CSRF"
       helpKey="auth.csrfPolicy"
       options={[
-        { value: 'mutations', label: 'Mutations (default, recomendado)' },
-        { value: 'all', label: 'Todos los requests' },
-        { value: 'none', label: 'Ninguno (no recomendado)' },
+        { value: 'mutations', key: 'admin.hardening.opt.csrfMutations', label: 'Mutations (default, recomendado)' },
+        { value: 'all', key: 'admin.hardening.opt.csrfAll', label: 'Todos los requests' },
+        { value: 'none', key: 'admin.hardening.opt.csrfNone', label: 'Ninguno (no recomendado)' },
       ]}
     />
   </div>
 
-  <h3 style="margin-top:1.5rem">Uploads</h3>
+  <h3 style="margin-top:1.5rem">{t('admin.hardening.section.uploads', 'Uploads')}</h3>
   <div class="form-row">
-    <NumberField {...kit} {...kbField('maxBytesLogo')} min={1} labelFallback="Máx logo (KB)" helpKey="uploads.maxBytesLogo" />
-    <NumberField {...kit} {...kbField('maxBytesFavicon')} min={1} labelFallback="Máx favicon (KB)" helpKey="uploads.maxBytesFavicon" />
-    <NumberField {...kit} {...kbField('maxBytesIcon')} min={1} labelFallback="Máx ícono (KB)" helpKey="uploads.maxBytesIcon" />
-    <NumberField {...kit} {...kbField('maxBytesBackground')} min={1} labelFallback="Máx fondo (KB)" helpKey="uploads.maxBytesBackground" />
+    <NumberField {...kit} {...kbField('maxBytesLogo')} min={1} labelKey="admin.hardening.uploads.maxLogo" labelFallback="Máx logo (KB)" helpKey="uploads.maxBytesLogo" />
+    <NumberField {...kit} {...kbField('maxBytesFavicon')} min={1} labelKey="admin.hardening.uploads.maxFavicon" labelFallback="Máx favicon (KB)" helpKey="uploads.maxBytesFavicon" />
+    <NumberField {...kit} {...kbField('maxBytesIcon')} min={1} labelKey="admin.hardening.uploads.maxIcon" labelFallback="Máx ícono (KB)" helpKey="uploads.maxBytesIcon" />
+    <NumberField {...kit} {...kbField('maxBytesBackground')} min={1} labelKey="admin.hardening.uploads.maxBackground" labelFallback="Máx fondo (KB)" helpKey="uploads.maxBytesBackground" />
   </div>
   <div class="form-row">
     <TextField
       {...kit}
       value="cfg.security.uploads.allowedMimeTypes.join(', ')"
       change="cfg.security.uploads.allowedMimeTypes = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)"
-      labelFallback="MIME permitidos (coma-separado)"
+      labelKey="admin.hardening.uploads.allowedMime" labelFallback="MIME permitidos (coma-separado)"
       helpKey="uploads.allowedMimeTypes"
     />
   </div>
   <div class="form-row">
-    <ToggleField {...kit} model="cfg.security.uploads.allowSvg" labelFallback="Permitir SVG" helpKey="uploads.allowSvg" />
-    <ToggleField {...kit} model="cfg.security.uploads.sanitizeSvg" labelFallback="Sanitizar SVG con DOMPurify" helpKey="uploads.sanitizeSvg" />
-    <ToggleField {...kit} model="cfg.security.uploads.processImages" labelFallback="Procesar imágenes con sharp" helpKey="uploads.processImages" />
+    <ToggleField {...kit} model="cfg.security.uploads.allowSvg" labelKey="admin.hardening.uploads.allowSvg" labelFallback="Permitir SVG" helpKey="uploads.allowSvg" />
+    <ToggleField {...kit} model="cfg.security.uploads.sanitizeSvg" labelKey="admin.hardening.uploads.sanitizeSvg" labelFallback="Sanitizar SVG con DOMPurify" helpKey="uploads.sanitizeSvg" />
+    <ToggleField {...kit} model="cfg.security.uploads.processImages" labelKey="admin.hardening.uploads.processImages" labelFallback="Procesar imágenes con sharp" helpKey="uploads.processImages" />
   </div>
 
-  <h3 style="margin-top:1.5rem">Red</h3>
+  <h3 style="margin-top:1.5rem">{t('admin.hardening.section.network', 'Red')}</h3>
   <div class="form-row">
     <ToggleField
       {...kit}
       model="cfg.security.network.trustForwardedFor"
-      labelFallback="Confiar en X-Forwarded-For (sólo con reverse proxy)"
+      labelKey="admin.hardening.network.trustForwardedFor" labelFallback="Confiar en X-Forwarded-For (sólo con reverse proxy)"
       helpKey="network.trustForwardedFor"
     />
     <ToggleField
       {...kit}
       model="cfg.security.network.allowInternalHosts"
-      labelFallback="Permitir health checks a hosts internos (10/8, 172.16/12, 192.168/16)"
+      labelKey="admin.hardening.network.allowInternalHosts" labelFallback="Permitir health checks a hosts internos (10/8, 172.16/12, 192.168/16)"
       helpKey="network.allowInternalHosts"
     />
     <TextField
       {...kit}
       model="cfg.security.network.cookieDomain"
-      placeholder="(vacío = sin domain)"
-      labelFallback="Cookie domain (ej: .example.com)"
+      placeholder={t('admin.hardening.network.cookieDomainPlaceholder', '(vacío = sin domain)')}
+      labelKey="admin.hardening.network.cookieDomain" labelFallback="Cookie domain (ej: .example.com)"
       helpKey="network.cookieDomain"
     />
   </div>
@@ -156,11 +156,11 @@ const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'max
     model="cfg.security.network.trustedProxiesText"
     rows={3}
     placeholder={'10.0.0.1\n192.168.1.0/24'}
-    labelFallback="Proxies confiables (uno por línea)"
+    labelKey="admin.hardening.network.trustedProxies" labelFallback="Proxies confiables (uno por línea)"
     helpKey="network.trustedProxies"
   />
 
-  <h3 style="margin-top:1.5rem">Headers de seguridad</h3>
+  <h3 style="margin-top:1.5rem">{t('admin.hardening.section.headers', 'Headers de seguridad')}</h3>
   <div class="form-row">
     <SelectField
       {...kit}
@@ -168,9 +168,9 @@ const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'max
       labelFallback="X-Frame-Options"
       helpKey="headers.xFrameOptions"
       options={[
-        { value: 'DENY', label: 'DENY (recomendado)' },
+        { value: 'DENY', key: 'admin.hardening.opt.xfoDeny', label: 'DENY (recomendado)' },
         { value: 'SAMEORIGIN', label: 'SAMEORIGIN' },
-        { value: 'NONE', label: 'NONE (desactivar)' },
+        { value: 'NONE', key: 'admin.hardening.opt.xfoNone', label: 'NONE (desactivar)' },
       ]}
     />
     <SelectField
@@ -190,7 +190,7 @@ const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'max
     {...kit}
     model="cfg.security.headers.csp"
     rows={4}
-    labelFallback="Content-Security-Policy (vacío = no se envía header)"
+    labelKey="admin.hardening.headers.csp" labelFallback="Content-Security-Policy (vacío = no se envía header)"
     helpKey="headers.csp"
   />
   <TextField
@@ -200,22 +200,20 @@ const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'max
     helpKey="headers.permissionsPolicy"
   />
 
-  <h3 style="margin-top:1.5rem">HSTS (Strict-Transport-Security)</h3>
+  <h3 style="margin-top:1.5rem">{t('admin.hardening.section.hsts', 'HSTS (Strict-Transport-Security)')}</h3>
   <p class="muted panel-intro">
-    Sólo se envía si el request es HTTPS. 'auto' lo activa automáticamente
-    en deployments HTTPS (recomendado). 'never' desactiva. Cuidado con
-    max-age: una vez activado, los browsers lo recuerdan.
+    {t('admin.hardening.hsts.intro', "Sólo se envía si el request es HTTPS. 'auto' lo activa automáticamente en deployments HTTPS (recomendado). 'never' desactiva. Cuidado con max-age: una vez activado, los browsers lo recuerdan.")}
   </p>
   <div class="form-row">
     <SelectField
       {...kit}
       model="cfg.security.headers.hsts"
-      labelFallback="Modo"
+      labelKey="admin.hardening.hsts.mode" labelFallback="Modo"
       helpKey="headers.hsts"
       options={[
-        { value: 'auto', label: 'Auto (default, recomendado)' },
-        { value: 'always', label: 'Siempre forzar' },
-        { value: 'never', label: 'Nunca' },
+        { value: 'auto', key: 'admin.hardening.opt.hstsAuto', label: 'Auto (default, recomendado)' },
+        { value: 'always', key: 'admin.hardening.opt.hstsAlways', label: 'Siempre forzar' },
+        { value: 'never', key: 'admin.hardening.opt.never', label: 'Nunca' },
       ]}
     />
     <NumberField
@@ -223,9 +221,9 @@ const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'max
       model="cfg.security.headers.hstsMaxAge"
       min={0}
       max={63072000}
-      labelFallback="Max-Age (segundos)"
+      labelKey="admin.hardening.hsts.maxAge" labelFallback="Max-Age (segundos)"
       helpKey="headers.hstsMaxAge"
-      hint="Default 31536000 (1 año). 0 desactiva."
+      hint={t('admin.hardening.hsts.maxAgeHint', 'Default 31536000 (1 año). 0 desactiva.')}
     />
   </div>
   <div class="form-row">
@@ -234,14 +232,14 @@ const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'max
       model="cfg.security.headers.hstsIncludeSubDomains"
       labelFallback="includeSubDomains"
       helpKey="headers.hstsIncludeSubDomains"
-      hint="Activar SÓLO si todos los subdominios son HTTPS."
+      hint={t('admin.hardening.hsts.includeSubDomainsHint', 'Activar SÓLO si todos los subdominios son HTTPS.')}
     />
     <ToggleField
       {...kit}
       model="cfg.security.headers.hstsPreload"
       labelFallback="preload"
       helpKey="headers.hstsPreload"
-      hint="Para enviar a hstspreload.org. Requiere includeSubDomains y max-age ≥ 1 año."
+      hint={t('admin.hardening.hsts.preloadHint', 'Para enviar a hstspreload.org. Requiere includeSubDomains y max-age ≥ 1 año.')}
     />
   </div>
 </div>

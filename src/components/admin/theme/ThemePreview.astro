@@ -16,9 +16,9 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <HelpIcon helpKey="theme.preview.mode" />
     </label>
     <div class="theme-preview-mode-btns">
-      <button type="button" :class="themePreviewMode==='dark' && 'active'" @click="themePreviewMode='dark'">Dark</button>
-      <button type="button" :class="themePreviewMode==='light' && 'active'" @click="themePreviewMode='light'">Light</button>
-      <button type="button" :class="themePreviewMode==='auto' && 'active'" @click="themePreviewMode='auto'">Auto</button>
+      <button type="button" :class="themePreviewMode==='dark' && 'active'" @click="themePreviewMode='dark'">{t('admin.theme.modeTab.dark', 'Dark')}</button>
+      <button type="button" :class="themePreviewMode==='light' && 'active'" @click="themePreviewMode='light'">{t('admin.theme.modeTab.light', 'Light')}</button>
+      <button type="button" :class="themePreviewMode==='auto' && 'active'" @click="themePreviewMode='auto'">{t('admin.theme.modeTab.auto', 'Auto')}</button>
     </div>
   </div>
 
@@ -69,7 +69,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         x-show="cfg.theme.showStatusBar"
         :style="`opacity:${cfg.theme.footerOpacity ?? 1}`"
       >
-        v1.0 · actualizado hace 2 min
+        {t('admin.theme.preview.footerSample', 'v1.0 · actualizado hace 2 min')}
       </div>
     </div>
   </div>

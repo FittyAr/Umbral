@@ -9,44 +9,46 @@ interface Props {
 const { useI18n, tr } = Astro.props;
 const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+/** Literal JS entre comillas simples, para inyectar texto traducido en expresiones Alpine. */
+const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 ---
 
 <div class="panel" :class="tab==='audit' && 'active'">
-  <PanelHeader {...kit} titleExpr="auditTitle()" titleFallback="Auditoría" helpKey="advanced.audit">
+  <PanelHeader {...kit} titleExpr="auditTitle()" titleKey="admin.audit.title" titleFallback="Auditoría" helpKey="advanced.audit">
     <Fragment slot="intro">
-    Registro cronológico de eventos administrativos de <code>data/audit.log</code>. Filtros: acción, texto en el detalle, rango temporal.
+    <Fragment set:html={t('admin.audit.intro', 'Registro cronológico de eventos administrativos de <code>data/audit.log</code>. Filtros: acción, texto en el detalle, rango temporal.')} />
     </Fragment>
   </PanelHeader>
 
   <div class="audit-toolbar" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:0.75rem">
     <div style="display:flex;align-items:center;gap:0.35rem;align-self:flex-end;padding-bottom:0.35rem">
-      <span style="font-size:0.78rem;color:var(--text-subtle)">Filtros</span>
+      <span style="font-size:0.78rem;color:var(--text-subtle)">{t('admin.audit.filters', 'Filtros')}</span>
       <HelpIcon helpKey="audit.filters" />
     </div>
     <div class="form-group" style="margin:0;min-width:160px">
-      <label style="font-size:0.78rem;margin-bottom:0.2rem">Acción</label>
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">{t('admin.audit.action', 'Acción')}</label>
       <select x-model="auditFilter.action" @change="reloadAudit()" style="padding:0.3rem 0.5rem">
-        <option value="">Todas</option>
+        <option value="">{t('admin.audit.allActions', 'Todas')}</option>
         <template x-for="a in auditActions" :key="a">
           <option :value="a" x-text="a"></option>
         </template>
       </select>
     </div>
     <div class="form-group" style="margin:0;flex:1;min-width:200px">
-      <label style="font-size:0.78rem;margin-bottom:0.2rem">Detalle contiene</label>
-      <input type="text" x-model="auditFilter.detail" @input.debounce.300ms="reloadAudit()" placeholder="substring..." />
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">{t('admin.audit.detailContains', 'Detalle contiene')}</label>
+      <input type="text" x-model="auditFilter.detail" @input.debounce.300ms="reloadAudit()" placeholder={t('admin.audit.detailPlaceholder', 'substring...')} />
     </div>
     <div class="form-group" style="margin:0">
-      <label style="font-size:0.78rem;margin-bottom:0.2rem">Desde</label>
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">{t('admin.audit.from', 'Desde')}</label>
       <input type="datetime-local" x-model="auditFilter.from" @change="reloadAudit()" />
     </div>
     <div class="form-group" style="margin:0">
-      <label style="font-size:0.78rem;margin-bottom:0.2rem">Hasta</label>
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">{t('admin.audit.to', 'Hasta')}</label>
       <input type="datetime-local" x-model="auditFilter.to" @change="reloadAudit()" />
     </div>
     <div class="form-group" style="margin:0">
       <label style="font-size:0.78rem;margin-bottom:0.2rem;display:flex;align-items:center;gap:0.35rem">
-        <span>Límite</span>
+        <span>{t('admin.audit.limit', 'Límite')}</span>
         <HelpIcon helpKey="audit.limit" />
       </label>
       <select x-model.number="auditFilter.limit" @change="reloadAudit()">
@@ -56,21 +58,21 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         <option value="1000">1000</option>
       </select>
     </div>
-    <button type="button" class="btn btn-ghost" @click="resetAuditFilter()" x-text="auditResetLabel()">Limpiar</button>
+    <button type="button" class="btn btn-ghost" @click="resetAuditFilter()" x-text="auditResetLabel()">{t('admin.audit.reset', 'Limpiar')}</button>
     <span style="display:inline-flex;align-items:center;gap:0.35rem">
-      <button type="button" class="btn btn-ghost" @click="downloadAuditLog()" x-text="auditDownloadLabel()">Descargar log completo</button>
+      <button type="button" class="btn btn-ghost" @click="downloadAuditLog()" x-text="auditDownloadLabel()">{t('admin.audit.download', 'Descargar log completo')}</button>
       <HelpIcon helpKey="audit.download" />
     </span>
   </div>
 
-  <div x-show="auditLoading" style="color:var(--text-subtle);padding:0.5rem 0" x-cloak x-text="auditLoadingLabel()">Cargando…</div>
+  <div x-show="auditLoading" style="color:var(--text-subtle);padding:0.5rem 0" x-cloak x-text="auditLoadingLabel()">{t('admin.audit.loading', 'Cargando…')}</div>
   <div x-show="auditError" style="color:var(--status-error-text);padding:0.5rem 0" x-cloak x-text="auditError"></div>
 
   <div x-show="!auditLoading && !auditError" x-cloak>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;font-size:0.78rem;color:var(--text-subtle)">
       <span>
-        <span x-text="auditEntries.length"></span> entradas
-        <span x-show="auditResult && auditResult.hasMore" x-text="` (hay más — aumentá el límite)`"></span>
+        <span x-text="auditEntries.length"></span> {t('admin.audit.entries', 'entradas')}
+        <span x-show="auditResult && auditResult.hasMore" x-text={q(' ' + t('admin.audit.hasMore', '(hay más — aumentá el límite)'))}></span>
         <span x-show="auditResult" x-text="` · ${(auditResult?.sizeBytes ?? 0)} bytes`"></span>
       </span>
       <span x-text="auditResult?.path"></span>
@@ -79,9 +81,9 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <table class="audit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;font-family:ui-monospace,Menlo,Consolas,monospace">
         <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
           <tr>
-            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Fecha</th>
-            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Acción</th>
-            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Detalle</th>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">{t('admin.audit.date', 'Fecha')}</th>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">{t('admin.audit.action', 'Acción')}</th>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">{t('admin.audit.detail', 'Detalle')}</th>
           </tr>
         </thead>
         <tbody>
@@ -95,7 +97,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             </tr>
           </template>
           <tr x-show="auditEntries.length === 0">
-            <td colspan="3" style="padding:1rem;text-align:center;color:var(--text-subtle)" x-text="auditEmptyLabel()">No hay entradas que coincidan con los filtros.</td>
+            <td colspan="3" style="padding:1rem;text-align:center;color:var(--text-subtle)" x-text="auditEmptyLabel()">{t('admin.audit.empty', 'No hay entradas que coincidan con los filtros.')}</td>
           </tr>
         </tbody>
       </table>

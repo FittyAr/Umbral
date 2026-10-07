@@ -17,15 +17,15 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   {...kit}
   show="showTotpSetupModal && totpSetupData"
   close="showTotpSetupModal = false"
-  titleFallback="Configurar 2FA (TOTP)"
+  titleKey="admin.totp.title" titleFallback="Configurar 2FA (TOTP)"
   modalStyle="max-width:440px"
 >
       <p class="panel-intro">
-        Escaneá el código QR con Google Authenticator, Authy, 1Password o tu gestor favorito, o ingresá el secret manualmente:
+        {t('admin.totp.intro', 'Escaneá el código QR con Google Authenticator, Authy, 1Password o tu gestor favorito, o ingresá el secret manualmente:')}
       </p>
 
       <div style="display:flex;justify-content:center;margin:1rem 0;background:white;padding:1rem;border-radius:8px">
-        <img :src="totpSetupData.qrDataUrl" alt="QR Code 2FA" style="width:200px;height:200px" />
+        <img :src="totpSetupData.qrDataUrl" alt={t('admin.totp.qrAlt', 'QR Code 2FA')} style="width:200px;height:200px" />
       </div>
 
       <div style="margin-bottom:1rem;text-align:center">
@@ -33,16 +33,16 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       </div>
 
       <form @submit.prevent="verifyAndSaveTotp()">
-        <FormGroup {...kit} labelFallback="Código de verificación (6 dígitos)">
+        <FormGroup {...kit} labelKey="admin.totp.code" labelFallback="Código de verificación (6 dígitos)">
           <input type="text" x-model="totpVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autocomplete="one-time-code" x-init="$nextTick(() => $el.focus())" />
         </FormGroup>
         <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
-          <button type="button" class="btn btn-ghost" @click="showTotpSetupModal = false">Cancelar</button>
+          <button type="button" class="btn btn-ghost" @click="showTotpSetupModal = false">{t('common.cancel', 'Cancelar')}</button>
           <PendingButton
             type="submit"
             pending="totpSaving"
-            label="Activar 2FA"
-            pendingLabel="Verificando…"
+            label={t('admin.security.enable2fa', 'Activar 2FA')}
+            pendingLabel={t('admin.totp.verifying', 'Verificando…')}
             variant="btn-primary"
           />
         </div>

@@ -12,36 +12,38 @@ interface Props {
 
 const { useI18n, tr } = Astro.props;
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+/** Literal JS entre comillas simples, para inyectar texto traducido en expresiones Alpine. */
+const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 const kit = { useI18n, tr };
 ---
 
   <div class="card-editor-fields">
 <div class="form-row">
-  <FormGroup {...kit} labelFallback="Título" helpKey="card.title">
+  <FormGroup {...kit} labelKey="admin.card.title" labelFallback="Título" helpKey="card.title">
     <input type="text" x-model="editingCard.title" required maxlength="80" />
   </FormGroup>
   <SelectField
     {...kit}
     model="editingCard.kind"
-    labelFallback="Tipo"
+    labelKey="admin.card.kind" labelFallback="Tipo"
     helpKey="card.kind"
     options={[
-      { value: 'link', label: 'Link (clickeable)' },
-      { value: 'note', label: 'Nota (informativa, sin link)' },
+      { value: 'link', key: 'admin.card.kind.link', label: 'Link (clickeable)' },
+      { value: 'note', key: 'admin.card.kind.note', label: 'Nota (informativa, sin link)' },
     ]}
   >
-    <small class="field-hint">"Link" lleva a una URL. "Nota" es solo informativa (anuncios, tips, etc.).</small>
+    <small class="field-hint">{t('admin.card.kindHelp', '"Link" lleva a una URL. "Nota" es solo informativa (anuncios, tips, etc.).')}</small>
   </SelectField>
 </div>
 <div class="form-row">
   <div class="form-group" style="flex:1">
-    <label>URL <HelpIcon helpKey="card.url" /> <span x-show="editingCard.kind==='link'" style="color:var(--status-error)">*</span></label>
+    <label>{t('admin.card.url', 'URL')} <HelpIcon helpKey="card.url" /> <span x-show="editingCard.kind==='link'" style="color:var(--status-error)">*</span></label>
     <div style="display:flex;gap:0.4rem;align-items:flex-start">
       <input
         type="text"
         x-model="editingCard.url"
         :required="editingCard.kind==='link'"
-        placeholder="https://… o /docs"
+        placeholder={t('admin.card.urlPlaceholder', 'https://… o /docs')}
         style="flex:1"
         @blur="maybeAutofillFromUrl()"
       />
@@ -49,46 +51,46 @@ const kit = { useI18n, tr };
         pending="autofillBusy"
         click="autofillFromUrl()"
         disabled="(!editingCard.url && !editingCard.title)"
-        label="Auto-completar"
-        pendingLabel="Buscando…"
+        label={t('admin.card.autofill', 'Auto-completar')}
+        pendingLabel={t('admin.card.autofillBusy', 'Buscando…')}
         variant="btn-sm btn-ghost"
-        title="Traer título/desc/imagen del sitio (URL) o de la búsqueda externa (título)"
+        title={t('admin.card.autofillTitle', 'Traer título/desc/imagen del sitio (URL) o de la búsqueda externa (título)')}
         show="editingCard.kind==='link'"
       />
       <HelpIcon helpKey="card.autofill" x-show="editingCard.kind==='link'" />
     </div>
     <small class="field-hint">
       <template x-if="editingCard.kind==='link'">
-        <span>URL externa (https://…) o path interno (/docs, /admin). Obligatoria. Auto-completar trae título/desc/imagen del sitio.</span>
+        <span>{t('admin.card.urlHintLink', 'URL externa (https://…) o path interno (/docs, /admin). Obligatoria. Auto-completar trae título/desc/imagen del sitio.')}</span>
       </template>
       <template x-if="editingCard.kind==='note'">
-        <span>Opcional para notas. Útil si querés un link de referencia dentro del texto.</span>
+        <span>{t('admin.card.urlHintNote', 'Opcional para notas. Útil si querés un link de referencia dentro del texto.')}</span>
       </template>
     </small>
   </div>
 </div>
 <div class="form-group" x-show="cfg.ai?.enabled && editingCard.kind==='link'" style="display:flex;gap:0.4rem;align-items:center;padding:0.5rem 0.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
-  <span style="color:var(--text-subtle);font-size:0.85rem">IA: </span>
+  <span style="color:var(--text-subtle);font-size:0.85rem">{t('admin.card.aiPrefix', 'IA:')} </span>
   <PendingButton
     pending="aiBusy"
     click="improveWithAI()"
     disabled="!editingCard.title"
-    label="Mejorar con IA"
-    pendingLabel="Pensando…"
+    label={t('admin.card.improveAI', 'Mejorar con IA')}
+    pendingLabel={t('admin.card.aiBusy', 'Pensando…')}
     variant="btn-sm btn-ghost"
-    title="Mejorar el título y descripción con la IA configurada"
+    title={t('admin.card.improveAITitle', 'Mejorar el título y descripción con la IA configurada')}
   />
   <HelpIcon helpKey="card.aiEnhance" />
   <span style="color:var(--text-faint);font-size:0.75rem">
-    Usa la config de IA (Admin → IA). Editá el prompt system ahí si querés otro estilo.
+    {t('admin.card.aiHint', 'Usa la config de IA (Admin → IA). Editá el prompt system ahí si querés otro estilo.')}
   </span>
 </div>
 <div class="form-group">
   <label>
-    <span>Descripción <HelpIcon helpKey="card.description" /></span>
+    <span>{t('admin.card.description', 'Descripción')} <HelpIcon helpKey="card.description" /></span>
     <label x-show="markdownEnabled" style="display:inline-flex;align-items:center;gap:0.3rem;margin-left:0.5rem;font-size:0.78rem;color:var(--text-subtle);cursor:pointer" x-cloak>
       <input type="checkbox" x-model="editingCard.descriptionFormat" @change="updateDescriptionLimit()" true-value="markdown" false-value="plain" />
-      <span x-text="markdownLabel()">Markdown</span>
+      <span x-text="markdownLabel()">{t('admin.card.markdown', 'Markdown')}</span>
       <HelpIcon helpKey="card.descriptionFormat" />
     </label>
   </label>
@@ -100,37 +102,37 @@ const kit = { useI18n, tr };
   ></textarea>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.25rem;font-size:0.75rem;color:var(--text-subtle)">
     <span>
-      <span x-text="editingCard.description ? editingCard.description.length : 0"></span> / <span x-text="descMaxLength()"></span> chars
+      <span x-text="editingCard.description ? editingCard.description.length : 0"></span> / <span x-text="descMaxLength()"></span> {t('admin.card.chars', 'chars')}
       <span x-show="editingCard.descriptionFormat === 'markdown' && markdownEnabled" x-cloak style="margin-left:0.5rem;color:var(--accent)">
         (markdown: ~<span x-text="Math.round(((editingCard.description || '').length / 4))"></span> tokens)
       </span>
     </span>
     <span x-show="editingCard.descriptionFormat === 'markdown' && markdownPreviewDirty && markdownEnabled" x-cloak>
-      <button type="button" class="btn btn-ghost" @click="refreshMarkdownPreview()" style="padding:0.15rem 0.4rem;font-size:0.72rem" x-text="refreshPreviewLabel()">Refresh preview</button>
+      <button type="button" class="btn btn-ghost" @click="refreshMarkdownPreview()" style="padding:0.15rem 0.4rem;font-size:0.72rem" x-text="refreshPreviewLabel()">{t('admin.card.refreshPreview', 'Refresh preview')}</button>
     </span>
   </div>
   <div x-show="editingCard.descriptionFormat === 'markdown' && markdownEnabled && markdownPreview" x-cloak class="markdown-preview-wrap" style="margin-top:0.5rem;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);font-size:0.8rem">
-    <div style="font-size:0.7rem;color:var(--text-faint);margin-bottom:0.3rem" x-text="previewLabel()">Preview</div>
+    <div style="font-size:0.7rem;color:var(--text-faint);margin-bottom:0.3rem" x-text="previewLabel()">{t('admin.card.previewLabel', 'Preview')}</div>
     <div class="card-desc-md" x-html="markdownPreview"></div>
   </div>
 </div>
 <div class="form-row">
-  <FormGroup {...kit} labelFallback="Categoría" helpKey="card.category">
+  <FormGroup {...kit} labelKey="admin.card.category" labelFallback="Categoría" helpKey="card.category">
     <select
       x-model="editingCard.category"
       x-init="$nextTick(() => $el.value = editingCard.category || '')"
       required
     >
-      <option :value="ungroupedSelectId" x-text="cardsUngroupedGroupLabel()">Sin grupo</option>
+      <option :value="ungroupedSelectId" x-text="cardsUngroupedGroupLabel()">{t('admin.cards.ungroupedGroup', 'Sin grupo')}</option>
       <template x-for="c in realCategories()" :key="c.id">
         <option :value="c.id" x-text="c.name"></option>
       </template>
     </select>
   </FormGroup>
-  <FormGroup {...kit} labelFallback="Color" helpKey="card.color">
+  <FormGroup {...kit} labelKey="admin.card.color" labelFallback="Color" helpKey="card.color">
     <input type="color" x-model="editingCard.color" />
   </FormGroup>
-  <FormGroup {...kit} labelExpr="cardSpanLabel()" labelFallback="Ancho" helpKey="card.span">
+  <FormGroup {...kit} labelExpr="cardSpanLabel()" labelKey="admin.card.span" labelFallback="Ancho" helpKey="card.span">
     <select
       x-model.number="editingCard.span"
       x-init="$nextTick(() => $el.value = String(editingCard.span || 1))"
@@ -145,7 +147,7 @@ const kit = { useI18n, tr };
 
 <div class="form-group" x-show="tagsEnabled" x-cloak>
   <label>
-    <span x-text="tagsLabel()">Tags</span>
+    <span x-text="tagsLabel()">{t('admin.card.tags', 'Tags')}</span>
     <HelpIcon helpKey="card.tags" />
     <span style="font-size:0.7rem;color:var(--text-faint);margin-left:0.5rem" x-text="(editingCard.tags || []).length + '/10'"></span>
   </label>
@@ -153,7 +155,7 @@ const kit = { useI18n, tr };
     <template x-for="(t, idx) in (editingCard.tags || [])" :key="t + '-' + idx">
       <span class="tag-chip">
         <span x-text="t"></span>
-        <button type="button" class="tag-chip-remove" @click.stop="removeTag(idx)" :aria-label="'Quitar ' + t">×</button>
+        <button type="button" class="tag-chip-remove" @click.stop="removeTag(idx)" :aria-label={`${q(t('admin.card.removeTag', 'Quitar '))} + t`}>×</button>
       </span>
     </template>
     <input
@@ -174,12 +176,12 @@ const kit = { useI18n, tr };
     <template x-for="s in tagSuggestions()" :key="s">
       <button type="button" class="tag-suggestion" @click="addTag(s)">
         <span x-text="s"></span>
-        <span class="tag-suggestion-add" x-text="tagsAddLabel()">+ agregar</span>
+        <span class="tag-suggestion-add" x-text="tagsAddLabel()">{t('admin.card.tagsAdd', '+ agregar')}</span>
       </button>
     </template>
   </div>
   <small style="color:var(--text-faint);font-size:0.72rem" x-text="tagsHelp()">
-    Tags kebab-case (frontend, urgent, legacy…). Enter, coma o espacio para agregar. Backspace borra el último.
+    {t('admin.card.tagsHelp', 'Tags kebab-case (frontend, urgent, legacy…). Enter, coma o espacio para agregar. Backspace borra el último.')}
   </small>
 </div>
 
@@ -187,16 +189,16 @@ const kit = { useI18n, tr };
   <ToggleField
     {...kit}
     model="editingCard.openInNewTab"
-    labelFallback="Abrir en nueva pestaña"
+    labelKey="admin.card.openInNewTab" labelFallback="Abrir en nueva pestaña"
     helpKey="card.openInNewTab"
     show="editingCard.kind==='link'"
   />
-  <ToggleField {...kit} model="editingCard.enabled" labelFallback="Activa" helpKey="card.enabled" />
+  <ToggleField {...kit} model="editingCard.enabled" labelKey="admin.cards.enabled" labelFallback="Activa" helpKey="card.enabled" />
   <ToggleField
     {...kit}
     model="editingCard.pinned"
     labelExpr="pinnedLabel()"
-    labelFallback="Fijada"
+    labelKey="admin.card.pinned" labelFallback="Fijada"
     helpKey="card.pinned"
     show="pinnedEnabled"
     cloak
@@ -204,7 +206,7 @@ const kit = { useI18n, tr };
   <ToggleField
     {...kit}
     model="editingCard.healthCheck"
-    labelFallback="Health check (dot en vivo)"
+    labelKey="admin.card.healthCheckLive" labelFallback="Health check (dot en vivo)"
     helpKey="card.healthCheck"
     show="editingCard.kind==='link'"
   />

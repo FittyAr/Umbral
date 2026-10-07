@@ -12,33 +12,33 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
 ---
 
 <div class="panel" :class="tab==='metrics' && 'active'">
-  <PanelHeader {...kit} titleExpr="metricsTitle()" titleFallback="Métricas" helpKey="advanced.metrics" introExpr="metricsIntro()">
+  <PanelHeader {...kit} titleExpr="metricsTitle()" titleKey="admin.metrics.title" titleFallback="Métricas" helpKey="advanced.metrics" introExpr="metricsIntro()">
     <Fragment slot="intro">
-    Sparklines + resumen (avg, p95, max) por card con health-check. Datos en memoria (últimas 100 muestras = ~1.5h con check cada 60s).
+    {t('admin.metrics.intro', 'Sparklines + resumen (avg, p95, max) por card con health-check. Datos en memoria (últimas 100 muestras = ~1.5h con check cada 60s).')}
     </Fragment>
   </PanelHeader>
 
   <div class="metrics-toolbar" style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.75rem">
     <div class="form-group" style="margin:0">
-      <label style="font-size:0.78rem;margin-bottom:0.2rem">Rango</label>
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">{t('admin.metrics.range', 'Rango')}</label>
       <select x-model.number="metricsRange" @change="loadMetrics()">
-        <option value="600000">Últimos 10 min</option>
-        <option value="3600000">Última hora</option>
-        <option value="86400000">Últimas 24h</option>
+        <option value="600000">{t('admin.metrics.range10m', 'Últimos 10 min')}</option>
+        <option value="3600000">{t('admin.metrics.range1h', 'Última hora')}</option>
+        <option value="86400000">{t('admin.metrics.range24h', 'Últimas 24h')}</option>
       </select>
     </div>
     <div class="form-group" style="margin:0">
-      <label style="font-size:0.78rem;margin-bottom:0.2rem">Límite samples</label>
+      <label style="font-size:0.78rem;margin-bottom:0.2rem">{t('admin.metrics.limit', 'Límite samples')}</label>
       <select x-model.number="metricsLimit" @change="loadMetrics()">
         <option value="20">20</option>
         <option value="50">50</option>
         <option value="100">100</option>
       </select>
     </div>
-    <button type="button" class="btn btn-ghost" @click="loadMetrics()" :disabled="metricsLoading" x-text="metricsReloadLabel()">Recargar</button>
+    <button type="button" class="btn btn-ghost" @click="loadMetrics()" :disabled="metricsLoading" x-text="metricsReloadLabel()">{t('admin.metrics.reload', 'Recargar')}</button>
   </div>
 
-  <div x-show="metricsLoading" style="color:var(--text-subtle);padding:0.5rem 0" x-cloak x-text="metricsLoadingLabel()">Cargando…</div>
+  <div x-show="metricsLoading" style="color:var(--text-subtle);padding:0.5rem 0" x-cloak x-text="metricsLoadingLabel()">{t('admin.metrics.loading', 'Cargando…')}</div>
   <div x-show="metricsError" style="color:var(--status-error-text);padding:0.5rem 0" x-cloak x-text="metricsError"></div>
 
   <div x-show="!metricsLoading && !metricsError" x-cloak>
@@ -46,11 +46,11 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <table class="metrics-table" style="width:100%;border-collapse:collapse;font-size:0.82rem">
         <thead style="position:sticky;top:0;background:var(--surface);z-index:1">
           <tr>
-            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Card</th>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">{t('admin.metrics.col.card', 'Card')}</th>
             <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Avg</th>
             <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">P95</th>
             <th style="text-align:right;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Max</th>
-            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">Último</th>
+            <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border)">{t('admin.metrics.col.last', 'Último')}</th>
             <th style="text-align:left;padding:0.4rem 0.6rem;border-bottom:1px solid var(--border);width:140px">Sparkline</th>
           </tr>
         </thead>
@@ -68,7 +68,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             </tr>
           </template>
           <tr x-show="metricsRows.length === 0">
-            <td colspan="6" style="padding:1rem;text-align:center;color:var(--text-subtle)">Sin datos. Activá health-check en alguna card y esperá a que se ejecuten los checks.</td>
+            <td colspan="6" style="padding:1rem;text-align:center;color:var(--text-subtle)">{t('admin.metrics.empty', 'Sin datos. Activá health-check en alguna card y esperá a que se ejecuten los checks.')}</td>
           </tr>
         </tbody>
       </table>

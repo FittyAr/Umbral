@@ -23,8 +23,8 @@ const categories = TOKEN_CATEGORIES;
 </p>
 
 <div class="theme-advanced-tabs">
-  <button type="button" :class="themeAdvancedMode==='dark' && 'active'" @click="themeAdvancedMode='dark'">Dark</button>
-  <button type="button" :class="themeAdvancedMode==='light' && 'active'" @click="themeAdvancedMode='light'">Light</button>
+  <button type="button" :class="themeAdvancedMode==='dark' && 'active'" @click="themeAdvancedMode='dark'">{t('admin.theme.modeTab.dark', 'Dark')}</button>
+  <button type="button" :class="themeAdvancedMode==='light' && 'active'" @click="themeAdvancedMode='light'">{t('admin.theme.modeTab.light', 'Light')}</button>
 </div>
 
 <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center">

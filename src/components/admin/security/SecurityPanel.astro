@@ -9,53 +9,55 @@ interface Props {
 const { useI18n, tr } = Astro.props;
 const kit = { useI18n, tr };
 const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
+/** Literal JS entre comillas simples, para inyectar texto traducido en expresiones Alpine. */
+const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 ---
 
 <div class="panel" :class="tab==='security' && 'active'">
-  <h2 style="margin-top:0">Seguridad</h2>
-  <h3>Cambiar contraseña <HelpIcon helpKey="security.password" /></h3>
+  <h2 style="margin-top:0">{t('admin.security.title', 'Seguridad')}</h2>
+  <h3>{t('admin.security.changePassword', 'Cambiar contraseña')} <HelpIcon helpKey="security.password" /></h3>
   <form @submit.prevent="changePassword()" style="max-width:400px">
-    <FormGroup {...kit} labelFallback="Contraseña actual">
+    <FormGroup {...kit} labelKey="admin.security.currentPassword" labelFallback="Contraseña actual">
       <input type="password" x-model="pwForm.current" required autocomplete="current-password" />
     </FormGroup>
-    <FormGroup {...kit} labelFallback="Nueva contraseña (mín 8)">
+    <FormGroup {...kit} labelKey="admin.security.newPassword" labelFallback="Nueva contraseña (mín 8)">
       <input type="password" x-model="pwForm.next" required minlength="8" autocomplete="new-password" />
     </FormGroup>
-    <FormGroup {...kit} labelFallback="Confirmar">
+    <FormGroup {...kit} labelKey="admin.security.confirmPassword" labelFallback="Confirmar">
       <input type="password" x-model="pwForm.confirm" required minlength="8" autocomplete="new-password" />
     </FormGroup>
-    <button type="submit" class="btn btn-primary">Cambiar</button>
+    <button type="submit" class="btn btn-primary">{t('admin.security.change', 'Cambiar')}</button>
   </form>
 
-  <h3 style="margin-top:2rem">CSRF Token <HelpIcon helpKey="security.csrf" /></h3>
-  <p style="color:var(--text-subtle);font-size:0.85rem">Este token se rota automáticamente al cambiar la contraseña.</p>
+  <h3 style="margin-top:2rem">{t('admin.security.csrfToken', 'CSRF Token')} <HelpIcon helpKey="security.csrf" /></h3>
+  <p style="color:var(--text-subtle);font-size:0.85rem">{t('admin.security.csrfHint', 'Este token se rota automáticamente al cambiar la contraseña.')}</p>
   <code style="display:inline-block;padding:0.4rem 0.7rem;background:var(--surface-hover);border-radius:4px;font-size:0.8rem;word-break:break-all" x-text="csrfToken || '-'"></code>
 
   <!-- MULTI-USER (opt-in: features.multiUser) — sólo si la feature está activa. -->
   <template x-if="multiUserEnabled">
     <div class="multi-user-section">
-      <h3 style="margin-top:2rem">Usuarios <HelpIcon helpKey="security.multiUser" /></h3>
+      <h3 style="margin-top:2rem">{t('admin.security.users', 'Usuarios')} <HelpIcon helpKey="security.multiUser" /></h3>
       <p style="color:var(--text-subtle);font-size:0.85rem;margin-bottom:0.75rem" x-html="multiUserIntro()">
-        Crea usuarios con roles (admin/editor/viewer) y login con username. El password unico sigue siendo valido como rescue path.
+        {t('admin.users.intro', 'Crea usuarios con roles (admin/editor/viewer) y login con username. El password unico sigue siendo valido como rescue path.')}
       </p>
 
       <div class="form-group" style="max-width:600px">
-        <label>Modo de acceso <HelpIcon helpKey="security.accessMode" /></label>
+        <label>{t('admin.security.accessMode', 'Modo de acceso')} <HelpIcon helpKey="security.accessMode" /></label>
         <div style="display:flex;gap:1rem;font-size:0.85rem;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
             <input type="radio" name="accessMode" value="password-only" :checked="cfg.auth.singlePasswordEnabled && (!cfg.auth.users || cfg.auth.users.length === 0)" @change="cfg.auth.singlePasswordEnabled = true; if (cfg.auth.users &amp;&amp; cfg.auth.users.length > 0) { cfg.auth.users = []; }" />
-            Solo password unico
+            {t('admin.security.accessMode.passwordOnly', 'Solo password unico')}
           </label>
           <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
             <input type="radio" name="accessMode" value="both" :checked="cfg.auth.singlePasswordEnabled &amp;&amp; cfg.auth.users &amp;&amp; cfg.auth.users.length > 0" @change="cfg.auth.singlePasswordEnabled = true" />
-            Password + usuarios
+            {t('admin.security.accessMode.both', 'Password + usuarios')}
           </label>
           <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
-            <input type="radio" name="accessMode" value="users-only" :checked="!cfg.auth.singlePasswordEnabled" @change="if (!cfg.auth.users || cfg.auth.users.length === 0) { alert('Necesitas crear al menos un user antes de deshabilitar el password unico.'); } else { cfg.auth.singlePasswordEnabled = false; }" />
-            Solo usuarios
+            <input type="radio" name="accessMode" value="users-only" :checked="!cfg.auth.singlePasswordEnabled" @change={`if (!cfg.auth.users || cfg.auth.users.length === 0) { alert(${q(t('admin.msg.users.accessModeNeedUser', 'Necesitas crear al menos un user antes de deshabilitar el password unico.'))}); } else { cfg.auth.singlePasswordEnabled = false; }`} />
+            {t('admin.security.accessMode.usersOnly', 'Solo usuarios')}
           </label>
         </div>
-        <small style="color:var(--text-faint);font-size:0.72rem" x-text="accessModeHelp()">Si no hay users, el server rechaza guardar este modo.</small>
+        <small style="color:var(--text-faint);font-size:0.72rem" x-text="accessModeHelp()">{t('admin.security.accessModeHint', 'Si no hay users, el server rechaza guardar este modo.')}</small>
       </div>
 
       <div class="users-list" style="margin-top:0.5rem">
@@ -70,7 +72,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
                 <template x-if="totpEnabled">
                   <span style="margin-left:0.3rem">
                     <span x-show="u.totpSecret" class="user-role-badge" style="background:#065f46;color:#34d399">2FA ON</span>
-                    <span x-show="!u.totpSecret" class="user-role-badge" style="background:var(--surface-strong);color:var(--text-subtle)">Sin 2FA</span>
+                    <span x-show="!u.totpSecret" class="user-role-badge" style="background:var(--surface-strong);color:var(--text-subtle)">{t('admin.security.no2fa', 'Sin 2FA')}</span>
                   </span>
                 </template>
               </div>
@@ -78,42 +80,42 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             <div style="display:flex;gap:0.3rem;flex-shrink:0;align-items:center">
               <template x-if="totpEnabled">
                 <span>
-                  <button type="button" class="btn btn-sm btn-ghost" x-show="!u.totpSecret" @click="openTotpSetup(u)" title="Activar 2FA">+ 2FA</button>
-                  <button type="button" class="btn btn-sm btn-ghost" x-show="u.totpSecret" @click="disableTotp(u)" title="Desactivar 2FA">Quitar 2FA</button>
+                  <button type="button" class="btn btn-sm btn-ghost" x-show="!u.totpSecret" @click="openTotpSetup(u)" title={t('admin.security.enable2fa', 'Activar 2FA')}>+ 2FA</button>
+                  <button type="button" class="btn btn-sm btn-ghost" x-show="u.totpSecret" @click="disableTotp(u)" title={t('admin.security.disable2fa', 'Desactivar 2FA')}>{t('admin.security.remove2fa', 'Quitar 2FA')}</button>
                 </span>
               </template>
-              <button type="button" class="btn btn-sm btn-ghost" @click="cycleUserRole(u)" :title="u.role === 'admin' ? 'Degradar a editor' : 'Promover a admin'">
+              <button type="button" class="btn btn-sm btn-ghost" @click="cycleUserRole(u)" :title={`u.role === 'admin' ? ${q(t('admin.security.demote', 'Degradar a editor'))} : ${q(t('admin.security.promote', 'Promover a admin'))}`}>
                 <span x-text="u.role === 'admin' ? '-&gt; editor' : '-&gt; admin'"></span>
               </button>
-              <button type="button" class="btn btn-sm btn-ghost" @click="resetUserPasswordPrompt(u)" title="Resetear password">Reset</button>
-              <button type="button" class="btn btn-sm btn-ghost" @click="removeUser(u.id)" title="Borrar user">×</button>
+              <button type="button" class="btn btn-sm btn-ghost" @click="resetUserPasswordPrompt(u)" title={t('admin.security.resetPassword', 'Resetear password')}>{t('admin.security.reset', 'Reset')}</button>
+              <button type="button" class="btn btn-sm btn-ghost" @click="removeUser(u.id)" title={t('admin.security.deleteUser', 'Borrar user')}>×</button>
             </div>
           </div>
         </template>
         <p x-show="!cfg.auth.users || cfg.auth.users.length === 0" class="muted" style="padding:0.5rem 0">
-          No hay usuarios. Agrega el primero abajo.
+          {t('admin.security.usersEmpty', 'No hay usuarios. Agrega el primero abajo.')}
         </p>
       </div>
 
       <details style="margin-top:0.75rem">
-        <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.85rem">+ Agregar usuario</summary>
+        <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.85rem">{t('admin.security.addUserSummary', '+ Agregar usuario')}</summary>
         <div class="form-row" style="margin-top:0.5rem">
           <div class="form-group" style="flex:1">
-            <label>Username (kebab-case)</label>
+            <label>{t('admin.security.username', 'Username (kebab-case)')}</label>
             <input type="text" x-model="newUser.username" placeholder="alice-bob" maxlength="40" pattern="[a-z0-9_-]+" />
           </div>
           <div class="form-group" style="flex:1">
-            <label>Display name (opcional)</label>
+            <label>{t('admin.security.displayName', 'Display name (opcional)')}</label>
             <input type="text" x-model="newUser.displayName" placeholder="Alice Bob" maxlength="80" />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group" style="flex:1">
-            <label>Password (min 8)</label>
+            <label>{t('admin.security.userPassword', 'Password (min 8)')}</label>
             <input type="password" x-model="newUser.password" minlength="8" autocomplete="new-password" />
           </div>
           <div class="form-group" style="width:140px">
-            <label>Rol</label>
+            <label>{t('admin.security.role', 'Rol')}</label>
             <select x-model="newUser.role">
               <option value="admin">admin</option>
               <option value="editor">editor</option>
@@ -121,7 +123,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             </select>
           </div>
         </div>
-        <button type="button" class="btn btn-primary" @click="addUser()" style="margin-top:0.5rem">Agregar usuario</button>
+        <button type="button" class="btn btn-primary" @click="addUser()" style="margin-top:0.5rem">{t('admin.security.addUser', 'Agregar usuario')}</button>
       </details>
     </div>
   </template>
