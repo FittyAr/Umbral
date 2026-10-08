@@ -7,7 +7,7 @@ import HelpIcon from './HelpIcon.astro';
  * `style` inline y su propio hex para el color del texto — que era el token
  * `--text-subtle` transcripto.
  *
- * La bajada puede venir por `introExpr` (x-html, para el texto traducido con
+ * La bajada puede venir por `introExpr` (x-trusted-html, para el texto traducido con
  * markup) o por el slot `intro` cuando el contenido es estático.
  */
 interface Props {
@@ -18,7 +18,7 @@ interface Props {
   /** Expresión Alpine para `x-text` del título, ej: `webhooksTitle()`. */
   titleExpr?: string;
   helpKey?: string;
-  /** Expresión Alpine para `x-html` de la bajada, ej: `webhooksIntro()`. */
+  /** Expresión Alpine para `x-trusted-html` de la bajada, ej: `webhooksIntro()`. */
   introExpr?: string;
 }
 
@@ -35,7 +35,7 @@ const hasIntro = Astro.slots.has('intro');
 </h2>
 {
   (hasIntro || introExpr) && (
-    <p class="panel-intro" x-html={introExpr}>
+    <p class="panel-intro" x-trusted-html={introExpr}>
       <slot name="intro" />
     </p>
   )

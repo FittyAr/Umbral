@@ -87,21 +87,25 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
         </div>
       )}
 
-      <p id="login-error" class="error" hidden>{errorLabel}</p>
+      <p id="login-error" class="error" hidden data-error-label={errorLabel} data-error-fallback="Error de red">{errorLabel}</p>
     </div>
   </div>
 
-  <script is:inline define:vars={{ errorLabel, errorFallback: 'Error de red' }}>
-    const form = document.getElementById('login-form');
-    const totpForm = document.getElementById('totp-form');
+  <script>
+    // Módulo (no inline) para que la CSP no necesite 'unsafe-inline'. Los
+    // textos de error llegan en data-* del <p id="login-error">.
+    const form = document.getElementById('login-form') as HTMLFormElement | null;
+    const totpForm = document.getElementById('totp-form') as HTMLFormElement | null;
     const totpCancel = document.getElementById('totp-cancel');
-    const err = document.getElementById('login-error');
-    let currentPartialToken = null;
+    const err = document.getElementById('login-error') as HTMLElement;
+    const errorLabel = err.dataset.errorLabel || '';
+    const errorFallback = err.dataset.errorFallback || '';
+    let currentPartialToken: string | null = null;
 
     totpCancel?.addEventListener('click', () => {
       currentPartialToken = null;
-      totpForm.style.display = 'none';
-      form.style.display = 'block';
+      if (totpForm) totpForm.style.display = 'none';
+      if (form) form.style.display = 'block';
       err.hidden = true;
     });
 
@@ -111,7 +115,7 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
       const fd = new FormData(form);
       const username = fd.get('username')?.toString().trim();
       const password = fd.get('password');
-      const payload = { password };
+      const payload: Record<string, unknown> = { password };
       if (username) payload.username = username;
 
       try {
@@ -129,13 +133,13 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
         if (data.requiresTotp && data.partialToken) {
           currentPartialToken = data.partialToken;
           form.style.display = 'none';
-          totpForm.style.display = 'block';
+          if (totpForm) totpForm.style.display = 'block';
           document.getElementById('totpCode')?.focus();
           return;
         }
         const base = window.__BASE_URL__ || '/';
         window.location.href = base + 'admin/dashboard';
-      } catch (e) {
+      } catch {
         err.textContent = errorFallback;
         err.hidden = false;
       }
@@ -144,7 +148,7 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
     totpForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       err.hidden = true;
-      const code = document.getElementById('totpCode')?.value?.trim();
+      const code = (document.getElementById('totpCode') as HTMLInputElement | null)?.value?.trim();
       if (!code || !currentPartialToken) return;
 
       try {
@@ -161,7 +165,7 @@ const oidcProviders = (oidcOn && config.oidc?.providers) ? config.oidc.providers
         }
         const base = window.__BASE_URL__ || '/';
         window.location.href = base + 'admin/dashboard';
-      } catch (e) {
+      } catch {
         err.textContent = errorFallback;
         err.hidden = false;
       }

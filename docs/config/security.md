@@ -73,7 +73,7 @@ Todos los fetch salientes (autocompletar de tarjetas, `upload-from-url`, `/api/s
 
 ### 7. Cabeceras HTTP y Content Security Policy (CSP)
 Umbral emite cabeceras de seguridad configurables en cada respuesta HTML y en los recursos públicos:
-- **`Content-Security-Policy` (CSP):** default `default-src 'self'` con `'unsafe-inline'`/`'unsafe-eval'` en `script-src` (Alpine.js los necesita). Con `theme.useGoogleFonts` activo, se agregan `https://fonts.googleapis.com` a `style-src` y `https://fonts.gstatic.com` a `font-src`.
+- **`Content-Security-Policy` (CSP):** default `default-src 'self'` con `script-src 'self'`, sin `'unsafe-inline'` ni `'unsafe-eval'`: el panel usa el build CSP de Alpine.js y los datos del server viajan en `<script type="application/json">`, que no se ejecuta. `style-src` mantiene `'unsafe-inline'` (estilos del tema). Un config con el default anterior se migra solo al cargar; una CSP personalizada no se toca. Con `theme.useGoogleFonts` activo, se agregan `https://fonts.googleapis.com` a `style-src` y `https://fonts.gstatic.com` a `font-src`.
 - **`Strict-Transport-Security` (HSTS):** `auto` / `always` / `never`, con `max-age`, `includeSubDomains` y `preload` configurables.
 - **`X-Frame-Options`**, **`Referrer-Policy`** y **`Permissions-Policy`** configurables.
 

@@ -1,5 +1,24 @@
 import { z } from 'zod';
 
+/**
+ * CSP por defecto. Sin orígenes remotos: el render por defecto es 100%
+ * local. Quien active `theme.useGoogleFonts` no tiene que tocarla: el
+ * middleware suma fonts.googleapis.com y fonts.gstatic.com (withGoogleFonts).
+ */
+export const DEFAULT_CSP =
+  "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+
+/**
+ * Defaults de versiones anteriores, con 'unsafe-inline' y 'unsafe-eval' en
+ * script-src (Alpine evaluaba strings y había scripts inline). Un config que
+ * todavía tiene uno de estos exactos se migra a DEFAULT_CSP al cargar; una
+ * CSP personalizada no se toca.
+ */
+export const LEGACY_DEFAULT_CSPS: readonly string[] = [
+  "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
+  "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
+];
+
 // ──────────────────────────────────────────────────────────────────────────
 // Security (editables desde /admin → Hardening)
 //
@@ -85,23 +104,11 @@ export const HeadersSecuritySchema = z.object({
   // Content-Security-Policy. null = no se envía el header (permisivo).
   // Endurecer: dejar el default sugerido.
   //
-  // Nota sobre 'unsafe-eval' en script-src: Alpine.js 3 evalúa expresiones
-  // del estilo x-data, x-show, x-text, etc. con `new Function(...)` /
-  // `new AsyncFunction(...)`. Sin 'unsafe-eval' en la CSP, la consola se
-  // inunda de "EvalError: Evaluating a string as JavaScript violates…".
-  // Para endurecer realmente: usar el build CSP de Alpine (cambia import)
-  // o nonces por request. Por defecto dejamos 'unsafe-eval' para que la app
-  // "simplemente funcione" — quien quiera quitarlo sabe lo que hace.
-  csp: z
-    .string()
-    .nullable()
-    .default(
-      // Sin orígenes remotos: el render por defecto es 100% local. Quien active
-      // `theme.useGoogleFonts` tiene que agregar fonts.googleapis.com a
-      // style-src y fonts.gstatic.com a font-src. Debe coincidir con el
-      // default de `src/lib/config.ts`.
-      "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
-    ),
+  // Sin 'unsafe-inline' ni 'unsafe-eval' en script-src: el panel usa el
+  // build CSP de Alpine (las expresiones se interpretan sin `new Function`)
+  // y no hay scripts inline; los datos del server viajan en
+  // <script type="application/json">, que el navegador no ejecuta.
+  csp: z.string().nullable().default(DEFAULT_CSP),
   // X-Frame-Options. DENY por default (anti clickjacking).
   xFrameOptions: z.enum(['DENY', 'SAMEORIGIN', 'NONE']).default('DENY'),
   // Referrer-Policy. 'no-referrer' por default.

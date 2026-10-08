@@ -31,13 +31,13 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
         x-model="presetFilter"
         placeholder={t('admin.presets.searchPlaceholder', 'Buscar app (Grafana, Ollama, Nextcloud, GitLab...)')}
         style="width:100%"
-        x-init="$nextTick(() => $el.focus())"
+        x-init="focusLater($el)"
       />
       <button
         type="button"
         class="btn btn-sm btn-ghost"
         x-show="presetFilter || presetCategoryFilter"
-        @click="presetFilter=''; presetCategoryFilter=''"
+        @click="clearPresetFilters()"
         style="white-space:nowrap"
         x-cloak
       >
@@ -87,7 +87,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
             </template>
           </div>
           <strong style="font-size:0.9rem;flex:1" x-text="p.name"></strong>
-          <span class="color-dot" :style="`background:${p.color}`"></span>
+          <span class="color-dot" :style="{ background: p.color }"></span>
         </div>
         <div style="font-size:0.75rem;color:var(--text-subtle);line-height:1.3;flex:1" x-text="p.description"></div>
         <div style="margin-top:0.4rem;font-size:0.7rem;color:var(--text-faint);background:rgba(255,255,255,0.05);padding:0.1rem 0.4rem;border-radius:4px" x-text="p.defaultCategoryName || p.category"></div>

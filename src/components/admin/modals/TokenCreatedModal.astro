@@ -37,7 +37,7 @@ const kit = { useI18n, tr };
       <button
         type="button"
         class="btn btn-primary"
-        @click={`navigator.clipboard.writeText(generatedTokenPlain); window.umbralAdmin.toast(${q(t('admin.tokenModal.copied', 'Token copiado al portapapeles'))}, 'info')`}
+        @click={`copyGeneratedToken(${q(t('admin.tokenModal.copied', 'Token copiado al portapapeles'))})`}
       >{t('admin.tokenModal.copy', 'Copiar')}</button>
     </div>
   </FormGroup>

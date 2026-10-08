@@ -1,4 +1,5 @@
 ---
+import JsonData from '~/components/JsonData.astro';
 import FormGroup from '../ui/FormGroup.astro';
 import HelpIcon from '../ui/HelpIcon.astro';
 import { TOKEN_KEY_MAP, TOKEN_CATEGORIES } from '~/lib/theme-tokens';
@@ -49,11 +50,11 @@ const categories = TOKEN_CATEGORIES;
 
 <div class="form-row" style="margin-bottom:0.75rem">
   <div class="form-group">
-    <label><span x-text="themeRadiusLabel()">{t('admin.theme.advanced.radius', 'Radio base')}</span> (<span x-text="cfg?.theme?.tokens?.shared?.radius ?? 10"></span>px)</label>
-    <input type="range" min="0" max="24" :value="cfg?.theme?.tokens?.shared?.radius ?? 10" @input="setSharedToken('radius', +$event.target.value)" />
+    <label><span x-text="themeRadiusLabel()">{t('admin.theme.advanced.radius', 'Radio base')}</span> (<span x-text="sharedToken('radius', 10)"></span>px)</label>
+    <input type="range" min="0" max="24" :value="sharedToken('radius', 10)" @input="setSharedToken('radius', +$event.target.value)" />
   </div>
   <FormGroup {...kit} labelExpr="themeShadowIntensityLabel()" labelKey="admin.theme.advanced.shadowIntensity" labelFallback="Intensidad sombras" helpKey="theme.advanced.shadowIntensity">
-    <select :value="cfg.theme.tokens?.shared?.shadowIntensity ?? 'normal'" @change="setSharedToken('shadowIntensity', $event.target.value)">
+    <select :value="sharedToken('shadowIntensity', 'normal')" @change="setSharedToken('shadowIntensity', $event.target.value)">
       <option value="none">{t('admin.theme.advanced.shadowNone', 'Ninguna')}</option>
       <option value="subtle">{t('admin.theme.advanced.shadowSubtle', 'Sutil')}</option>
       <option value="normal">{t('admin.theme.advanced.shadowNormal', 'Normal')}</option>
@@ -65,7 +66,7 @@ const categories = TOKEN_CATEGORIES;
 <div class="theme-token-list">
   <template x-for="key in themeFilteredTokenKeys()" :key="key">
     <div class="theme-token-row">
-      <label x-text="'--' + key.replace(/([A-Z])/g, '-$1').toLowerCase()"></label>
+      <label x-text="tokenCssVar(key)"></label>
       <input type="color" class="color-swatch" :value="tokenColorInput(key)" @input="setModeToken(key, $event.target.value)" />
       <input type="text" :value="getModeToken(key)" @input="setModeToken(key, $event.target.value)" placeholder="(default)" />
     </div>
@@ -82,7 +83,6 @@ const categories = TOKEN_CATEGORIES;
   <HelpIcon helpKey="theme.advanced.exportImport" />
 </div>
 
-<script define:vars={{ tokenKeys, categories }}>
-  window.__themeTokenKeys = tokenKeys;
-  window.__themeTokenCategories = categories;
-</script>
+{/* Los lee src/scripts/admin/boot-data.ts (window.__themeTokenKeys/Categories). */}
+<JsonData id="admin-theme-token-keys" data={tokenKeys} />
+<JsonData id="admin-theme-token-categories" data={categories} />

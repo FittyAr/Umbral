@@ -25,30 +25,30 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <label for="portal-default">{t('admin.portals.defaultPortal', 'Portal para pedidos sin match')}</label>
       <select id="portal-default" x-model="cfg.portals.defaultPortal" @change="markDirty()">
         <option value="default">default</option>
-        <template x-for="p in (cfg?.portals?.items || [])" :key="p.id">
+        <template x-for="p in cfgList('portals')" :key="p.id">
           <option :value="p.id" x-text="p.name || p.id"></option>
         </template>
       </select>
     </div>
 
-    <template x-for="(p, idx) in (cfg?.portals?.items || [])" :key="p.id">
+    <template x-for="(p, idx) in cfgList('portals')" :key="p.id">
       <div class="webhook-item">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
           <div style="flex:1;min-width:0">
             <div style="font-weight:600" x-text="p.name || p.id"></div>
             <div style="font-size:0.78rem;color:var(--text-subtle);font-family:ui-monospace,Menlo,Consolas,monospace">
-              <span x-text="`id: ${p.id} · Host: ${p.host || '*'} · Prefix: ${p.pathPrefix || '/'}`"></span>
+              <span x-text="'id: ' + p.id + ' · Host: ' + (p.host || '*') + ' · Prefix: ' + (p.pathPrefix || '/')"></span>
             </div>
           </div>
           <div style="display:flex;gap:0.4rem;flex-shrink:0">
             <a class="btn btn-sm btn-ghost" :href="portalEditUrl(p.id)">{t('admin.portals.edit', 'Editar portada')}</a>
             <a class="btn btn-sm btn-ghost" :href="portalPublicUrl(p)" target="_blank" rel="noopener noreferrer">{t('admin.portals.view', 'Ver')}</a>
-            <button type="button" class="btn btn-sm btn-ghost" @click="removePortal(idx)" :aria-label="`${l('msgPortalRemove')} ${p.id}`">×</button>
+            <button type="button" class="btn btn-sm btn-ghost" @click="removePortal(idx)" :aria-label="l('msgPortalRemove') + ' ' + p.id">×</button>
           </div>
         </div>
       </div>
     </template>
-    <p x-show="!cfg?.portals?.items || cfg.portals.items.length === 0" class="muted" style="padding:0.5rem 0">
+    <p x-show="cfgList('portals').length === 0" class="muted" style="padding:0.5rem 0">
       {t('admin.portals.empty', 'No hay portales adicionales configurados.')}
     </p>
   </div>

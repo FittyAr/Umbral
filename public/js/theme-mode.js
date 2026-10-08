@@ -1,0 +1,162 @@
+/**
+ * Modo claro/oscuro, búsqueda y atajos de teclado de la portada (y el toggle
+ * de modo del panel).
+ *
+ * La configuración llega en <script type="application/json"
+ * id="umbral-theme-mode"> (ver ThemeScript.astro). Script clásico y
+ * sincrónico, igual que el inline que reemplaza: el modo se aplica antes del
+ * primer paint para que no haya flash. Externo para que la CSP no necesite
+ * 'unsafe-inline' en script-src.
+ */
+(function () {
+  var cfg = {};
+  try {
+    var dataEl = document.getElementById('umbral-theme-mode');
+    cfg = JSON.parse((dataEl && dataEl.textContent) || '{}') || {};
+  } catch (e) {
+    cfg = {};
+  }
+  var theme = cfg.theme || {};
+  var labelToLight = cfg.labelToLight || '';
+  var labelToDark = cfg.labelToDark || '';
+  var previewBannerText = cfg.previewBannerText || '';
+
+  // Color mode: apply on first paint, before body renders, to avoid flash.
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    const isPreview = params.get('themePreview') === '1';
+
+    function resolveAutoMode(themeCfg) {
+      const strategy = themeCfg.autoStrategy || 'system';
+      if (strategy === 'schedule') {
+        const h = new Date().getHours();
+        return (h >= 7 && h < 19) ? 'light' : 'dark';
+      }
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light';
+      }
+      return 'dark';
+    }
+
+    // Minimal first-paint apply for preview tab (full apply in module script).
+    if (isPreview) {
+      try {
+        const draft = localStorage.getItem('umbral-theme-preview');
+        if (draft) {
+          const t = JSON.parse(draft);
+          document.documentElement.setAttribute('data-theme-preview', '1');
+          document.documentElement.style.background = 'transparent';
+          if (document.body) document.body.style.background = 'transparent';
+          if (t.accentColor) document.documentElement.style.setProperty('--accent', t.accentColor);
+          if (t.textColor) document.documentElement.style.setProperty('--text', t.textColor);
+          if (t.fontFamily) {
+            document.documentElement.style.setProperty('--font', "'" + t.fontFamily + "', system-ui, sans-serif");
+          }
+          const previewMode = t._previewMode;
+          let actual;
+          if (previewMode === 'light' || previewMode === 'dark') {
+            actual = previewMode;
+          } else if (t.colorMode === 'light' || t.colorMode === 'dark') {
+            actual = t.colorMode;
+          } else {
+            actual = resolveAutoMode(t);
+          }
+          document.documentElement.setAttribute('data-mode', actual);
+          if (t.background && t.background.value) {
+            const bg = t.background;
+            const blur = bg.blur > 0 ? 'filter:blur(' + bg.blur + 'px);' : '';
+            const bgCss = bg.type === 'image'
+              ? "background-image:url('" + bg.value + "');background-size:cover;background-position:center;" + blur
+              : 'background:' + bg.value + ';' + blur;
+            var darkLayer = document.querySelector('.bg-layer[data-bg-mode="dark"]') || document.querySelector('.bg-layer:not([data-bg-mode])');
+            if (darkLayer) {
+              darkLayer.setAttribute('data-bg-mode', 'dark');
+              darkLayer.setAttribute('style', bgCss);
+            }
+            var bgLight = t.backgroundLight || t.background;
+            if (bgLight && bgLight.value) {
+              var lightLayer = document.querySelector('.bg-layer[data-bg-mode="light"]');
+              if (!lightLayer && darkLayer && darkLayer.parentNode) {
+                lightLayer = document.createElement('div');
+                lightLayer.className = 'bg-layer';
+                lightLayer.setAttribute('data-bg-mode', 'light');
+                darkLayer.parentNode.appendChild(lightLayer);
+              }
+              if (lightLayer) {
+                var blurL = bgLight.blur > 0 ? 'filter:blur(' + bgLight.blur + 'px);' : '';
+                var bgCssL = bgLight.type === 'image'
+                  ? "background-image:url('" + bgLight.value + "');background-size:cover;background-position:center;" + blurL
+                  : 'background:' + bgLight.value + ';' + blurL;
+                lightLayer.setAttribute('style', bgCssL);
+              }
+            }
+          }
+        }
+      } catch (e) { /* invalid draft */ }
+      return;
+    }
+
+    const stored = localStorage.getItem('umbral-color-mode');
+    const mode = stored || theme.colorMode || 'auto';
+    let actual = mode;
+    if (mode === 'auto') actual = resolveAutoMode(theme);
+    document.documentElement.setAttribute('data-mode', actual);
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('themePreview') === '1') {
+      const banner = document.createElement('div');
+      banner.className = 'theme-preview-banner';
+      banner.textContent = previewBannerText;
+      document.body.appendChild(banner);
+    }
+
+    const search = document.getElementById('search-input');
+    if (search) {
+      const cards = document.querySelectorAll('.card');
+      search.addEventListener('input', function () {
+        const q = (search.value || '').toLowerCase().trim();
+        cards.forEach(function (c) {
+          const lockedSec = c.closest('.category-section[data-is-locked="true"]:not([data-unlocked="true"])');
+          if (lockedSec) {
+            c.classList.add('hidden-by-filter');
+            return;
+          }
+          const tags = (c.getAttribute('data-tags') || '').toLowerCase();
+          const text = (c.textContent + ' ' + tags).toLowerCase();
+          c.classList.toggle('hidden-by-filter', q.length > 0 && text.indexOf(q) === -1);
+        });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === '/' && document.activeElement !== search) {
+          e.preventDefault();
+          search.focus();
+        }
+        if (e.key === 'Escape' && document.activeElement === search) {
+          search.value = '';
+          search.dispatchEvent(new Event('input'));
+          search.blur();
+        }
+      });
+    }
+
+    const toggle = document.querySelector('[data-action="toggle-mode"]');
+    if (toggle) {
+      // aria-pressed = "hay modo claro activo", para que un lector de pantalla
+      // sepa en qué estado está el botón y no sólo qué hace al apretarlo.
+      var syncToggle = function (mode) {
+        toggle.setAttribute('aria-label', mode === 'dark' ? labelToLight : labelToDark);
+        toggle.setAttribute('aria-pressed', mode === 'light' ? 'true' : 'false');
+      };
+      syncToggle(document.documentElement.getAttribute('data-mode') || 'dark');
+      toggle.addEventListener('click', function () {
+        const current = document.documentElement.getAttribute('data-mode') || 'dark';
+        const next = current === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('umbral-color-mode', next);
+        document.documentElement.setAttribute('data-mode', next);
+        syncToggle(next);
+      });
+    }
+  });
+})();

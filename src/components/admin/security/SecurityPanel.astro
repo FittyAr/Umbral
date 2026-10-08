@@ -37,7 +37,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   <template x-if="multiUserEnabled">
     <div class="multi-user-section">
       <h3 style="margin-top:2rem">{t('admin.security.users', 'Usuarios')} <HelpIcon helpKey="security.multiUser" /></h3>
-      <p style="color:var(--text-subtle);font-size:0.85rem;margin-bottom:0.75rem" x-html="multiUserIntro()">
+      <p style="color:var(--text-subtle);font-size:0.85rem;margin-bottom:0.75rem" x-trusted-html="multiUserIntro()">
         {t('admin.users.intro', 'Crea usuarios con roles (admin/editor/viewer) y login con username. El password unico sigue siendo valido como rescue path.')}
       </p>
 
@@ -45,7 +45,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
         <label>{t('admin.security.accessMode', 'Modo de acceso')} <HelpIcon helpKey="security.accessMode" /></label>
         <div style="display:flex;gap:1rem;font-size:0.85rem;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
-            <input type="radio" name="accessMode" value="password-only" :checked="cfg.auth.singlePasswordEnabled && (!cfg.auth.users || cfg.auth.users.length === 0)" @change="cfg.auth.singlePasswordEnabled = true; if (cfg.auth.users &amp;&amp; cfg.auth.users.length > 0) { cfg.auth.users = []; }" />
+            <input type="radio" name="accessMode" value="password-only" :checked="cfg.auth.singlePasswordEnabled && (!cfg.auth.users || cfg.auth.users.length === 0)" @change="setAccessModePasswordOnly()" />
             {t('admin.security.accessMode.passwordOnly', 'Solo password unico')}
           </label>
           <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
@@ -53,7 +53,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
             {t('admin.security.accessMode.both', 'Password + usuarios')}
           </label>
           <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer">
-            <input type="radio" name="accessMode" value="users-only" :checked="!cfg.auth.singlePasswordEnabled" @change={`if (!cfg.auth.users || cfg.auth.users.length === 0) { alert(${q(t('admin.msg.users.accessModeNeedUser', 'Necesitas crear al menos un user antes de deshabilitar el password unico.'))}); } else { cfg.auth.singlePasswordEnabled = false; }`} />
+            <input type="radio" name="accessMode" value="users-only" :checked="!cfg.auth.singlePasswordEnabled" @change={`setAccessModeUsersOnly(${q(t('admin.msg.users.accessModeNeedUser', 'Necesitas crear al menos un user antes de deshabilitar el password unico.'))})`} />
             {t('admin.security.accessMode.usersOnly', 'Solo usuarios')}
           </label>
         </div>

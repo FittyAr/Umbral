@@ -22,7 +22,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   </PanelHeader>
 
   <div class="maintenance-list">
-    <template x-for="(mw, idx) in (cfg?.maintenanceWindows?.items || [])" :key="mw.id">
+    <template x-for="(mw, idx) in cfgList('maintenanceWindows')" :key="mw.id">
       <div class="maintenance-item" :class="isMaintenanceActive(mw) && 'maintenance-active'">
         <div style="flex:1;min-width:0">
           <div style="font-weight:600" x-text={`mw.reason || ${q(t('admin.maintenance.noReason', '(sin razón)'))}`}></div>
@@ -32,7 +32,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
           </div>
           <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
             {t('admin.maintenance.cards', 'Cards:')} <span x-text="mw.cardIds.join(', ')"></span>
-            <span :style="`color: ${mw.enabled ? 'var(--status-ok)' : 'var(--text-subtle)'}`" x-text={`' · ' + (mw.enabled ? ${q(t('admin.maintenance.statusActive', 'activa'))} : ${q(t('admin.maintenance.statusDisabled', 'deshabilitada'))})`}></span>
+            <span :style="{ color: mw.enabled ? 'var(--status-ok)' : 'var(--text-subtle)' }" x-text={`' · ' + (mw.enabled ? ${q(t('admin.maintenance.statusActive', 'activa'))} : ${q(t('admin.maintenance.statusDisabled', 'deshabilitada'))})`}></span>
           </div>
         </div>
         <div style="display:flex;gap:0.4rem;flex-shrink:0">
@@ -40,7 +40,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
         </div>
       </div>
     </template>
-    <p x-show="!cfg?.maintenanceWindows?.items || cfg.maintenanceWindows.items.length === 0" class="muted" style="padding:0.5rem 0">
+    <p x-show="cfgList('maintenanceWindows').length === 0" class="muted" style="padding:0.5rem 0">
       {t('admin.maintenance.empty', 'No hay ventanas programadas.')}
     </p>
   </div>
@@ -55,7 +55,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
           <option value="specific">{t('admin.maintenance.specificCards', 'Cards específicas')}</option>
         </select>
         <select x-show="newMaintenance.cardMode === 'specific'" x-model="newMaintenance.cardIds" multiple size="4" style="min-height:5rem">
-          <template x-for="c in cfg?.cards || []" :key="c.id">
+          <template x-for="c in cfg.cards || []" :key="c.id">
             <option :value="c.id" x-text="c.title || c.id"></option>
           </template>
         </select>

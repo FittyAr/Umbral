@@ -7,14 +7,15 @@ import FormGroup from './FormGroup.astro';
  * con strings donde el schema espera números.
  *
  * `model` se bindea con `.number` salvo que pases `expr` + `change`, el caso
- * de los campos derivados (bytes que se editan en KB).
+ * de los campos derivados (bytes que se editan en KB): ahí `expr` va a
+ * `:value` (no es asignable, así que no puede ir a `x-model`).
  */
 interface Props {
   useI18n: boolean;
   tr: (key: string) => string;
   /** Path Alpine, ej: `cfg.security.session.ttlHours`. */
   model?: string;
-  /** Expresión Alpine para `x-model.number` cuando el valor es derivado. */
+  /** Expresión Alpine para `:value` cuando el valor es derivado. */
   expr?: string;
   /** Handler de `@change`, para los campos derivados. */
   change?: string;
@@ -62,7 +63,8 @@ const {
     min={min}
     max={max}
     step={step}
-    x-model.number={model ?? expr}
+    x-model.number={model}
+    :value={model ? undefined : expr}
     @change={change}
   />
   {hint && <small class="field-hint">{hint}</small>}

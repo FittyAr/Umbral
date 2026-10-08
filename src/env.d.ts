@@ -1,6 +1,6 @@
 /// <reference path="../.astro/types.d.ts" />
 
-// Globales que el admin publica desde scripts inline (AdminLayout, dashboard)
+// Globales que publican public/js/boot.js y los módulos del admin
 // y consumen los fragmentos Alpine de src/scripts/admin/*.
 interface Window {
   umbralAdmin: any;
@@ -14,4 +14,11 @@ declare namespace App {
     /** Portal del request (multi-portal); `default` con la feature apagada. */
     portal: import('./lib/multi-portal').ResolvedPortal;
   }
+}
+
+// El build CSP de Alpine no trae tipos propios: expone la misma API que
+// `alpinejs` (tipada por @types/alpinejs).
+declare module '@alpinejs/csp' {
+  import Alpine from 'alpinejs';
+  export default Alpine;
 }

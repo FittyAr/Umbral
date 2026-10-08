@@ -16,7 +16,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   <h2 style="margin-top:0" x-text="tabAdvanced()">{t('admin.tab.advanced', 'Avanzado')}</h2>
 
   <h3 style="margin-top:1.5rem;display:flex;align-items:center;gap:0.35rem"><span x-text="featuresTitle()">{t('admin.features.title', 'Features (opt-in)')}</span><HelpIcon helpKey="advanced.features" /></h3>
-  <p style="color:var(--text-subtle);font-size:0.85rem;margin-bottom:1rem" x-html="featuresIntro()">
+  <p style="color:var(--text-subtle);font-size:0.85rem;margin-bottom:1rem" x-trusted-html="featuresIntro()">
     <Fragment set:html={t('admin.features.intro', 'Cada feature nueva arranca <strong>apagada</strong> por default. Si no la activás, ni se ejecuta, ni se carga su dependencia, ni aparece en la UI. Al encender una feature, aparecerá automáticamente su pestaña correspondiente en la barra superior.')} />
   </p>
   <div class="features-grid">
@@ -48,8 +48,8 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
               <select
                 class="input"
                 style="width:auto;padding:0.25rem 0.5rem;font-size:0.8rem"
-                :value="cfg.features?.i18n?.locale || 'es'"
-                @change="if (!cfg.features.i18n) cfg.features.i18n = { enabled: true }; cfg.features.i18n.locale = $event.target.value; dirty = true"
+                :value="defaultLocale()"
+                @change="setDefaultLocale($event.target.value)"
               >
                 {LOCALES.map((loc) => (
                   <option value={loc}>{LOCALE_NAMES[loc]} ({loc})</option>
@@ -94,7 +94,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 
   <h3>{t('admin.advanced.healthcheck', 'Healthcheck')} <HelpIcon helpKey="advanced.healthcheck" /></h3>
   <button class="btn btn-ghost" @click="checkHealth()">{t('admin.advanced.healthTest', 'Probar /api/health')}</button>
-  <pre x-show="healthInfo" x-text="JSON.stringify(healthInfo, null, 2)" style="background:var(--code-bg, #0f172a);color:var(--code-fg, #38bdf8);border:1px solid var(--border);padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
+  <pre x-show="healthInfo" x-text="prettyJson(healthInfo)" style="background:var(--code-bg, #0f172a);color:var(--code-fg, #38bdf8);border:1px solid var(--border);padding:0.75rem;border-radius:6px;margin-top:0.5rem;font-size:0.8rem;overflow:auto" x-cloak></pre>
 
   <h3 style="margin-top:2rem">{t('admin.advanced.reset', 'Reset')} <HelpIcon helpKey="advanced.reset" /></h3>
   <p style="color:var(--text-subtle);font-size:0.85rem">{t('admin.advanced.resetDesc', 'Restaura la configuración a los valores por defecto (mantiene la contraseña y el CSRF).')}</p>

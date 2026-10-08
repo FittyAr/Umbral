@@ -42,10 +42,10 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@alpinejs/csp": "^3.17.4",
     "@astroanimate/core": "^0.1.2",
     "@astrojs/node": "^11.1.7",
     "adm-zip": "^0.6.1",
-    "alpinejs": "^3.14.9",
     "astro": "^7.3.6",
     "bcryptjs": "^2.4.3",
     "dompurify": "^3.4.16",

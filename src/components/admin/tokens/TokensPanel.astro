@@ -21,18 +21,18 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   </PanelHeader>
 
   <div class="api-tokens-list">
-    <template x-for="tok in (cfg?.apiTokens?.items || [])" :key="tok.id">
+    <template x-for="tok in cfgList('apiTokens')" :key="tok.id">
       <div class="webhook-item">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
           <div style="flex:1;min-width:0">
             <div style="font-weight:600" x-text="tok.name"></div>
             <div style="font-size:0.78rem;color:var(--text-subtle);font-family:ui-monospace,Menlo,Consolas,monospace">
-              <span x-text="`•••• •••• •••• ${tok.tokenLast4}`"></span>
+              <span x-text="'•••• •••• •••• ' + tok.tokenLast4"></span>
               <span :class="tok.scope === 'write' ? 'user-role-badge role-admin' : 'user-role-badge role-viewer'" x-text="tok.scope"></span>
             </div>
             <div style="font-size:0.7rem;color:#64748b;margin-top:0.25rem">
-              <span x-text={`${q(t('admin.tokens.created', 'Creado:') + ' ')} + new Date(tok.createdAt).toLocaleDateString()`}></span>
-              <span x-show="tok.expiresAt" x-text={`${q(' · ' + t('admin.tokens.expires', 'Expira:') + ' ')} + new Date(tok.expiresAt).toLocaleDateString()`}></span>
+              <span x-text={`${q(t('admin.tokens.created', 'Creado:') + ' ')} + formatDate(tok.createdAt)`}></span>
+              <span x-show="tok.expiresAt" x-text={`${q(' · ' + t('admin.tokens.expires', 'Expira:') + ' ')} + formatDate(tok.expiresAt)`}></span>
             </div>
           </div>
           <div style="display:flex;gap:0.4rem;flex-shrink:0">
@@ -41,7 +41,7 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
         </div>
       </div>
     </template>
-    <p x-show="!cfg?.apiTokens?.items || cfg.apiTokens.items.length === 0" class="muted" style="padding:0.5rem 0">
+    <p x-show="cfgList('apiTokens').length === 0" class="muted" style="padding:0.5rem 0">
       {t('admin.tokens.empty', 'No hay tokens generados.')}
     </p>
   </div>

@@ -51,11 +51,11 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
                     class="layout-preview-card card-surface"
                     :data-style="cfg.theme.cardStyle"
                     :data-size="cfg.layout.cardSize"
-                    :style="`border-radius:${cfg.layout.cardRadius ?? 12}px`"
+                    :style="{ borderRadius: orDefault(cfg.layout.cardRadius, 12) + 'px' }"
                   >
                     <div
                       class="layout-preview-card-icon"
-                      :style="`background:${cfg.theme.accentColor}22;color:${cfg.theme.accentColor}`"
+                      :style="{ background: cfg.theme.accentColor + '22', color: cfg.theme.accentColor }"
                     ></div>
                     <span class="layout-preview-card-title" x-text="card.title"></span>
                     <p

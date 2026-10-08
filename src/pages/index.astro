@@ -106,13 +106,16 @@ const healthLabels = buildHealthLabels(useI18n, trf);
       <h1 class="header-title">
         {
           animateTitle ? (
-            <TypewriterText
-              texts={[config.branding.companyName]}
-              enhance
-              loop={false}
-              erase={false}
-              showCursor={false}
-            />
+            // Sin `enhance`: el componente emitiría un script inline (lo
+            // bloquea la CSP). Lo anima src/scripts/public/typewriter.ts.
+            <span data-umbral-typewriter>
+              <TypewriterText
+                texts={[config.branding.companyName]}
+                loop={false}
+                erase={false}
+                showCursor={false}
+              />
+            </span>
           ) : (
             config.branding.companyName
           )
@@ -197,7 +200,9 @@ const healthLabels = buildHealthLabels(useI18n, trf);
   // cacheados en vez de repetirse en crudo dentro del HTML de cada página.
   import { initCategoryLocks } from '~/scripts/public/category-lock';
   import { initHealthDots } from '~/scripts/public/health-dots';
+  import { initTypewriters } from '~/scripts/public/typewriter';
 
   initCategoryLocks();
   initHealthDots();
+  initTypewriters();
 </script>

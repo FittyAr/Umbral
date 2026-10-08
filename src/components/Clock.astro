@@ -30,19 +30,21 @@ const intlLocale = useI18n
   : 'es-AR';
 const ariaLabel = useI18n ? tr('home.clock.aria') : 'Hora actual';
 ---
-<time class:list={['clock', className]} datetime="" aria-label={ariaLabel}>
+<time class:list={['clock', className]} datetime="" aria-label={ariaLabel} data-locale={intlLocale} data-hour12={hour12 ? 'true' : 'false'}>
   <span class="clock-time">--:--:--</span>
   <span class="clock-date" aria-hidden="true"></span>
 </time>
 
-<script define:vars={{ intlLocale, hour12 }}>
-  // El locale efectivo llega como var del server. Encapsulado: corre una
-  // vez por page load, vive hasta el siguiente reload.
-  const el = document.querySelector('.clock');
+<script>
+  // El locale efectivo y el formato llegan en data-* del <time> (un script
+  // con define:vars sería inline y la CSP no lo permite). Corre una vez por
+  // page load, vive hasta el siguiente reload.
+  const el = document.querySelector<HTMLElement>('.clock');
   if (el) {
     const timeEl = el.querySelector('.clock-time');
     const dateEl = el.querySelector('.clock-date');
-    const isoEl = el;
+    const intlLocale = el.dataset.locale || 'es-AR';
+    const hour12 = el.dataset.hour12 === 'true';
     const dateFmt = new Intl.DateTimeFormat(intlLocale, {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     });
@@ -53,7 +55,7 @@ const ariaLabel = useI18n ? tr('home.clock.aria') : 'Hora actual';
       const now = new Date();
       if (timeEl) timeEl.textContent = timeFmt.format(now);
       if (dateEl) dateEl.textContent = dateFmt.format(now);
-      isoEl.setAttribute('datetime', now.toISOString());
+      el.setAttribute('datetime', now.toISOString());
     };
     tick();
     setInterval(tick, 1000);

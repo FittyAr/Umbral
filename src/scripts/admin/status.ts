@@ -12,6 +12,10 @@ export function createStatusState(): AdminFragment {
     statusResults: [],
     checkingStatus: false,
     healthInfo: null,
+    /** Título de la card de un resultado de status, o su URL. */
+    statusRowTitle(r: { id: string; url: string }) {
+      return this.cfg.cards.find((c: Card) => c.id === r.id)?.title || r.url;
+    },
     async checkAllStatus() {
       this.checkingStatus = true;
       this.statusResults = [];

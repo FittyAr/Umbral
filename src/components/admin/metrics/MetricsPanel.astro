@@ -64,7 +64,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
               <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border);font-family:ui-monospace,Menlo,Consolas,monospace">
                 <span x-text="formatRelativeTime(row.lastTs)" :class="row.lastOk === false ? 'metric-bad' : (row.lastOk ? 'metric-ok' : 'metric-pending')"></span>
               </td>
-              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-html="row.sparkline"></td>
+              <td style="padding:0.3rem 0.6rem;border-bottom:1px solid var(--border)" x-trusted-html="row.sparkline"></td>
             </tr>
           </template>
           <tr x-show="metricsRows.length === 0">

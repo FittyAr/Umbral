@@ -42,7 +42,7 @@ describe('dependencias del cliente', () => {
     const config = await readFile(path.join(ROOT, 'astro.config.mjs'), 'utf8');
     const noExternal = config.match(/noExternal:\s*\[([^\]]*)\]/)?.[1] ?? '';
 
-    for (const dep of ['sortablejs', 'alpinejs', '@astroanimate/core']) {
+    for (const dep of ['sortablejs', '@alpinejs/csp', '@astroanimate/core']) {
       assert.ok(noExternal.includes(dep), `${dep} deberia estar en ssr.noExternal`);
     }
   });

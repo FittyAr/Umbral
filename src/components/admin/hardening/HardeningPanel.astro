@@ -16,7 +16,7 @@ const kit = { useI18n, tr };
 
 /** Los caps de upload se guardan en bytes pero se editan en KB. */
 const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'maxBytesBackground') => ({
-  expr: `Math.round(cfg.security.uploads.${key} / 1024)`,
+  expr: `bytesToKb(cfg.security.uploads.${key})`,
   change: `cfg.security.uploads.${key} = $event.target.value * 1024`,
 });
 ---
@@ -118,7 +118,7 @@ const kbField = (key: 'maxBytesLogo' | 'maxBytesFavicon' | 'maxBytesIcon' | 'max
     <TextField
       {...kit}
       value="cfg.security.uploads.allowedMimeTypes.join(', ')"
-      change="cfg.security.uploads.allowedMimeTypes = $event.target.value.split(',').map(s => s.trim()).filter(Boolean)"
+      change="setAllowedMimeTypes($event.target.value)"
       labelKey="admin.hardening.uploads.allowedMime" labelFallback="MIME permitidos (coma-separado)"
       helpKey="uploads.allowedMimeTypes"
     />

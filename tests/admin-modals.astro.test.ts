@@ -96,7 +96,7 @@ describe('modales migrados al Modal generico', () => {
 
     expect(html).toContain('class="modal help-modal"');
     expect(html).toMatch(/<h2 id="modal-title-[a-z0-9]+" x-text="currentHelp\(\)\.title">/);
-    expect(html).toContain('x-html="currentHelp().bodyHtml"');
+    expect(html).toContain('x-trusted-html="currentHelp().bodyHtml"');
     expect(html).toContain('class="modal-header"');
     expect(html).toContain('class="modal-footer"');
     expect(html).toContain('Entendido');

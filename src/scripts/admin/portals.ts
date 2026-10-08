@@ -18,6 +18,17 @@ export function createPortalsState(): AdminFragment {
     // Multi-Portal (opt-in: features.multiPortal)
     multiPortalEnabled: window.__featureList?.find?.((f: FeatureListItem) => f.name === 'multiPortal')?.enabled === true,
     newPortal: { id: '', name: '', host: '', pathPrefix: '' },
+    /** Selector de portal del header: recarga el panel con `?portal=`, o
+     *  vuelve el <select> atrás si hay cambios sin guardar y el user cancela. */
+    switchPortal(select: HTMLSelectElement) {
+      if (!this.dirty || confirm(this.l('msgConfirmReloadDirty'))) {
+        const u = new URL(location.href);
+        u.searchParams.set('portal', select.value);
+        location.href = u.toString();
+      } else {
+        select.value = window.__UMBRAL_PORTAL__ || 'default';
+      }
+    },
     addPortal() {
       if (!this.cfg.portals) this.cfg.portals = { defaultPortal: 'default', items: [] };
       if (!Array.isArray(this.cfg.portals.items)) this.cfg.portals.items = [];

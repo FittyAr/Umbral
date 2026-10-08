@@ -87,13 +87,14 @@ describe('NumberField', () => {
     const html = await render(NumberField, {
       props: {
         ...noI18n,
-        expr: 'Math.round(cfg.security.uploads.maxBytesLogo / 1024)',
+        expr: 'bytesToKb(cfg.security.uploads.maxBytesLogo)',
         change: 'cfg.security.uploads.maxBytesLogo = $event.target.value * 1024',
         labelFallback: 'Max logo (KB)',
       },
     });
 
-    expect(html).toContain('x-model.number="Math.round(cfg.security.uploads.maxBytesLogo / 1024)"');
+    expect(html).toContain(':value="bytesToKb(cfg.security.uploads.maxBytesLogo)"');
+    expect(html).not.toContain('x-model');
     expect(html).toContain('@change="cfg.security.uploads.maxBytesLogo = $event.target.value * 1024"');
   });
 });
@@ -154,7 +155,7 @@ describe('ToggleField con nota', () => {
 });
 
 describe('PanelHeader', () => {
-  it('emite titulo, ayuda y bajada por x-html', async () => {
+  it('emite titulo, ayuda y bajada por x-trusted-html', async () => {
     const html = await render(PanelHeader, {
       props: {
         ...noI18n,
@@ -169,7 +170,7 @@ describe('PanelHeader', () => {
     expect(html).toContain('<span x-text="webhooksTitle()">Webhooks</span>');
     expect(html).toContain(`showHelp('advanced.webhooks')`);
     expect(html).toContain('class="panel-intro"');
-    expect(html).toContain('x-html="webhooksIntro()"');
+    expect(html).toContain('x-trusted-html="webhooksIntro()"');
   });
 
   it('sin bajada no emite el parrafo', async () => {
@@ -554,9 +555,9 @@ describe('LayoutGrid migrado a los genericos', () => {
   });
 
   it('mantiene el valor formateado con su unidad', () => {
-    expect(html).toContain('(<span x-text="(cfg.layout.gap ?? 1).toFixed(1)"></span>rem)');
+    expect(html).toContain('(<span x-text="orDefault(cfg.layout.gap, 1).toFixed(1)"></span>rem)');
     expect(html).toContain('(<span x-text="cfg.layout.maxWidth"></span>px)');
-    expect(html).toContain('(<span x-text="(cfg.layout.ghostCategoryGap ?? 0.35).toFixed(2)"></span>rem)');
+    expect(html).toContain('(<span x-text="orDefault(cfg.layout.ghostCategoryGap, 0.35).toFixed(2)"></span>rem)');
   });
 
   it('sigue emitiendo cada slider con su input numerico', () => {

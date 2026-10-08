@@ -23,6 +23,12 @@ export function createCardEditorState(): AdminFragment {
     // si la feature está apagada.
     pinnedEnabled: isFeatureListed('pinned'),
 
+    /** Elige el ícono de la card en edición (desde el picker). */
+    setEditingIcon(icon: string) {
+      this.editingCard.icon = icon;
+      this.markDirty();
+    },
+
     async prepareCardEditor() {
       this.resetIconPicker();
       await Promise.all([

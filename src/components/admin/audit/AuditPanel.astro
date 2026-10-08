@@ -73,9 +73,9 @@ const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
       <span>
         <span x-text="auditEntries.length"></span> {t('admin.audit.entries', 'entradas')}
         <span x-show="auditResult && auditResult.hasMore" x-text={q(' ' + t('admin.audit.hasMore', '(hay más — aumentá el límite)'))}></span>
-        <span x-show="auditResult" x-text="` · ${(auditResult?.sizeBytes ?? 0)} bytes`"></span>
+        <span x-show="auditResult" x-text="auditResultSizeLabel()"></span>
       </span>
-      <span x-text="auditResult?.path"></span>
+      <span x-text="auditResult && auditResult.path"></span>
     </div>
     <div class="audit-table-wrap" style="max-height:480px;overflow:auto;border:1px solid var(--border);border-radius:6px">
       <table class="audit-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;font-family:ui-monospace,Menlo,Consolas,monospace">

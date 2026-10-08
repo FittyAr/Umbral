@@ -75,13 +75,36 @@ export function sanitizeConfigForRole(config: Config, isAdmin: boolean): Config 
 }
 
 /**
- * Script inline de boot compartido por los dos layouts.
- *
- * `__INITIAL_DEMO_CONFIG__` sólo existe para que `public/demo-runtime.js`
- * tenga una semilla con la que arrancar el backend simulado del build
- * estático, así que se emite únicamente en builds demo y ya saneado.
+ * Serializa `value` para un `<script type="application/json">`. El navegador
+ * no ejecuta ese bloque (no necesita 'unsafe-inline' en la CSP), pero el
+ * parser de HTML igual corta en `</script`: se escapan `<`, `>` y `&` para
+ * que ningún string del config pueda cerrar el bloque ni abrir un comentario.
  */
-export function buildBootScript(options: {
+export function serializeJsonForScript(value: unknown): string {
+  return JSON.stringify(value ?? null).replace(
+    /[<>&]/g,
+    (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
+}
+
+/** Datos de boot que lee `public/js/boot.js` (ver BootData en ese archivo). */
+export interface BootData {
+  base: string;
+  demo: boolean;
+  portal?: string;
+  demoConfig?: Config;
+}
+
+/**
+ * Datos de boot compartidos por los dos layouts. Viajan como JSON y los
+ * vuelca a `window` el script externo `public/js/boot.js`, sin JS inline.
+ *
+ * `demoConfig` (→ `__INITIAL_DEMO_CONFIG__`) sólo existe para que
+ * `public/demo-runtime.js` tenga una semilla con la que arrancar el backend
+ * simulado del build estático, así que se emite únicamente en builds demo y
+ * ya saneado.
+ */
+export function buildBootData(options: {
   base: string;
   isDemoBuild: boolean;
   config: Config;
@@ -89,17 +112,9 @@ export function buildBootScript(options: {
    *  `x-umbral-portal` para que la API resuelva el mismo portal (un portal
    *  servido por prefijo de path no se reconoce por la URL de la API). */
   portalId?: string;
-}): string {
-  const parts = [
-    `window.__BASE_URL__ = ${JSON.stringify(options.base)};`,
-    `window.__UMBRAL_DEMO__ = ${options.isDemoBuild ? 'true' : 'false'};`,
-  ];
-  if (options.portalId && options.portalId !== 'default') {
-    parts.push(`window.__UMBRAL_PORTAL__ = ${JSON.stringify(options.portalId)};`);
-  }
-  if (options.isDemoBuild) {
-    const seed = JSON.stringify(sanitizeConfigForClient(options.config));
-    parts.push(`window.__INITIAL_DEMO_CONFIG__ = ${seed};`);
-  }
-  return parts.join(' ');
+}): BootData {
+  const data: BootData = { base: options.base, demo: options.isDemoBuild };
+  if (options.portalId && options.portalId !== 'default') data.portal = options.portalId;
+  if (options.isDemoBuild) data.demoConfig = sanitizeConfigForClient(options.config);
+  return data;
 }

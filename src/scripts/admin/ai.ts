@@ -29,6 +29,13 @@ export function createAiState(): AdminFragment {
     defaultSystemPrompt: '',
     _aiMetaPromise: null,
 
+    /** Nombre del idioma configurado para la IA (o su código). */
+    aiLanguageName() {
+      const code = this.cfg.ai?.language || 'es';
+      const lang = (this.aiLanguages as { code: string; name: string }[]).find((l) => l.code === code);
+      return lang?.name || this.cfg.ai?.language;
+    },
+
     ensureAiMeta() {
       if (this.aiProviders.length > 0) return Promise.resolve();
       if (!this._aiMetaPromise) {

@@ -125,7 +125,7 @@ const autoStrategyOptions = [
 <div class="theme-token-list">
   <template x-for="key in ['text','textMuted','textSubtle','textFaint']" :key="key">
     <div class="theme-token-row">
-      <label x-text="'--' + key.replace(/([A-Z])/g, '-$1').toLowerCase()"></label>
+      <label x-text="tokenCssVar(key)"></label>
       <input type="color" class="color-swatch" :value="tokenColorInputForMode(key)" @input="setModeToken(key, $event.target.value)" />
       <input type="text" :value="getModeToken(key)" @input="setModeToken(key, $event.target.value)" :placeholder="themeTokenDefaultPlaceholder(key)" />
       <span class="theme-contrast-badge" :class="themeContrastClass(key)" x-text="themeContrastLabel(key)" x-show="key==='text'"></span>
@@ -143,7 +143,7 @@ const autoStrategyOptions = [
     <HelpIcon helpKey="theme.derivedPalette" />
   </div>
   <div style="display:flex;gap:0.35rem;flex-wrap:wrap">
-    <div :style="`width:32px;height:32px;border-radius:6px;background:${cfg.theme.accentColor}`" :title="cfg.theme.accentColor"></div>
+    <div style="width:32px;height:32px;border-radius:6px" :style="{ background: cfg.theme.accentColor }" :title="cfg.theme.accentColor"></div>
     <div :style="themePreviewAccentMutedStyle()" title="accent-muted"></div>
     <div :style="themePreviewAccentStrongStyle()" title="accent-strong"></div>
   </div>

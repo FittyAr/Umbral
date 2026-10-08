@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import { ConfigSchema, type Config } from '../schema';
+import { DEFAULT_CSP } from '../schema/security';
 
 /**
  * Defaults used to seed a brand-new config.json.
@@ -85,8 +86,7 @@ export function defaultConfig(): Config {
         allowInternalHosts: true,
       },
       headers: {
-        csp:
-          "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'",
+        csp: DEFAULT_CSP,
         xFrameOptions: 'DENY',
         referrerPolicy: 'no-referrer',
         permissionsPolicy: 'camera=(), microphone=(), geolocation=()',

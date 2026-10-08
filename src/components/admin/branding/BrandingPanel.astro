@@ -21,7 +21,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <label>{t('admin.branding.logo', 'Logo')} <HelpIcon helpKey="branding.logo" /></label>
       <select x-model="cfg.branding.logo">
         <option value="">{t('admin.branding.noLogo', '— Sin logo (usar inicial) —')}</option>
-        <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg)$/i.test(a.name))" :key="a.name">
+        <template x-for="a in assetsWithExt('png', 'jpe?g', 'webp', 'svg')" :key="a.name">
           <option :value="a.url" x-text="a.name"></option>
         </template>
       </select>
@@ -32,7 +32,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <FormGroup {...kit} labelKey="admin.branding.favicon" labelFallback="Favicon" helpKey="branding.favicon">
       <select x-model="cfg.branding.favicon">
         <option value="">{t('admin.branding.defaultFavicon', '— Default —')}</option>
-        <template x-for="a in assets.filter(a => /\.(png|jpe?g|webp|svg|ico)$/i.test(a.name))" :key="a.name">
+        <template x-for="a in assetsWithExt('png', 'jpe?g', 'webp', 'svg', 'ico')" :key="a.name">
           <option :value="a.url" x-text="a.name"></option>
         </template>
       </select>

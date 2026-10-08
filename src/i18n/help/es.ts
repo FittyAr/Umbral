@@ -104,7 +104,7 @@ export const helpEs = {
   "headers.csp": {
     title: "Content-Security-Policy",
     short: "Qué recursos puede cargar el browser.",
-    body: "El default incluye:\n- `script-src 'self' 'unsafe-inline' 'unsafe-eval'` — Alpine.js 3 necesita `'unsafe-eval'` para sus expresiones dinámicas\n- `img-src 'self' data: https:` — permite favicons externos y data: URIs\n- `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com` — Inter font de Google\n- `frame-ancestors 'none'` — anti clickjacking\n\n**Vacío = no se envía el header CSP** (modo permisivo, útil para debug).\n\nPara endurecer: leé https://web.dev/articles/strict-csp. Cuesta porque Alpine 3 rompe con `script-src 'self'` puro.",
+    body: "El default incluye:\n- `script-src 'self'` — sin `'unsafe-inline'` ni `'unsafe-eval'`: el panel usa el build CSP de Alpine.js y no hay scripts inline, así que un HTML inyectado no puede ejecutar JavaScript\n- `img-src 'self' data: https:` — permite favicons externos y data: URIs\n- `style-src 'self' 'unsafe-inline'` — estilos inline del tema\n- `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'none'` — anti plugins, anti `<base>` inyectado y anti clickjacking\n\nCon `theme.useGoogleFonts` activo, Umbral suma Google Fonts a `style-src` y `font-src` solo.\n\n**Vacío = no se envía el header CSP** (modo permisivo, útil para debug).\n\nSi actualizaste desde una versión con el default viejo (`'unsafe-inline' 'unsafe-eval'` en `script-src`), se migró solo. Una CSP personalizada no se toca: si la tuya todavía tiene esas fuentes, podés sacarlas.",
   },
   "headers.xFrameOptions": {
     title: "X-Frame-Options",

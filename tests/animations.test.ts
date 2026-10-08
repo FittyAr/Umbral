@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   DEFAULT_HOVER_DURATION_MS,
   MAX_STAGGERED_CARDS,
@@ -7,7 +8,7 @@ import {
   SCROLL_ARMED_ATTR,
   SCROLL_IN_CLASS,
   computeAnimationCss,
-  computeAnimationScript,
+  computeScrollRevealConfig,
   hasAnimations,
   useAnimatedCounters,
   useTypewriter,
@@ -172,22 +173,28 @@ describe('disparo por scroll', () => {
   });
 
   it('el script solo se emite con trigger scroll y algo que animar', () => {
-    assert.equal(computeAnimationScript(anim({ cardEntrance: 'fade' })), '');
-    assert.equal(computeAnimationScript(anim({ entranceTrigger: 'scroll' })), '');
-    assert.equal(computeAnimationScript(anim({ headerEffect: 'fade', entranceTrigger: 'scroll' })), '');
-    assert.notEqual(computeAnimationScript(scrolled), '');
+    assert.equal(computeScrollRevealConfig(anim({ cardEntrance: 'fade' })), null);
+    assert.equal(computeScrollRevealConfig(anim({ entranceTrigger: 'scroll' })), null);
+    assert.equal(computeScrollRevealConfig(anim({ headerEffect: 'fade', entranceTrigger: 'scroll' })), null);
+    assert.notEqual(computeScrollRevealConfig(scrolled), null);
   });
 
   it('el script chequea movimiento reducido segun la config', () => {
-    assert.match(computeAnimationScript(scrolled), /prefers-reduced-motion/);
-    const forced = computeAnimationScript(anim({ ...scrolled, respectReducedMotion: false }));
-    assert.match(forced, /var R=false/);
+    assert.equal(computeScrollRevealConfig(scrolled)?.respectReducedMotion, true);
+    const forced = computeScrollRevealConfig(anim({ ...scrolled, respectReducedMotion: false }));
+    assert.equal(forced?.respectReducedMotion, false);
   });
 
   it('el script observa tarjetas y categorias segun lo configurado', () => {
-    assert.match(computeAnimationScript(scrolled), /"\.card"/);
-    const both = computeAnimationScript(anim({ ...scrolled, categoryEntrance: 'fade' }));
-    assert.match(both, /"\.card,\.category-section"/);
+    assert.equal(computeScrollRevealConfig(scrolled)?.selector, '.card');
+    const both = computeScrollRevealConfig(anim({ ...scrolled, categoryEntrance: 'fade' }));
+    assert.equal(both?.selector, '.card,.category-section');
+  });
+
+  it('el script estatico usa el mismo atributo y clase que el CSS', () => {
+    const js = readFileSync(new URL('../public/js/scroll-reveal.js', import.meta.url), 'utf8');
+    assert.ok(js.includes(`'${SCROLL_ARMED_ATTR}'`), 'scroll-reveal.js no usa SCROLL_ARMED_ATTR');
+    assert.ok(js.includes(`'${SCROLL_IN_CLASS}'`), 'scroll-reveal.js no usa SCROLL_IN_CLASS');
   });
 });
 

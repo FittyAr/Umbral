@@ -66,7 +66,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
     <details style="margin-top:0.5rem">
       <summary style="cursor:pointer;color:var(--text-subtle);font-size:0.8rem">
         {t('admin.ai.showDefaultPrompt', 'Ver el system prompt que proponemos por default')}
-        (<span x-text="aiLanguages.find(l => l.code === (cfg.ai?.language || 'es'))?.name || cfg.ai?.language"></span>)
+        (<span x-text="aiLanguageName()"></span>)
       </summary>
       <pre style="margin-top:0.5rem;padding:0.75rem;background:var(--code-bg);color:var(--code-fg);border:1px solid var(--code-border);border-radius:6px;font-size:0.78rem;white-space:pre-wrap;line-height:1.5" x-text="currentDefaultSystemPrompt()"></pre>
       <button type="button" class="btn btn-sm btn-ghost" style="margin-top:0.4rem" @click="useDefaultSystemPrompt()" x-show="cfg.ai.systemPrompt !== currentDefaultSystemPrompt()">{t('admin.ai.useDefaultPrompt', 'Usar este prompt')}</button>

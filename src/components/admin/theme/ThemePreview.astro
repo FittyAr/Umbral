@@ -39,10 +39,10 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       :style="themePreviewOverlayStyleForMode()"
     ></div>
     <div class="theme-preview-inner">
-      <div class="theme-preview-header" :style="`opacity:${cfg.theme.headerOpacity ?? 1}`">
+      <div class="theme-preview-header" :style="{ opacity: orDefault(cfg.theme.headerOpacity, 1) }">
         <div class="theme-preview-clock" x-show="cfg.theme.showClock && cfg.theme.clockPosition === 'header-left'" x-text="themePreviewClock()"></div>
-        <div class="theme-preview-logo" :style="`background:${cfg.theme.accentColor}`"></div>
-        <div class="theme-preview-title" x-text="cfg.branding?.companyName || 'Mi Empresa'"></div>
+        <div class="theme-preview-logo" :style="{ background: cfg.theme.accentColor }"></div>
+        <div class="theme-preview-title" x-text="(cfg.branding && cfg.branding.companyName) || 'Mi Empresa'"></div>
         <div class="theme-preview-header-actions">
           <div class="theme-preview-clock" x-show="cfg.theme.showClock && cfg.theme.clockPosition !== 'header-left'" x-text="themePreviewClock()"></div>
           <button type="button" class="theme-preview-refresh-btn" x-show="cfg.theme.showRefresh" title="Refresh" aria-hidden="true">↻</button>
@@ -67,7 +67,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
       <div
         class="theme-preview-footer"
         x-show="cfg.theme.showStatusBar"
-        :style="`opacity:${cfg.theme.footerOpacity ?? 1}`"
+        :style="{ opacity: orDefault(cfg.theme.footerOpacity, 1) }"
       >
         {t('admin.theme.preview.footerSample', 'v1.0 · actualizado hace 2 min')}
       </div>

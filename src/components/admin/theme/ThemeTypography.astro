@@ -40,7 +40,7 @@ const t = (key: string, fallback: string) => (useI18n ? tr(key) : fallback);
   </label>
 </div>
 
-<div style="margin-top:0.75rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm)" :style="`font-family:'${cfg.theme.fontFamily}', system-ui; font-weight:${cfg.theme.fontWeight || 400}`">
+<div style="margin-top:0.75rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm)" :style="{ fontFamily: '\'' + cfg.theme.fontFamily + '\', system-ui', fontWeight: cfg.theme.fontWeight || 400 }">
   <div style="font-size:1.25rem;font-weight:600;margin-bottom:0.25rem" x-text="themeTypeSampleTitle()">{t('admin.theme.typography.sampleTitle', 'Título de ejemplo')}</div>
   <div style="font-size:0.9rem;opacity:0.85" x-text="themeTypeSampleBody()">{t('admin.theme.typography.sampleBody', 'Texto de cuerpo con la tipografía seleccionada.')}</div>
   <div style="font-size:0.75rem;opacity:0.6;margin-top:0.25rem" x-text="themeTypeSampleCaption()">{t('admin.theme.typography.sampleCaption', 'Caption / metadata')}</div>

@@ -263,27 +263,38 @@ export function computeAnimationCss(
   return `${[...keyframes].join('')}${unguarded.join('')}${guardedRules}`;
 }
 
+/** Configuración del disparo por scroll que lee `public/js/scroll-reveal.js`. */
+export interface ScrollRevealConfig {
+  /** Selector CSS de los elementos a observar (tarjetas y/o categorías). */
+  selector: string;
+  /** Si es true, con movimiento reducido no se arma nada. */
+  respectReducedMotion: boolean;
+}
+
 /**
- * Script del disparo por scroll. Devuelve '' salvo que haya un efecto de
- * entrada configurado con `entranceTrigger: 'scroll'`.
+ * Configuración del disparo por scroll. Devuelve null salvo que haya un
+ * efecto de entrada configurado con `entranceTrigger: 'scroll'`.
  *
  * Es la única pieza de JavaScript de las animaciones de layout: sin ella el
- * portal se ve completo y quieto, nunca vacío.
+ * portal se ve completo y quieto, nunca vacío. El script es un archivo
+ * estático (public/js/scroll-reveal.js) que lee esta configuración de sus
+ * atributos data-*, así la CSP no necesita 'unsafe-inline'. Ese archivo
+ * repite SCROLL_ARMED_ATTR y SCROLL_IN_CLASS; tests/animations.test.ts
+ * verifica que coincidan.
  */
-export function computeAnimationScript(animations: ThemeAnimations | undefined): string {
-  if (!animations || animations.entranceTrigger !== 'scroll') return '';
+export function computeScrollRevealConfig(
+  animations: ThemeAnimations | undefined,
+): ScrollRevealConfig | null {
+  if (!animations || animations.entranceTrigger !== 'scroll') return null;
 
   const selectors: string[] = [];
   if (animations.cardEntrance !== 'none') selectors.push(PUBLIC_TARGETS.card);
   if (animations.categoryEntrance !== 'none' && PUBLIC_TARGETS.category) {
     selectors.push(PUBLIC_TARGETS.category);
   }
-  if (!selectors.length) return '';
+  if (!selectors.length) return null;
 
-  const selector = JSON.stringify(selectors.join(','));
-  const respect = animations.respectReducedMotion ? 'true' : 'false';
-
-  return `(function(){var R=${respect};if(R&&window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;if(!('IntersectionObserver' in window))return;var els=document.querySelectorAll(${selector});if(!els.length)return;document.documentElement.setAttribute('${SCROLL_ARMED_ATTR}','');var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('${SCROLL_IN_CLASS}');io.unobserve(e.target);}});},{rootMargin:'0px 0px -8% 0px',threshold:.05});els.forEach(function(el){io.observe(el);});})();`;
+  return { selector: selectors.join(','), respectReducedMotion: animations.respectReducedMotion };
 }
 
 /** true si el título del header va con el efecto de máquina de escribir. */

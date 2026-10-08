@@ -16,6 +16,7 @@ versionado con [SemVer](https://semver.org/).
 ### Notas de actualización
 Leé esto antes de actualizar. Varios cambios de seguridad cambian comportamiento visible:
 
+- **CSP nueva.** Si tu config tiene la CSP por defecto anterior, se reemplaza sola al arrancar. Si la personalizaste, queda como está (seguís teniendo `'unsafe-inline' 'unsafe-eval'` si los tenías): podés sacarlos desde Hardening. Si agregaste scripts propios inline (por ejemplo con un proxy que inyecta HTML), la CSP nueva los bloquea.
 - **Todas las sesiones se invalidan.** El token de sesión tiene formato nuevo (`v2.…`, con el usuario firmado): después de actualizar, todos los usuarios tienen que volver a loguearse.
 - **`docker-compose.yml` exige `SESSION_SECRET`.** Sin la variable en `.env`, `docker compose up` corta con un error. El `.env.example` ya no trae un valor por default. Además, en producción un secreto conocido (los que estuvieron en `.env.example` o el compose, `changeme`, `secret`…) **se ignora** y la app usa uno aleatorio: las sesiones y los seeds TOTP se pierden en cada reinicio hasta que pongas uno propio (`openssl rand -hex 32`).
 - **`/api/config` ya no devuelve secretos.** Ni hashes, ni CSRF, ni seeds TOTP, ni client secrets de OIDC, ni API keys, ni hashes de tokens: esos campos llegan vacíos. Un secreto que vuelve vacío en un `PUT` se conserva. Si tenías un script que leía el CSRF o una key desde `/api/config`, ya no está ahí.
@@ -32,6 +33,7 @@ Leé esto antes de actualizar. Varios cambios de seguridad cambian comportamient
 - **CLI:** `umbral config backup` guarda el JSON en un archivo (`--out=<archivo>`, `--out=-` lo imprime).
 
 ### Security
+- **CSP sin `'unsafe-inline'` ni `'unsafe-eval'` en `script-src`.** El panel usa el build CSP de Alpine (`@alpinejs/csp`) y ya no hay JavaScript inline en ninguna página: los datos del server viajan en `<script type="application/json">` y los scripts que corrían inline son módulos o archivos de `public/js/`. Un HTML inyectado ya no puede ejecutar JavaScript. Default nuevo: `script-src 'self'`, más `object-src 'none'` y `base-uri 'self'`.
 - **Cualquier usuario nuevo entraba como super-admin.** El token de sesión no identificaba al usuario: se validaba probando el `userEpoch` de cada user, y todo user nuevo (`userEpoch` 0) validaba como el token legacy. Ahora el token firma el sujeto (`legacy` o el id del user), el `iat` y los epochs.
 - **Sesiones con expiración en el server** según `security.session.ttlHours` (antes sólo el `Max-Age` de la cookie) y **revocación en el logout**.
 - **CSRF por sesión**, derivado del id de la sesión y comparado en tiempo constante (antes era uno solo para todas las sesiones).
