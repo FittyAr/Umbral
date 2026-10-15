@@ -9,6 +9,24 @@
 - Al menos **200 MB libres** en disco (dependencias + cache de Astro).
 - Un usuario **no-root** para correr el proceso (recomendado).
 
+## Ubicaciones recomendadas (convención FittyAr)
+
+Umbral es un servicio web: solo hace falta ubicar el código y los datos. Si lo corrés en una máquina de escritorio (no como servicio de servidor), usá las rutas estándar de los proyectos FittyAr:
+
+| Qué | Windows | Linux | macOS |
+|---|---|---|---|
+| Aplicación (el clon + `dist/`) | `%LOCALAPPDATA%\Programs\FittyAr\Umbral` | `~/.local/share/FittyAr/Umbral` | `~/Library/Application Support/FittyAr/Umbral/app` |
+| Config y datos (`DATA_DIR`) | `%APPDATA%\FittyAr\Umbral` | `~/.config/FittyAr/Umbral` | `~/Library/Application Support/FittyAr/Umbral` |
+
+Ejemplo en Windows (PowerShell):
+
+```powershell
+git clone https://github.com/FittyAr/Umbral.git "$env:LOCALAPPDATA\Programs\FittyAr\Umbral"
+$env:DATA_DIR = "$env:APPDATA\FittyAr\Umbral"   # o DATA_DIR=... en el .env
+```
+
+En servidores Linux con systemd se mantiene `/opt/umbral` y `/opt/umbral/data` (ver más abajo); los despliegues Docker/Caddy/nginx no cambian. Si no definís `DATA_DIR`, el default sigue siendo `./data`.
+
 ## 1. Bajar el código
 
 ```bash

@@ -95,6 +95,7 @@ Dónde persiste la app sus archivos:
 - **Default:** `./data` (relativo al cwd).
 - **En Docker:** `/app/data` (el volumen `umbral-data` se monta ahí).
 - **En systemd:** algo como `/opt/umbral/data`.
+- **Escritorio (convención FittyAr):** `%APPDATA%\FittyAr\Umbral` en Windows, `~/.config/FittyAr/Umbral` en Linux, `~/Library/Application Support/FittyAr/Umbral` en macOS (ver [instalación manual](../install/manual.md)).
 
 ```env
 DATA_DIR=/opt/umbral/data
