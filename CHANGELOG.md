@@ -9,7 +9,11 @@ versionado con [SemVer](https://semver.org/).
 - **Multi-portal completo.** Cada portal tiene su portada (branding, tema, layout, categorías, tarjetas, ventanas de mantenimiento) en `data/portals/<id>/config.json`; auth, seguridad, features y el resto son globales. Ruteo por host (con o sin puerto, `*.dominio`), prefijo de ruta (con rewrite) o selección explícita (`x-umbral-portal`, `?portal=`). Selector de portal en el panel, panel de Portales con validación y "Editar portada". El portal activo viaja en un `AsyncLocalStorage` (antes era global al proceso). Ver `docs/usage/multi-portal-sso.md`.
 - **Panel admin traducido entero**: además de toasts y confirmaciones, los textos del markup de paneles y modales (302 claves nuevas en los 21 idiomas).
 
+### Changed
+- **`DATA_DIR` por defecto en la ruta estándar FittyAr** fuera de Docker: `%APPDATA%\FittyAr\Umbral` (Windows), `$XDG_DATA_HOME/FittyAr/Umbral` o `~/.local/share/FittyAr/Umbral` (Linux), `~/Library/Application Support/FittyAr/Umbral` (macOS). Docker no cambia (fija `/app/data`). Un `./data` previo con contenido se sigue usando mientras la ruta estándar no exista, con un aviso en el log que explica cómo migrar; nada se mueve solo. La resolución vive en `src/lib/config/data-dir.ts` (antes estaba repetida en cinco módulos). `scripts/update.*` en modo local respaldan el config del directorio resuelto.
+
 ### Internal
+- Los tests (`npm test`) corren contra un `DATA_DIR` temporal propio.
 - `src/scripts/admin/cards.ts` partido en 8 módulos (`src/scripts/admin/cards/`).
 - `astro check` en CI y release (0 errores).
 

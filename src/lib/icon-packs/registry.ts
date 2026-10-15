@@ -4,10 +4,11 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { writeJsonAtomic } from '../config/paths.ts';
+import { resolveDataDir } from '../config/data-dir.ts';
 import { PREDEFINED_ICON_PACKS, type IconPackStatus, type InstalledPackRecord } from './catalog.ts';
 
 export function getDataDir(): string {
-  return process.env.DATA_DIR || path.join(process.cwd(), 'data');
+  return resolveDataDir();
 }
 
 export function getIconPacksDir(): string {

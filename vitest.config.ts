@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
-import { readdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { getViteConfig } from 'astro/config';
 
@@ -16,9 +17,15 @@ const vitestFiles = readdirSync(testsDir)
   .filter((f) => /from ['"]vitest['"]/.test(readFileSync(path.join(testsDir, f), 'utf8')))
   .map((f) => `tests/${f}`);
 
+// Sin DATA_DIR la app usaría la carpeta de datos del usuario (FittyAr/Umbral
+// en APPDATA / XDG / Application Support) o el ./data del repo: los tests
+// corren siempre contra un directorio temporal propio.
+const testDataDir = process.env.DATA_DIR || mkdtempSync(path.join(os.tmpdir(), 'umbral-vitest-'));
+
 export default getViteConfig({
   test: {
     include: vitestFiles,
     environment: 'node',
+    env: { DATA_DIR: testDataDir },
   },
 });

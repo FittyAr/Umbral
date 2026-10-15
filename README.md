@@ -115,7 +115,7 @@ Entrá a `/admin` y logueate. Tabs disponibles:
 |---|---|---|
 | `PORT` | `4321` | Puerto del container |
 | `HOST` | `0.0.0.0` | Bind address |
-| `DATA_DIR` | `./data` | Carpeta persistente |
+| `DATA_DIR` | `/app/data` en Docker; fuera de Docker, `%APPDATA%\FittyAr\Umbral` (Windows), `~/.local/share/FittyAr/Umbral` (Linux, respeta `XDG_DATA_HOME`) o `~/Library/Application Support/FittyAr/Umbral` (macOS) | Carpeta persistente. Un `./data` previo con contenido se sigue usando (con aviso en el log) |
 | `SESSION_SECRET` | random si falta | Secreto para firmar sesiones. **32+ chars en prod; el `docker-compose.yml` no arranca sin ella.** Un valor de ejemplo conocido se ignora en producción |
 | `INITIAL_PASSWORD` | `admin` | Password del primer arranque (cambiala desde el panel) |
 | `BASE_URL` | — | Si vas detrás de HTTPS, poné `https://tu-dominio` |

@@ -11,7 +11,7 @@
 | `BASE_URL` | `''` | Si usás HTTPS | URL base (ej: `https://home.example.com`). Usado para cookies Secure y HSTS. |
 | `PORT` | `4321` | No | Puerto del proceso. En Docker compose, mapeado al host. |
 | `HOST` | `0.0.0.0` | No | Bind address. `127.0.0.1` para sólo loopback. |
-| `DATA_DIR` | `./data` | No | Carpeta persistente. Default: `data/` en el cwd. |
+| `DATA_DIR` | ruta estándar FittyAr | No | Carpeta persistente. Docker fija `/app/data`; fuera de Docker el default depende del SO ([ver abajo](#data_dir)). |
 | `NODE_ENV` | `production` | No | Setear `development` para logs verbose. |
 | `TRUST_FORWARDED_FOR` | `false` | No | `true` para tomar la IP del cliente de `X-Forwarded-For` / `X-Real-IP` (detrás de OpenResty, Nginx, Caddy, Traefik). Ver [más abajo](#trust_forwarded_for). |
 | `DOMAIN` | `home.example.internal` | Sólo Caddy | Dominio que Caddy sirve. Ignorado si no usás el servicio Caddy. |
@@ -92,10 +92,13 @@ Dónde persiste la app sus archivos:
 - `uploads/` (logos, íconos, fondos)
 - `audit.log` (log de eventos)
 
-- **Default:** `./data` (relativo al cwd).
-- **En Docker:** `/app/data` (el volumen `umbral-data` se monta ahí).
-- **En systemd:** algo como `/opt/umbral/data`.
-- **Escritorio (convención FittyAr):** `%APPDATA%\FittyAr\Umbral` en Windows, `~/.config/FittyAr/Umbral` en Linux, `~/Library/Application Support/FittyAr/Umbral` en macOS (ver [instalación manual](../install/manual.md)).
+- **Default (sin `DATA_DIR`), convención FittyAr:**
+  - Windows: `%APPDATA%\FittyAr\Umbral`
+  - Linux: `$XDG_DATA_HOME/FittyAr/Umbral` (si `XDG_DATA_HOME` no está o no es absoluto, `~/.local/share/FittyAr/Umbral`)
+  - macOS: `~/Library/Application Support/FittyAr/Umbral`
+- **Compatibilidad:** hasta la v1.1.x el default era `./data` (relativo al cwd). Si existe un `./data` con contenido y la ruta estándar todavía no existe, se sigue usando `./data` sin mover nada y se loguea un aviso con cómo migrar (ver [instalación manual](../install/manual.md#instalaciones-previas-con-data)). Fijar `DATA_DIR=./data` mantiene el comportamiento anterior sin aviso.
+- **En Docker:** `/app/data` (el `Dockerfile` y los `docker-compose*.yml` lo fijan; el volumen `umbral-data` se monta ahí).
+- **En systemd:** algo como `/opt/umbral/data`, definido explícitamente en la unit.
 
 ```env
 DATA_DIR=/opt/umbral/data

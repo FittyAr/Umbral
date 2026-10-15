@@ -10,8 +10,10 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { resolveDataDir } from './data-dir.ts';
 
-export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+// `DATA_DIR` o la ruta estándar de FittyAr según el SO (ver data-dir.ts).
+export const DATA_DIR = resolveDataDir();
 
 export const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');

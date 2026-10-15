@@ -116,8 +116,34 @@ if [ "$mode" = "docker-run" ]; then
 fi
 
 # ── 5) Modo local ───────────────────────────────────────────────────
+# Mismo criterio que src/lib/config/data-dir.ts: DATA_DIR si está definido;
+# si no, ./data cuando tiene una instalación previa y la ruta estándar no
+# existe; si no, la ruta estándar de FittyAr para el SO.
+resolve_local_data_dir() {
+    if [ -n "${DATA_DIR:-}" ]; then printf '%s' "$DATA_DIR"; return; fi
+    local std xdg
+    case "$(uname -s)" in
+        Darwin) std="$HOME/Library/Application Support/FittyAr/Umbral" ;;
+        *)
+            xdg="${XDG_DATA_HOME:-}"
+            case "$xdg" in /*) ;; *) xdg="$HOME/.local/share" ;; esac
+            std="$xdg/FittyAr/Umbral" ;;
+    esac
+    if [ ! -e "$std" ] && [ -n "$(ls -A ./data 2>/dev/null | grep -vx '.gitkeep')" ]; then
+        printf '%s' "./data"
+    else
+        printf '%s' "$std"
+    fi
+}
+
 if [ "$mode" = "local" ]; then
-    backup_config "./data/config.json"
+    data_dir="$(resolve_local_data_dir)"
+    log "Directorio de datos: $data_dir"
+    if [ -f "$data_dir/portals/default/config.json" ]; then
+        backup_config "$data_dir/portals/default/config.json"
+    else
+        backup_config "$data_dir/config.json"
+    fi
     if [ -d ".git" ]; then
         log "git pull"
         git pull

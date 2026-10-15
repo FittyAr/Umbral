@@ -36,6 +36,8 @@ npm run dev
 
 Astro tiene HMR (hot module reload) — los cambios en `.astro`, `.ts`, `.css` se ven al instante. Cambios en `astro.config.mjs`, `tsconfig.json` o `package.json` requieren reiniciar el dev server.
 
+**Datos en desarrollo.** Sin `DATA_DIR`, la app usa la ruta estándar FittyAr (`%APPDATA%\FittyAr\Umbral`, `~/.local/share/FittyAr/Umbral` o `~/Library/Application Support/FittyAr/Umbral`), o el `./data` del repo si ya tiene contenido de antes y la ruta estándar no existe. Para aislar el entorno de desarrollo, exportá `DATA_DIR=./data` (o cualquier carpeta) antes de `npm run dev`. Los tests (`npm test`) siempre corren contra un `DATA_DIR` temporal propio.
+
 ## Scripts npm
 
 | Script | Qué hace |
@@ -88,7 +90,7 @@ Astro tiene HMR (hot module reload) — los cambios en `.astro`, `.ts`, `.css` s
 │   ├── middleware.ts       # Auth + CSRF + body caps
 │   ├── styles/
 │   └── env.d.ts
-├── data/                   # (gitignored) — config, uploads, audit
+├── data/                   # (gitignored) — sólo si DATA_DIR=./data o instalación previa
 ├── docs/                   # Documentación
 └── dist/                   # Output de build
 ```

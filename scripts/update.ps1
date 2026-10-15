@@ -113,8 +113,24 @@ if ($mode -eq 'docker-run') {
 }
 
 # ── 5) Modo local ───────────────────────────────────────────────────
+# Mismo criterio que src/lib/config/data-dir.ts: DATA_DIR si está definido;
+# si no, ./data cuando tiene una instalación previa y la ruta estándar no
+# existe; si no, %APPDATA%\FittyAr\Umbral.
+function Resolve-LocalDataDir {
+    if ($env:DATA_DIR) { return $env:DATA_DIR }
+    $appData = if ($env:APPDATA) { $env:APPDATA } else { Join-Path $HOME 'AppData\Roaming' }
+    $std = Join-Path $appData 'FittyAr\Umbral'
+    $legacy = Get-ChildItem -Force -LiteralPath './data' -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne '.gitkeep' }
+    if (-not (Test-Path -LiteralPath $std) -and $legacy) { return './data' }
+    return $std
+}
+
 if ($mode -eq 'local') {
-    Backup-Config "./data/config.json"
+    $dataDir = Resolve-LocalDataDir
+    Log "Directorio de datos: $dataDir"
+    $portalCfg = Join-Path $dataDir 'portals/default/config.json'
+    if (Test-Path -LiteralPath $portalCfg) { Backup-Config $portalCfg } else { Backup-Config (Join-Path $dataDir 'config.json') }
     if (Test-Path ".git") {
         Log "git pull"
         git pull

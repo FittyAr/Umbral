@@ -3,10 +3,11 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { applySecurityHeaders } from '~/lib/http';
 import { SVG_RESPONSE_CSP } from '~/lib/svg-sanitize';
+import { resolveDataDir } from '~/lib/config/data-dir';
 
 export const prerender = false;
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const DATA_DIR = resolveDataDir();
 const ICON_PACKS_DIR = path.join(DATA_DIR, 'icon-packs');
 
 export const GET: APIRoute = async ({ params }) => {

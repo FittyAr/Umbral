@@ -17,8 +17,9 @@
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import type { Config, Portal } from './schema';
+import { resolveDataDir } from './config/data-dir';
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const DATA_DIR = resolveDataDir();
 
 /** Path al config.json de un portal. Si id='default' y multiPortal
  *  está apagado, devuelve data/config.json (legacy). */

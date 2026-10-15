@@ -1,7 +1,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { resolveDataDir } from './config/data-dir.ts';
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const DATA_DIR = resolveDataDir();
 const ICON_PACKS_DIR = path.join(DATA_DIR, 'icon-packs');
 
 let cache: { icons: Set<string>; loadedAt: number } | null = null;
